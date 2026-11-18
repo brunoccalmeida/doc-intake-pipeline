@@ -18,14 +18,14 @@ concurrency:
 permissions:
   contents: read
 
-# Timeouts: no run history yet, so each starts generous; revise to ~3x the
-# slowest observed run once there is data.
+# Timeouts: ~3x the slowest observed run, with a 5 min floor. First runs
+# (#1, cold cache): every job took 10 s or less, so all sit at the floor.
 jobs:
   # Lint, format and strict types: the same "uv run poe check" as locally,
   # so "check passed" means one thing on every machine.
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code
@@ -50,7 +50,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code

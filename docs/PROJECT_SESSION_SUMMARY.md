@@ -6,13 +6,21 @@ Estado do projeto entre chats. Guarda **só o estado e a próxima missão**; o r
 
 ## Estado atual
 
-| Item             | Estado                                                                                                                       |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Missão atual     | Nenhuma: repositório com regras, README e issues da semana 1                                                                 |
-| Próxima missão   | #1 (esqueleto do repositório, ambiente Python, `check`, CI com `ci-passed` e ruleset)                                        |
-| PRs abertos      | nenhum                                                                                                                       |
-| Portões          | ainda não existem (nascem na #1)                                                                                             |
+| Item             | Estado |
+| ---------------- | ------ |
+| Última missão    | [#1](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/1): esqueleto, uv/ruff/pyright/pytest, CI com `ci-passed` e ruleset (decisões na D7 do [ARCHITECTURE.md](ARCHITECTURE.md)) |
+| Próxima missão   | [#2](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/2): schema Pydantic do recibo e do resultado com citação (P0, menor número) |
+| PRs abertos      | nenhum após o merge da #1 |
+| Portões          | `uv run poe check` (ruff, formatação, pyright estrito) e `uv run pytest`; no CI, `ci-passed` agrega `check`, `test`, `secret-scan` (gitleaks), `workflow-audit` (zizmor) e `dependency-audit` (`uv audit`, também diário) |
+| Repositório      | Ruleset "Protect main": PR só com squash, histórico linear, `ci-passed` obrigatório com branch atualizada; squash usa título e corpo do PR; auto-merge e apagar branch ligados |
 | Travas do agente | `.claude/settings.json` nega merge `--admin`, force push, push na `main` e leitura/escrita do `.env`; plugin `mission` com `autoUpdate: false` |
+
+### Armadilhas do ambiente (Windows)
+
+- uv fica em `~/.local/bin`, fora do PATH do Git Bash: `export PATH="$HOME/.local/bin:$PATH"`.
+- `astral.sh` não resolve no PowerShell desta máquina: instalar o uv pelo instalador do release no GitHub.
+- Git Bash reescreve `gh api /caminho` como caminho de arquivo: usar o endpoint sem a barra inicial.
+- Workflow reutilizável do mesmo repositório usa `$/...` (sintaxe self-repository); o zizmor reprova `./...`.
 
 ## Plano da semana 1 (~16 h)
 
