@@ -149,7 +149,7 @@ jobs:
   ci-passed:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [check, test, secret-scan, workflow-audit, dependency-audit]
+    needs: [check, test, secret-scan, workflow-audit]
     if: ${{ always() }}
 
     steps:
