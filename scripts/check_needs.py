@@ -17,10 +17,9 @@ import json
 import os
 import sys
 from collections.abc import Mapping
-from typing import Any
 
 
-def unsuccessful_jobs(needs: Mapping[str, Mapping[str, Any]]) -> list[str]:
+def unsuccessful_jobs(needs: Mapping[str, Mapping[str, object]]) -> list[str]:
     """Return "job: result" for each job whose result is not "success"."""
     return [
         f"{job}: {status.get('result')}"
@@ -31,7 +30,8 @@ def unsuccessful_jobs(needs: Mapping[str, Mapping[str, Any]]) -> list[str]:
 
 def main(environ: Mapping[str, str]) -> int:
     """Check the NEEDS variable and report the jobs that did not succeed."""
-    needs: dict[str, dict[str, Any]] = json.loads(environ.get("NEEDS") or "{}")
+    # Untyped JSON from GitHub: object, not Any, so every use is checked.
+    needs: dict[str, dict[str, object]] = json.loads(environ.get("NEEDS") or "{}")
     if not needs:
         print("ERROR: no job results to check (NEEDS is empty)", file=sys.stderr)
         return 1

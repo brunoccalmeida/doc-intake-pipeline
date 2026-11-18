@@ -9,7 +9,7 @@ gate's ``needs`` fails the test suite before it can weaken the gate.
 """
 
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 import pytest
 import yaml
@@ -21,20 +21,41 @@ CI = WORKFLOWS / "ci.yml"
 SECURITY = WORKFLOWS / "security.yml"
 GATE = "ci-passed"
 
-type Job = dict[str, Any]
+# YAML has no schema here: values are object (not Any) and narrowed with
+# isinstance, so a workflow of an unexpected shape fails with a clear message.
+type Job = dict[str, object]
 
 
-def _load(path: Path) -> dict[Any, Any]:
-    return cast("dict[Any, Any]", yaml.safe_load(path.read_text(encoding="utf-8")))
+def _mapping(value: object, what: str) -> dict[str, object]:
+    assert isinstance(value, dict), f"{what} is not a mapping"
+    # cast after the runtime check: isinstance proved dict, cast names its items
+    return {str(k): v for k, v in cast("dict[object, object]", value).items()}
+
+
+def _load(path: Path) -> dict[str, object]:
+    """Top-level keys as text (PyYAML reads the ``on:`` key as True)."""
+    return _mapping(yaml.safe_load(path.read_text(encoding="utf-8")), path.name)
 
 
 def _jobs(path: Path) -> dict[str, Job]:
-    return cast("dict[str, Job]", _load(path)["jobs"])
+    jobs = _mapping(_load(path)["jobs"], f"{path.name} jobs")
+    return {job_id: _mapping(job, job_id) for job_id, job in jobs.items()}
 
 
 def _triggers(path: Path) -> set[str]:
-    """Event names of a workflow (PyYAML reads the ``on:`` key as True)."""
-    return set(cast("dict[str, Any]", _load(path)[True]))
+    """Event names of a workflow (``on:``, read by PyYAML as True)."""
+    return set(_mapping(_load(path)["True"], f"{path.name} triggers"))
+
+
+def _strings(value: object) -> set[str]:
+    assert isinstance(value, list), f"{value!r} is not a list"
+    return {str(item) for item in cast("list[object]", value)}
+
+
+def _steps(job: Job) -> list[dict[str, object]]:
+    steps = job.get("steps", [])
+    assert isinstance(steps, list), "steps is not a list"
+    return [_mapping(step, "step") for step in cast("list[object]", steps)]
 
 
 JOBS = _jobs(CI)
@@ -56,13 +77,15 @@ class TestGateJob:
         assert JOBS[GATE].get("if") == "${{ always() }}"
 
     def test_gate_needs_every_other_job(self) -> None:
-        assert set(JOBS[GATE].get("needs", [])) == set(JOBS) - {GATE}
+        assert _strings(JOBS[GATE].get("needs", [])) == set(JOBS) - {GATE}
 
     def test_gate_checks_the_result_of_every_dependency(self) -> None:
-        steps = cast("list[dict[str, Any]]", JOBS[GATE].get("steps", []))
-        checker = [s for s in steps if s.get("run") == "python3 scripts/check_needs.py"]
+        checker = [
+            s for s in _steps(JOBS[GATE]) if s.get("run") == "python3 scripts/check_needs.py"
+        ]
         assert checker, "gate does not run scripts/check_needs.py"
-        assert checker[0].get("env", {}).get("NEEDS") == "${{ toJSON(needs) }}"
+        env = _mapping(checker[0].get("env", {}), "checker env")
+        assert env.get("NEEDS") == "${{ toJSON(needs) }}"
 
 
 class TestWorkflowHygiene:
@@ -100,7 +123,7 @@ class TestDependencyAuditInGate:
             if job.get("uses") == "$/.github/workflows/security.yml"
         }
         assert callers, f"no job of {CI.name} calls security.yml"
-        assert callers <= set(JOBS[GATE]["needs"])
+        assert callers <= _strings(JOBS[GATE]["needs"])
 
     def test_security_workflow_is_reusable_and_daily(self) -> None:
         assert {"workflow_call", "schedule"} <= _triggers(SECURITY)
@@ -111,7 +134,7 @@ class TestDependencyAuditInGate:
         assert event not in _triggers(SECURITY)
 
 
-def _needs(**results: str) -> dict[str, dict[str, Any]]:
+def _needs(**results: str) -> dict[str, dict[str, object]]:
     """Build the shape of ``toJSON(needs)``: {job: {result, outputs}}."""
     return {job: {"result": result, "outputs": {}} for job, result in results.items()}
 

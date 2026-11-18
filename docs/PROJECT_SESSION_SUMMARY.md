@@ -12,7 +12,7 @@ Estado do projeto entre chats. Guarda **só o estado e a próxima missão**; o r
 | Próxima missão   | [#2](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/2): schema Pydantic do recibo e do resultado com citação (P0, menor número) |
 | PRs abertos      | nenhum após o merge da #1 |
 | Portões          | `uv run poe check` (ruff, formatação, pyright estrito) e `uv run pytest`; no CI, `ci-passed` agrega `check`, `test`, `secret-scan` (gitleaks), `workflow-audit` (zizmor) e `dependency-audit` (`uv audit`, também diário) |
-| Repositório      | Ruleset "Protect main": PR só com squash, histórico linear, `ci-passed` obrigatório com branch atualizada; squash usa título e corpo do PR; auto-merge e apagar branch ligados |
+| Repositório      | Ruleset "Protect main": PR só com squash, histórico linear, `ci-passed` obrigatório com branch atualizada; squash usa título e corpo do PR; auto-merge e apagar branch ligados; alertas e atualizações de segurança do Dependabot ligados |
 | Travas do agente | `.claude/settings.json` nega merge `--admin`, force push, push na `main` e leitura/escrita do `.env`; plugin `mission` com `autoUpdate: false` |
 
 ### Armadilhas do ambiente (Windows)
