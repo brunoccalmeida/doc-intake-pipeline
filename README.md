@@ -19,13 +19,27 @@ LLM extraction demos are easy; trusting them in production is not. This project 
 
 | Piece                                   | Status  |
 | --------------------------------------- | ------- |
-| Repository skeleton and CI              | planned |
+| Repository skeleton and CI              | done    |
 | Receipt/invoice schema with citations   | planned |
 | PDF and image reading (with OCR)        | planned |
 | LLM extractor with validation and retry | planned |
 | Golden set (SROIE receipts)             | planned |
 | Per-field eval gating CI                | planned |
 | Run log and cost per document           | planned |
+
+## Development
+
+Requires [uv](https://docs.astral.sh/uv/) (the version is pinned in `pyproject.toml`); uv installs the pinned Python by itself.
+
+```bash
+uv sync              # create .venv from uv.lock
+uv run poe check     # lint, format check and strict type check
+uv run pytest        # tests (no network, no API key)
+```
+
+Configuration comes from `DOC_INTAKE_*` environment variables, validated at startup; copy `.env.example` to `.env` for local runs.
+
+Every pull request must pass the `ci-passed` gate: lint, types, tests, secret scan, workflow audit and dependency audit.
 
 ## Data
 
