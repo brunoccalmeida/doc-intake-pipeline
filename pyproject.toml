@@ -6,6 +6,7 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.14"
 dependencies = [
+    "pydantic>=2.14.3",
     "pydantic-settings>=2.16.3",
 ]
 
@@ -67,6 +68,8 @@ lint = "ruff check ."
 format-check = "ruff format --check ."
 types = "pyright"
 format = "ruff format ."
+# Rewrite each pack's committed JSON Schema; a snapshot test fails until you do.
+export-schemas = "python -m packs.json_schema"
 # The local gate, the same commands as CI's "check" job. Every step runs even
 # after a failure, so one run reports every problem; the exit is still non-zero.
 check.sequence = ["lint", "format-check", "types"]

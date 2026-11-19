@@ -20,7 +20,7 @@ LLM extraction demos are easy; trusting them in production is not. This project 
 | Piece                                   | Status  |
 | --------------------------------------- | ------- |
 | Repository skeleton and CI              | done    |
-| Receipt/invoice schema with citations   | planned |
+| Receipt/invoice schema with citations   | done    |
 | PDF and image reading (with OCR)        | planned |
 | LLM extractor with validation and retry | planned |
 | Golden set (SROIE receipts)             | planned |
@@ -35,7 +35,10 @@ Requires [uv](https://docs.astral.sh/uv/) (the version is pinned in `pyproject.t
 uv sync              # create .venv from uv.lock
 uv run poe check     # lint, format check and strict type check
 uv run pytest        # tests (no network, no API key)
+uv run poe export-schemas  # rewrite the committed JSON Schemas after a schema change
 ```
+
+Each pack's JSON Schema (what the LLM is asked to fill, e.g. [`packs/receipt/receipt.schema.json`](packs/receipt/receipt.schema.json)) is committed; a snapshot test fails when a model change alters it, so every schema change is a visible diff in review.
 
 Configuration comes from `DOC_INTAKE_*` environment variables, validated at startup; copy `.env.example` to `.env` for local runs.
 
