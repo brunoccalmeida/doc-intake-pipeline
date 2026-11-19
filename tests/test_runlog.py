@@ -14,14 +14,23 @@ from typing import Any
 import pytest
 
 from core.extract import Pack
-from core.ingest import Document, EmptyDocumentError, PageText
+from core.ingest import Document, EmptyDocumentError, PageImage, PageText
 from core.llm import LLMRequest, LLMResponse
 from core.pricing import UnknownModelPriceError
 from core.result import ExtractedField, ExtractionResult, StrictModel
 from core.runlog import RUN_LOGGER, RunLogEntry, extract_logged, log_unreadable, new_run_id
 
 PAGE_TEXT = "ZEPHYR QUILL TRADING\nLOT 77, JALAN SEROJA\nTOTAL RM 31.40"
-DOCUMENT = Document(pages=(PageText(number=1, text=PAGE_TEXT, source="ocr"),))
+DOCUMENT = Document(
+    pages=(
+        PageText(
+            number=1,
+            text=PAGE_TEXT,
+            source="ocr",
+            image=PageImage(media_type="image/png", data=b"png"),
+        ),
+    )
+)
 
 
 class Sale(StrictModel, frozen=True):

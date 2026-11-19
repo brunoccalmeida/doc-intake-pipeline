@@ -14,16 +14,17 @@ import pytest
 from pydantic import Field
 
 from core.extract import Pack, extract
-from core.ingest import Document, PageText
+from core.ingest import Document, PageImage, PageText
 from core.llm import LLMRequest, LLMResponse
 from core.result import ExtractedField, StrictModel
 
 PAGE_1 = "ACME TRADING SDN BHD\nNO. 12, JALAN MAJU\nTOTAL   RM 9.00"
 PAGE_2 = "THANK YOU\nPLEASE COME AGAIN"
+PAGE_2_IMAGE = PageImage(media_type="image/png", data=b"page 2 png")
 DOCUMENT = Document(
     pages=(
-        PageText(number=1, text=PAGE_1, source="text_layer"),
-        PageText(number=2, text=PAGE_2, source="ocr"),
+        PageText(number=1, text=PAGE_1, source="text_layer", image=None),
+        PageText(number=2, text=PAGE_2, source="ocr", image=PAGE_2_IMAGE),
     )
 )
 
