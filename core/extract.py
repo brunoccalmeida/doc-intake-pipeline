@@ -25,16 +25,26 @@ from core.result import Citation, ExtractedField, ExtractionResult
 
 ENGINE_INSTRUCTIONS = """\
 You extract fields from one document. Its text is given page by page, as read \
-from the file (OCR text may contain recognition errors).
+from the file. A page read by OCR also comes with its image, shown before the \
+text; OCR text may contain recognition errors.
 
 For every field, return exactly one of:
-- a value, with a citation: the page number and a quote copied character for \
-character from that page's text, showing where the value was read;
+- a value, with a citation: the page number, the source and a quote showing \
+where the value was read.
+  - source "text": the quote is copied character for character from that \
+page's text. Use it whenever the page's text shows the value correctly.
+  - source "image": the quote is the text exactly as printed on the page image. \
+Use it only when the page's text misreads or misses what the image shows.
+  A text value is spelled exactly as in its quote, with nothing added that is \
+not printed (no commas, words or corrections); the quote may hold more than \
+the value.
 - null as the value, with citation null and a short reason saying why the \
 document does not show it.
 
-Never guess or infer a value the document does not show. A reason is only for \
-a null value. Reply with JSON that matches the schema, and nothing else."""
+Never guess or infer a value the document does not show, and never correct a \
+reading from general knowledge: only the page text and the page image are \
+evidence. A reason is only for a null value. Reply with JSON that matches the \
+schema, and nothing else."""
 
 
 @dataclass(frozen=True, slots=True)
