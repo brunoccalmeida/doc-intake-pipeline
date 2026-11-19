@@ -65,11 +65,16 @@ class Citation(StrictModel, frozen=True):
 
 
 class ExtractedField[T](StrictModel, frozen=True):
-    """One field: either a value with its citation, or ``None`` with a reason."""
+    """One field: either a value with its citation, or ``None`` with a reason.
+
+    Every key is required, even when null: a producer states the evidence or
+    its absence explicitly. It also matches what providers' strict structured
+    output demands (OpenAI requires every property in ``required``).
+    """
 
     value: T | None
-    citation: Citation | None = None
-    reason: NonBlankText | None = None
+    citation: Citation | None
+    reason: NonBlankText | None
 
     @model_validator(mode="after")
     def _evidence_matches_value(self) -> Self:

@@ -22,7 +22,7 @@ LLM extraction demos are easy; trusting them in production is not. This project 
 | Repository skeleton and CI              | done    |
 | Receipt/invoice schema with citations   | done    |
 | PDF and image reading (with OCR)        | done    |
-| LLM extractor with validation and retry | planned |
+| LLM extractor with validation and retry | done    |
 | Golden set (SROIE receipts)             | planned |
 | Per-field eval gating CI                | planned |
 | Run log and cost per document           | planned |
@@ -37,6 +37,7 @@ uv run poe fetch-tessdata  # download the pinned, checksum-verified OCR model (n
 uv run poe check     # lint, format check and strict type check
 uv run pytest        # tests (no network, no API key)
 uv run poe export-schemas  # rewrite the committed JSON Schemas after a schema change
+uv run poe extract <file>  # extract one receipt with the configured provider (paid API call)
 ```
 
 Each pack's JSON Schema (what the LLM is asked to fill, e.g. [`packs/receipt/receipt.schema.json`](packs/receipt/receipt.schema.json)) is committed; a snapshot test fails when a model change alters it, so every schema change is a visible diff in review.
@@ -44,6 +45,8 @@ Each pack's JSON Schema (what the LLM is asked to fill, e.g. [`packs/receipt/rec
 OCR runs on Tesseract bundled in the `tesserocr` wheel, so nothing is installed system-wide; only the English model is fetched (into `.cache/tessdata`, outside Git).
 
 Configuration comes from `DOC_INTAKE_*` environment variables, validated at startup; copy `.env.example` to `.env` for local runs.
+
+Extraction runs on Claude or OpenAI, chosen by `DOC_INTAKE_PROVIDER`, with each provider's native structured output. The engine (`core/`) only knows the `LLMProvider` interface; vendor SDKs are imported in `providers/` alone, and a lint rule rejects them anywhere else. An answer that fails schema validation is retried with the errors (`DOC_INTAKE_MAX_RETRIES`, default 2) and then reported as `failed`, never partial; a citation whose quote is not on the page it names turns the result into `needs_review`.
 
 Every pull request must pass the `ci-passed` gate: lint, types, tests, secret scan, workflow audit and dependency audit.
 

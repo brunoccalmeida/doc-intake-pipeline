@@ -13,14 +13,12 @@ from core.config import Settings
 
 
 @pytest.fixture(autouse=True)
-def isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+def isolated(no_doc_intake_env: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """Run each test in an empty directory with no DOC_INTAKE_ variable set.
 
     A developer's real .env or shell must not change a test's outcome.
     """
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("DOC_INTAKE_LOG_LEVEL", raising=False)
-    monkeypatch.delenv("DOC_INTAKE_TESSDATA_DIR", raising=False)
     return tmp_path
 
 
@@ -57,3 +55,32 @@ def test_tessdata_dir_defaults_to_the_project_cache() -> None:
 def test_tessdata_dir_is_read_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DOC_INTAKE_TESSDATA_DIR", "/opt/tessdata")
     assert Settings().tessdata_dir == Path("/opt/tessdata")
+
+
+def test_extraction_defaults() -> None:
+    settings = Settings()
+    assert settings.provider == "claude"
+    assert settings.max_retries == 2
+    assert settings.anthropic_api_key is None
+    assert settings.openai_api_key is None
+
+
+def test_negative_retries_are_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DOC_INTAKE_MAX_RETRIES", "-1")
+    with pytest.raises(ValidationError, match="max_retries"):
+        Settings()
+
+
+def test_unknown_provider_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DOC_INTAKE_PROVIDER", "gemini")
+    with pytest.raises(ValidationError, match="provider"):
+        Settings()
+
+
+def test_api_key_is_hidden_from_repr(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A key printed in a traceback or log line is a leaked key.
+    monkeypatch.setenv("DOC_INTAKE_ANTHROPIC_API_KEY", "sk-test-not-a-real-key")
+    settings = Settings()
+    assert "sk-test-not-a-real-key" not in repr(settings)
+    assert settings.anthropic_api_key is not None
+    assert settings.anthropic_api_key.get_secret_value() == "sk-test-not-a-real-key"

@@ -8,11 +8,13 @@ so the program stops before touching a document (fail fast).
 """
 
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 type LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+type ProviderName = Literal["claude", "openai"]
 
 
 class Settings(BaseSettings):
@@ -29,3 +31,15 @@ class Settings(BaseSettings):
     # Tesseract language data (eng.traineddata), fetched by "uv run poe fetch-tessdata".
     # Not checked here: only OCR needs it, and OCR fails naming the fix when it is missing.
     tessdata_dir: Path = Path(".cache/tessdata")
+
+    # LLM extraction (docs/ARCHITECTURE.md D2, D3). Each vendor's recommended
+    # general-purpose model is the default; the eval (#6) is what should move it.
+    provider: ProviderName = "claude"
+    claude_model: str = "claude-opus-5-5"
+    openai_model: str = "gpt-6.2-astra"
+    # Optional here, so ingest and tests run without one; building the
+    # configured provider fails naming the missing variable (providers package).
+    anthropic_api_key: SecretStr | None = None
+    openai_api_key: SecretStr | None = None
+    # Retries after the first call when the answer fails validation.
+    max_retries: Annotated[int, Field(ge=0)] = 2

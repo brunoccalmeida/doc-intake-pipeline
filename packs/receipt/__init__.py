@@ -10,6 +10,7 @@ from typing import Annotated
 
 from pydantic import Field, StringConstraints
 
+from core.extract import Pack
 from core.result import ExtractedField, IsoDate, StrictModel
 
 # Decimal, never float: money must keep its exact digits (project invariant 5).
@@ -33,3 +34,19 @@ class Receipt(StrictModel, frozen=True):
     currency: ExtractedField[CurrencyCode] = Field(
         description="ISO 4217 code (e.g. MYR for 'RM'); null when not printed."
     )
+
+
+RECEIPT = Pack(
+    name="receipt",
+    schema=Receipt,
+    instructions="""\
+The document is a purchase receipt or a simple invoice.
+- company and address: the seller's, as printed (usually at the top), not the buyer's.
+- date: the issue date, converted to YYYY-MM-DD; the quote keeps it as printed. \
+If the day and month order is ambiguous, prefer the order used by the country of \
+the address.
+- total: the final amount paid, after tax and rounding, without the currency \
+symbol; the quote is the line that shows it.
+- currency: the ISO 4217 code of the printed symbol or code (RM is MYR); null \
+when no currency is printed, even if the country suggests one.""",
+)
