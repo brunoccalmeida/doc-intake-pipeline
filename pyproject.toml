@@ -94,6 +94,9 @@ fetch-tessdata = "python -m scripts.fetch_tessdata"
 fetch-golden = "python -m scripts.fetch_golden"
 # Extract one receipt with the configured real provider: calls a paid API.
 extract = "python -m scripts.extract_document"
+# Score the golden set from recorded responses and gate on evals/baseline.json.
+# "--record" calls the real provider for unrecorded requests: a paid API call.
+eval = "python -m scripts.run_eval"
 # The local gate, the same commands as CI's "check" job. Every step runs even
 # after a failure, so one run reports every problem; the exit is still non-zero.
 check.sequence = ["lint", "format-check", "types"]

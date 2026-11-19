@@ -44,13 +44,26 @@ Cada campo extraído carrega `page` e `quote` (trecho literal do texto lido). Pe
 
 JSON malformado ou fora do schema gera nova tentativa com o erro de validação no pedido, até um limite configurável (padrão 2). Esgotado, o documento sai `failed` com o último erro. Nunca resultado parcial silencioso (fail loudly). Usar a saída estruturada nativa do provedor quando existir; conferir na doc oficial de cada SDK na versão instalada.
 
-### D4. Eval determinístico no CI (a confirmar na #6)
+### D4. Eval determinístico no CI (decidida na #6)
 
-Recomendação: o CI pontua respostas **gravadas** do provedor (uma por documento, chaveadas pelo hash de prompt + documento + modelo), sem chave e sem custo, e compara com a linha de base commitada. Se a chave mudou (prompt ou modelo novo) e não há gravação, o CI falha pedindo nova gravação local com chave real. Assim todo PR que mexe em prompt traz a nova pontuação junto, e PR de fork roda sem secret. Alternativa descartada por ora: eval ao vivo no CI (custo por push, resultado não determinístico, secret exposto a PR).
+O CI pontua respostas **gravadas** do provedor, sem chave de API e sem custo, e compara com a linha de base commitada ([`evals/baseline.json`](../evals/baseline.json)). Alternativa descartada: eval ao vivo no CI (custo por push, resultado não determinístico, chave exposta a PR).
+
+| Peça | Decisão | Por quê |
+| --- | --- | --- |
+| Chave da gravação | SHA-256 de provedor + modelo pedido + instruções + prompt + schema de saída, **uma por chamada** ([`evals/recording.py`](../evals/recording.py)) | Mudou qualquer coisa que molda a resposta, a chave muda e o replay falha pedindo nova gravação (`uv run poe eval --record`), em vez de pontuar resposta velha. Por chamada, e não por documento: a nova tentativa é outra chamada (o prompt dela traz a resposta rejeitada), então o motor inteiro é reexecutado no replay |
+| OCR no CI | O prompt leva o texto do OCR, então a chave só bate se o OCR for igual nos dois sistemas | **Verificado:** o texto dos 20 recibos tem o mesmo SHA-256 no Windows e no Linux (contêiner `python:3.14-slim`, mesmo `uv.lock`). Consequência: atualizar Pillow, tesserocr ou o modelo `eng` (OCR) ou o Pydantic (schema JSON) pode mudar as chaves, e esse PR, mesmo do Dependabot, precisa de regravação paga |
+| Onde ficam as gravações | Repositório **privado** `brunoccalmeida/doc-intake-recordings`, no commit fixado em [`evals/recordings.json`](../evals/recordings.json), lido no CI com uma deploy key **somente leitura** (secret `RECORDINGS_DEPLOY_KEY`, também no Dependabot) | As respostas citam os recibos, e o SROIE não tem licença (D6). O padrão de mercado é commitar as gravações ("cassetes") e reproduzi-las no CI, mas tirando antes o que não pode ser publicado ([vcrpy, `before_record_response`](https://vcrpy.readthedocs.io/en/latest/advanced.html)); aqui o conteúdo é o que se pontua, então não há o que tirar. Custo aceito: PR de fork não roda o eval |
+| Pontuação | Casamento exato após normalizar; texto sem diferenciar maiúsculas e sem espaço junto de pontuação; data e dinheiro por valor; `null` contra valor é erro nos dois sentidos; documento que falhou erra todos os campos ([`evals/scoring.py`](../evals/scoring.py)) | O protocolo do SROIE é casamento exato ([Huang et al., 2019, §III](https://arxiv.org/abs/2103.10213)); a normalização tira só o que o gabarito anota sem padrão (caixa, espaçamento perto de vírgula). Sem LLM como juiz nem similaridade (fora do escopo da #6) |
+| Portão | Contagem de acertos por campo, **tolerância zero** | Replay é determinístico: a mesma gravação dá a mesma nota, então qualquer queda é mudança real, não ruído. Melhorar passa; subir a linha de base é commit deliberado (`--update-baseline`), visto no review |
+| Relatório | Markdown no resumo do job e como artifact, só com ids, campos e resultados | É público: valores do documento vazariam o SROIE (invariante 6) |
+
+Primeira linha de base (Claude Opus 5.5, `effort` medium): company 15/20, address 9/20, date 17/20, total 18/20, currency 17/20; 2 recibos falham no OCR ([#19](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/19)), e a maior parte dos erros de texto é o modelo copiando fielmente erros do OCR ([#20](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/20)).
 
 ### D5. Custo por documento
 
 Tokens de entrada e saída vêm do `usage` da resposta do provedor; o preço por milhão de tokens fica numa tabela versionada com data e fonte (página de preços oficial), porque preço muda. Custo em `Decimal`, em USD.
+
+**Parte feita na #6:** a tabela é [`core/pricing.py`](../core/pricing.py), só com as taxas base que o pipeline usa (sem cache, YAGNI), conferidas em 2026-11-19 na [página oficial](https://platform.claude.com/docs/en/about-claude/pricing). O custo usa o modelo que *respondeu* (um fallback do servidor pode trocar o modelo), e modelo sem preço é erro, não custo zero. O custo total do eval sai no relatório; custo por documento no log de execução fica na #7.
 
 ### D6. Dados do conjunto-ouro
 

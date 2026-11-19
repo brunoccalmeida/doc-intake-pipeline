@@ -84,6 +84,74 @@ jobs:
       - name: Run tests
         run: uv run pytest
 
+  # The eval gate (docs/ARCHITECTURE.md D4): replays recorded provider
+  # responses over the golden set, with no API key and no cost, and fails if
+  # any field scores below evals/baseline.json. The recordings quote SROIE
+  # receipts (no licence), so they live in a private repository, checked out
+  # at the commit pinned in evals/recordings.json with a read-only deploy key
+  # (also a Dependabot secret, since Dependabot PRs cannot read Actions
+  # secrets). A PR from a fork has no secret and fails here: by design.
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Fetch OCR language data
+        run: uv run poe fetch-tessdata
+
+      - name: Fetch golden set
+        run: uv run poe fetch-golden
+
+      # The pin is validated by tests/test_recording.py (owner/repo, 40-hex SHA).
+      - name: Read the pinned recordings commit
+        id: pin
+        run: |
+          echo "repository=$(jq -r .repository evals/recordings.json)" >> "$GITHUB_OUTPUT"
+          echo "commit=$(jq -r .commit evals/recordings.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout recordings
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: ${{ steps.pin.outputs.repository }}
+          ref: ${{ steps.pin.outputs.commit }}
+          path: .cache/recordings
+          ssh-key: ${{ secrets.RECORDINGS_DEPLOY_KEY }}
+          persist-credentials: false
+
+      - name: Run the eval
+        run: uv run poe eval
+
+      # The report holds ids, field names and outcomes only (evals/report.py),
+      # so it can be public. Published even when the gate fails: that is when
+      # it is needed.
+      - name: Publish the report as the job summary
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f .cache/eval/report.md ]; then
+            cat .cache/eval/report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: eval-report
+          path: .cache/eval/report.md
+          if-no-files-found: warn
+
   # Secret scanning with gitleaks over the history of the tested commit (on a
   # PR, the merge commit: what main would become). A key pushed to a public
   # repository is leaked even if a later commit deletes it, so every commit is
@@ -162,7 +230,7 @@ jobs:
   ci-passed:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [check, test, secret-scan, workflow-audit, dependency-audit]
+    needs: [check, test, eval, secret-scan, workflow-audit, dependency-audit]
     if: ${{ always() }}
 
     steps:

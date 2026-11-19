@@ -4,6 +4,7 @@ A wrong value must stop the program before it touches any document (fail
 fast), naming the variable, instead of surfacing later as odd behaviour.
 """
 
+import os
 from pathlib import Path
 
 import pytest
@@ -16,9 +17,13 @@ from core.config import Settings
 def isolated(no_doc_intake_env: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """Run each test in an empty directory with no DOC_INTAKE_ variable set.
 
-    A developer's real .env or shell must not change a test's outcome.
+    A developer's real .env or shell must not change a test's outcome. The
+    blanked API keys (conftest.no_real_api_key) are removed too, after moving
+    to a directory with no .env, so the defaults themselves are tested.
     """
     monkeypatch.chdir(tmp_path)
+    for name in [name for name in os.environ if name.startswith("DOC_INTAKE_")]:
+        monkeypatch.delenv(name)
     return tmp_path
 
 
@@ -63,6 +68,20 @@ def test_extraction_defaults() -> None:
     assert settings.max_retries == 2
     assert settings.anthropic_api_key is None
     assert settings.openai_api_key is None
+
+
+def test_recordings_dir_defaults_to_the_project_cache() -> None:
+    assert Settings().recordings_dir == Path(".cache/recordings")
+
+
+@pytest.mark.parametrize(
+    ("provider", "model"), [("claude", "claude-opus-5-5"), ("openai", "gpt-6.2-astra")]
+)
+def test_model_is_the_selected_provider_s(
+    monkeypatch: pytest.MonkeyPatch, provider: str, model: str
+) -> None:
+    monkeypatch.setenv("DOC_INTAKE_PROVIDER", provider)
+    assert Settings().model == model
 
 
 def test_negative_retries_are_rejected(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -4,6 +4,20 @@
 
 A document intake pipeline that reads PDFs and images (including scanned ones), extracts fields with an LLM, and returns a **validated result where every field cites where it came from**. Extraction quality is **measured per field against a golden set**, and CI blocks any change that makes it worse.
 
+## At a Glance
+
+First eval, 20 SROIE receipts, Claude Opus 5.5 ([CI run](https://github.com/brunoccalmeida/doc-intake-pipeline/actions/runs/44561724676)):
+
+| Field | Correct | Accuracy |
+| --- | --- | --- |
+| company | 15/20 | 75% |
+| address | 9/20 | 45% |
+| date | 17/20 | 85% |
+| total | 18/20 | 90% |
+| currency | 17/20 | 85% |
+
+18 calls, 50,903 input and 7,308 output tokens, **$0.35** for the whole set (about 2 cents per receipt). Two receipts fail OCR and count as wrong on every field ([#19](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/19)); most text errors are the model faithfully copying OCR misreadings ([#20](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/20)). The numbers are a regression baseline, not a claim about other documents (see [`docs/DATA.md`](docs/DATA.md), known limitations).
+
 ## Why this exists
 
 LLM extraction demos are easy; trusting them in production is not. This project focuses on the part clients actually pay for:
@@ -24,7 +38,7 @@ LLM extraction demos are easy; trusting them in production is not. This project 
 | PDF and image reading (with OCR)        | done    |
 | LLM extractor with validation and retry | done    |
 | Golden set (SROIE receipts)             | done    |
-| Per-field eval gating CI                | planned |
+| Per-field eval gating CI                | done    |
 | Run log and cost per document           | planned |
 
 ## Development
@@ -39,6 +53,7 @@ uv run poe check     # lint, format check and strict type check
 uv run pytest        # tests (no network, no API key)
 uv run poe export-schemas  # rewrite the committed JSON Schemas after a schema change
 uv run poe extract <file>  # extract one receipt with the configured provider (paid API call)
+uv run poe eval            # score the golden set from recorded responses, gate on the baseline
 ```
 
 Each pack's JSON Schema (what the LLM is asked to fill, e.g. [`packs/receipt/receipt.schema.json`](packs/receipt/receipt.schema.json)) is committed; a snapshot test fails when a model change alters it, so every schema change is a visible diff in review.
@@ -49,7 +64,13 @@ Configuration comes from `DOC_INTAKE_*` environment variables, validated at star
 
 Extraction runs on Claude or OpenAI, chosen by `DOC_INTAKE_PROVIDER`, with each provider's native structured output. The engine (`core/`) only knows the `LLMProvider` interface; vendor SDKs are imported in `providers/` alone, and a lint rule rejects them anywhere else. An answer that fails schema validation is retried with the errors (`DOC_INTAKE_MAX_RETRIES`, default 2) and then reported as `failed`, never partial; a citation whose quote is not on the page it names turns the result into `needs_review`.
 
-Every pull request must pass the `ci-passed` gate: lint, types, tests, secret scan, workflow audit and dependency audit.
+Every pull request must pass the `ci-passed` gate: lint, types, tests, the eval, secret scan, workflow audit and dependency audit.
+
+## Eval
+
+The eval runs the real pipeline (OCR, LLM extraction, validation) over the golden set and scores every field against the ground truth: exact match after folding case and whitespace, dates and amounts by value, an empty field against a value counted as an error both ways. CI does not call the LLM: it replays provider responses recorded once with a real key, keyed by a hash of provider, model, instructions, prompt and schema, so a changed prompt or model fails until it is re-recorded (and re-scored). Replay is deterministic, so the gate has zero tolerance: any field with fewer correct answers than [`evals/baseline.json`](evals/baseline.json) fails the build, naming the field. The Markdown report is posted as the job summary and uploaded as an artifact.
+
+The recordings quote the receipts, which have no licence, so they live in a private repository pinned by commit ([`docs/DATA.md`](docs/DATA.md)); pull requests from forks cannot run the eval. Design and alternatives: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) D4.
 
 ## Data
 

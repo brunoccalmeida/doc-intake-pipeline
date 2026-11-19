@@ -1,0 +1,10 @@
+{
+  "documents": 20,
+  "fields": {
+    "company": 15,
+    "address": 9,
+    "date": 17,
+    "total": 18,
+    "currency": 17
+  }
+}

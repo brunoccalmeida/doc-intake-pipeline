@@ -8,11 +8,12 @@ Estado do projeto entre chats. Guarda **só o estado e a próxima missão**; o r
 
 | Item             | Estado |
 | ---------------- | ------ |
-| Última missão    | [#5](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/5): conjunto-ouro SROIE fora do Git (sem licença publicada na fonte); `uv run poe fetch-golden` baixa 20 recibos de espelho fixado por commit, confere SHA-256 e converte em `.cache/golden/sroie` ([DATA.md](DATA.md), D6 do [ARCHITECTURE.md](ARCHITECTURE.md)) |
-| Próxima missão   | [#6](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/6): eval por campo, relatório e portão no CI (P0). Compara texto sem diferenciar maiúsculas (o SROIE anota tudo em maiúsculas) e precisa de chave real para gravar respostas: há saldo só na Anthropic |
-| Pendências       | [#13](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/13): execução manual na OpenAI (sem crédito por ora); [#16](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/16): símbolo de moeda ambíguo (`$`), decidir depois do eval |
-| PRs abertos      | nenhum após o merge da #5 |
-| Portões          | `uv run poe check` (ruff, formatação, pyright estrito) e `uv run pytest` (exigem antes `uv run poe fetch-tessdata` e `uv run poe fetch-golden`; sem os dados os testes falham, não pulam); no CI, `ci-passed` agrega `check`, `test`, `secret-scan` (gitleaks), `workflow-audit` (zizmor) e `dependency-audit` (`uv audit`, também diário) |
+| Última missão    | [#6](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/6): eval por campo com replay de respostas gravadas e portão de tolerância zero no CI (D4 do [ARCHITECTURE.md](ARCHITECTURE.md)). Linha de base (Opus 5.5): company 15, address 9, date 17, total 18, currency 17, em 20 |
+| Próxima missão   | [#7](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/7): log por execução e custo por documento (P1, menor número entre as P1 desbloqueadas). Reaproveita `core/pricing.py` e `core.llm.Metered` |
+| Pendências       | P1: [#18](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/18) perguntas ao usuário em português no `AGENTS.md`; [#19](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/19) OCR vazio em 2 recibos desbotados; [#20](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/20) valor copiando erro do OCR; [#13](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/13) execução na OpenAI (sem crédito). P2: [#16](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/16) moeda `$`, agora com números do eval |
+| PRs abertos      | nenhum após o merge da #6 |
+| Gravações do eval | Repositório privado `brunoccalmeida/doc-intake-recordings`, clonado em `.cache/recordings`; commit fixado em `evals/recordings.json`; CI lê com deploy key somente leitura (secret `RECORDINGS_DEPLOY_KEY` no Actions e no Dependabot). Regravar: `uv run poe eval --record` (pago), push lá, atualizar pino e linha de base no mesmo PR ([DATA.md](DATA.md)) |
+| Portões          | `uv run poe check` (ruff, formatação, pyright estrito) e `uv run pytest` (exigem antes `uv run poe fetch-tessdata` e `uv run poe fetch-golden`; sem os dados os testes falham, não pulam); `uv run poe eval` (replay, sem custo); no CI, `ci-passed` agrega `check`, `test`, `eval`, `secret-scan` (gitleaks), `workflow-audit` (zizmor) e `dependency-audit` (`uv audit`, também diário) |
 | Repositório      | Ruleset "Protect main": PR só com squash, histórico linear, `ci-passed` obrigatório com branch atualizada; squash usa título e corpo do PR; auto-merge e apagar branch ligados; alertas e atualizações de segurança do Dependabot ligados |
 | Travas do agente | `.claude/settings.json` nega merge `--admin`, force push, push na `main` e leitura/escrita do `.env`; plugin `mission` com `autoUpdate: false` |
 
@@ -26,6 +27,9 @@ Estado do projeto entre chats. Guarda **só o estado e a próxima missão**; o r
 - `Path.write_text` no Windows grava CRLF; o `.gitattributes` normaliza no commit (o aviso do Git é esperado).
 - Workflow reutilizável do mesmo repositório usa `$/...` (sintaxe self-repository); o zizmor reprova `./...`.
 - O WebFetch reprova o certificado de `rrc.cvc.uab.es` (portal do SROIE); o `curl` do Git Bash lê a página normalmente.
+- O `Settings` lê o `.env` da raiz, onde está a chave real: nos testes, o fixture autouse `no_real_api_key` a deixa vazia. Nunca remova as variáveis de chave num teste que roda na raiz (já gerou uma chamada paga na #6).
+- O agente não faz push na `main` de nenhum repositório (trava), inclusive no de gravações: o push de lá é do usuário. Para provar o RED do eval, corromper uma gravação numa branch do repositório privado e disparar o CI com `gh workflow run ci.yml --ref <branch>`.
+- O Docker Desktop fica desligado: abrir antes de comparar algo com o Linux (`python:3.14-slim` + binário do `uv` copiado de `ghcr.io/astral-sh/uv:0.13.9`).
 - Chave de API vai no `.env` (criado com `Copy-Item .env.example .env`), nunca no `.env.example`, que é versionado. O agente não lê nem grava o `.env`; `uv run poe extract <arquivo>` falha nomeando a variável que falta, sem gastar nada.
 
 ## Plano da semana 1 (~16 h)
