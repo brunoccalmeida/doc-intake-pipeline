@@ -42,6 +42,14 @@ def test_empty_value_without_reason_is_rejected() -> None:
         ExtractedField[str](value=None)
 
 
+@pytest.mark.parametrize("blank", ["", "   ", "\n"])
+def test_blank_text_value_is_rejected(blank: str) -> None:
+    # An LLM often says "not found" with "": that is an absence, so it must be
+    # null with a reason, not a cited value that reads as found.
+    with pytest.raises(ValidationError, match="blank text is not a value"):
+        ExtractedField[str](value=blank, citation=CITED)
+
+
 def test_value_with_reason_is_rejected() -> None:
     # A reason explains an absence; next to a value it would be an unread doubt.
     with pytest.raises(ValidationError, match="a reason only explains an empty value"):

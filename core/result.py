@@ -73,6 +73,9 @@ class ExtractedField[T](StrictModel, frozen=True):
 
     @model_validator(mode="after")
     def _evidence_matches_value(self) -> Self:
+        if isinstance(self.value, str) and not self.value.strip():
+            # "" is how an LLM often says "not found": an absence, not a value.
+            raise ValueError("blank text is not a value; use null with a reason")
         if self.value is not None:
             if self.citation is None:
                 raise ValueError("a value requires a citation")

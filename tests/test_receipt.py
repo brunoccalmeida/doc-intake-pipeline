@@ -57,6 +57,12 @@ def test_empty_value_without_reason_is_rejected() -> None:
         Receipt.model_validate_json(receipt_json(company={"value": None}))
 
 
+@pytest.mark.parametrize("field", ["company", "address"])
+def test_blank_text_field_is_rejected(field: str) -> None:
+    with pytest.raises(ValidationError, match="blank text is not a value"):
+        Receipt.model_validate_json(receipt_json(**{field: cited("", "ACME")}))
+
+
 def test_negative_total_is_rejected() -> None:
     with pytest.raises(ValidationError, match="greater than or equal to 0"):
         Receipt.model_validate_json(receipt_json(total=cited("-9.00", "TOTAL -9.00")))

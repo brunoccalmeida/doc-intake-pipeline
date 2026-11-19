@@ -76,7 +76,7 @@ O UAT usa Poetry. Aqui o uv ganhou por cobrir Python, lock e auditoria com uma f
 
 | Regra | Onde | Por quê | Fonte |
 | --- | --- | --- | --- |
-| Valor exige citação; vazio exige motivo; motivo só com vazio; citação só com valor | `ExtractedField` (`core/result.py`) | A invariante "nada inventado" vira tipo: nenhum produtor (LLM, gabarito, teste) consegue esquecê-la | D1 |
+| Valor exige citação; vazio exige motivo; motivo só com vazio; citação só com valor; texto em branco (`""`) não é valor | `ExtractedField` (`core/result.py`) | A invariante "nada inventado" vira tipo: nenhum produtor (LLM, gabarito, teste) consegue esquecê-la | D1 |
 | `failed` não carrega campos; status diferente de `ok` exige `errors`; `ok` não tem `errors` | `ExtractionResult` | Falha nunca sai parcial e nada passa em silêncio | D3 |
 | Base `StrictModel`: `frozen=True, extra="forbid"` como **argumentos de classe**, repetidos em cada subclasse | `core/result.py` | Verificador de tipos só lê config passada como argumento de classe e não herda `frozen` (PEP 681); o pyright reprova subclasse que esquecer. Chave extra = produtor fora do schema | [Pydantic 2.14: Configuration](https://pydantic.dev/docs/validation/2.14/concepts/config/); [PEP 681](https://peps.python.org/pep-0681/) |
 | `IsoDate` aceita só texto `AAAA-MM-DD` | `core/result.py` | O Pydantic lê timestamp Unix como data (no modo lax e, como texto, até no `strict`): qualquer número do documento viraria data. Observado com sonda no 2.14.3 e travado por teste | sonda + `tests/test_receipt.py` |
