@@ -45,8 +45,7 @@
             {
               "type": "null"
             }
-          ],
-          "default": null
+          ]
         },
         "reason": {
           "anyOf": [
@@ -56,12 +55,13 @@
             {
               "type": "null"
             }
-          ],
-          "default": null
+          ]
         }
       },
       "required": [
-        "value"
+        "value",
+        "citation",
+        "reason"
       ],
       "title": "ExtractedField[CurrencyCode]",
       "type": "object"
@@ -87,8 +87,7 @@
             {
               "type": "null"
             }
-          ],
-          "default": null
+          ]
         },
         "reason": {
           "anyOf": [
@@ -98,12 +97,13 @@
             {
               "type": "null"
             }
-          ],
-          "default": null
+          ]
         }
       },
       "required": [
-        "value"
+        "value",
+        "citation",
+        "reason"
       ],
       "title": "ExtractedField[IsoDate]",
       "type": "object"
@@ -129,8 +129,7 @@
             {
               "type": "null"
             }
-          ],
-          "default": null
+          ]
         },
         "reason": {
           "anyOf": [
@@ -140,12 +139,13 @@
             {
               "type": "null"
             }
-          ],
-          "default": null
+          ]
         }
       },
       "required": [
-        "value"
+        "value",
+        "citation",
+        "reason"
       ],
       "title": "ExtractedField[Money]",
       "type": "object"
@@ -172,8 +172,7 @@
             {
               "type": "null"
             }
-          ],
-          "default": null
+          ]
         },
         "reason": {
           "anyOf": [
@@ -183,12 +182,13 @@
             {
               "type": "null"
             }
-          ],
-          "default": null
+          ]
         }
       },
       "required": [
-        "value"
+        "value",
+        "citation",
+        "reason"
       ],
       "title": "ExtractedField[str]",
       "type": "object"

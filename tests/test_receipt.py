@@ -17,7 +17,7 @@ from packs.receipt import Receipt
 
 
 def cited(value: object, quote: str) -> dict[str, Any]:
-    return {"value": value, "citation": {"page": 1, "quote": quote}}
+    return {"value": value, "citation": {"page": 1, "quote": quote}, "reason": None}
 
 
 def receipt_json(**overrides: object) -> str:
@@ -26,7 +26,11 @@ def receipt_json(**overrides: object) -> str:
         "address": cited("NO.53 55,57 & 59, JALAN SAGU 18, TAMAN DAYA", "NO.53 55,57 & 59"),
         "date": cited("2018-12-25", "25/12/2018"),
         "total": cited("9.00", "TOTAL 9.00"),
-        "currency": {"value": None, "reason": "no currency symbol or code printed"},
+        "currency": {
+            "value": None,
+            "citation": None,
+            "reason": "no currency symbol or code printed",
+        },
     }
     fields.update(overrides)
     return json.dumps(fields)
@@ -49,12 +53,16 @@ def test_receipt_wrapped_in_a_result_is_accepted() -> None:
 
 def test_value_without_citation_is_rejected() -> None:
     with pytest.raises(ValidationError, match="a value requires a citation"):
-        Receipt.model_validate_json(receipt_json(total={"value": "9.00"}))
+        Receipt.model_validate_json(
+            receipt_json(total={"value": "9.00", "citation": None, "reason": None})
+        )
 
 
 def test_empty_value_without_reason_is_rejected() -> None:
     with pytest.raises(ValidationError, match="an empty value requires a reason"):
-        Receipt.model_validate_json(receipt_json(company={"value": None}))
+        Receipt.model_validate_json(
+            receipt_json(company={"value": None, "citation": None, "reason": None})
+        )
 
 
 @pytest.mark.parametrize("field", ["company", "address"])
