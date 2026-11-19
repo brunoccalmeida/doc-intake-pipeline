@@ -6,17 +6,17 @@ A document intake pipeline that reads PDFs and images (including scanned ones), 
 
 ## At a Glance
 
-First eval, 20 SROIE receipts, Claude Opus 5.5 ([CI run](https://github.com/brunoccalmeida/doc-intake-pipeline/actions/runs/44561724676)):
+Eval on 20 SROIE receipts, Claude Opus 5.5, after whitening dark scanner borders before OCR ([#19](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/19)); the [first eval](https://github.com/brunoccalmeida/doc-intake-pipeline/actions/runs/44561724676) is the previous column:
 
-| Field | Correct | Accuracy |
-| --- | --- | --- |
-| company | 15/20 | 75% |
-| address | 9/20 | 45% |
-| date | 17/20 | 85% |
-| total | 18/20 | 90% |
-| currency | 17/20 | 85% |
+| Field | Correct | Accuracy | First eval |
+| --- | --- | --- | --- |
+| company | 16/20 | 80% | 15/20 |
+| address | 10/20 | 50% | 9/20 |
+| date | 17/20 | 85% | 17/20 |
+| total | 18/20 | 90% | 18/20 |
+| currency | 19/20 | 95% | 17/20 |
 
-18 calls, 50,903 input and 7,308 output tokens, **$0.35** for the whole set (about 2 cents per receipt). Two receipts fail OCR and count as wrong on every field ([#19](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/19)); most text errors are the model faithfully copying OCR misreadings ([#20](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/20)). The numbers are a regression baseline, not a claim about other documents (see [`docs/DATA.md`](docs/DATA.md), known limitations).
+20 calls, 56,858 input and 9,009 output tokens, **$0.41** for the whole set (about 2 cents per receipt). Every receipt is now read; most remaining text errors are the model faithfully copying OCR misreadings ([#20](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/20)). The numbers are a regression baseline, not a claim about other documents (see [`docs/DATA.md`](docs/DATA.md), known limitations).
 
 ## Why this exists
 
@@ -56,11 +56,13 @@ uv run poe extract <file>  # extract one receipt with the configured provider (p
 uv run poe eval            # score the golden set from recorded responses, gate on the baseline
 ```
 
-Both `extract` and `eval` write one JSON line per document to stderr: run and document ids, status and validation errors, calls, retries, tokens, latency and cost in exact USD, never document content. `extract` identifies the document by the SHA-256 of its bytes, not its file name. `DOC_INTAKE_LOG_LEVEL=WARNING` silences these lines. Example (from the eval, a receipt the OCR could not read):
+Both `extract` and `eval` write one JSON line per document to stderr: run and document ids, status and validation errors, calls, retries, tokens, latency and cost in exact USD, never document content. `extract` identifies the document by the SHA-256 of its bytes, not its file name. `DOC_INTAKE_LOG_LEVEL=WARNING` silences these lines. Example (from the eval replay, so latency is near zero):
 
 ```json
-{"timestamp":"2026-11-19T16:26:22.727730Z","run_id":"01a1f4a1-5155-7174-935e-97d9683416f0","document_id":"X51006619346","pack":"receipt","provider":"claude","models":[],"status":"failed","errors":["EmptyDocumentError"],"calls":0,"retries":0,"input_tokens":0,"output_tokens":0,"latency_ms":0,"cost_usd":"0"}
+{"timestamp":"2026-11-19T17:44:12.387820Z","run_id":"01a1f4e8-8da3-7012-958c-b0c6db001cb1","document_id":"X51006619784","pack":"receipt","provider":"claude","models":["claude-opus-5-5"],"status":"ok","errors":[],"calls":1,"retries":0,"input_tokens":2798,"output_tokens":775,"latency_ms":3,"cost_usd":"0.026692"}
 ```
+
+A document that fails is logged the same way, with `"status":"failed"` and the error class in `errors` (for example `EmptyDocumentError` when no page yields text).
 
 Each pack's JSON Schema (what the LLM is asked to fill, e.g. [`packs/receipt/receipt.schema.json`](packs/receipt/receipt.schema.json)) is committed; a snapshot test fails when a model change alters it, so every schema change is a visible diff in review.
 

@@ -15,7 +15,7 @@ from typing import Annotated, Literal
 
 import pypdfium2 as pdfium
 import tesserocr
-from PIL import Image
+from PIL import Image, ImageDraw
 from pydantic import Field
 
 from core.result import StrictModel
@@ -28,6 +28,11 @@ IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg"})
 # unit is 1/72 in, so the render scale is DPI / 72.
 OCR_DPI = 300
 OCR_LANGUAGE = "eng"
+
+# A row or column of the image edge whose mean brightness (0 black, 255 white)
+# is below this is scanner border, not paper. Mid-grey: paper with print stays
+# far above it (SROIE receipts measured in issue #19).
+DARK_EDGE_MAX_MEAN = 128
 
 type TextSource = Literal["text_layer", "ocr"]
 
@@ -132,7 +137,66 @@ def _ocr(image: Image.Image, tessdata_dir: Path) -> str:
         raise OcrDataMissingError(
             f"no {OCR_LANGUAGE}.traineddata in {tessdata_dir}: run 'uv run poe fetch-tessdata'"
         )
+    image = _whiten_dark_borders(image)
     return _normalize(tesserocr.image_to_text(image, lang=OCR_LANGUAGE, path=str(tessdata_dir)))
+
+
+def _whiten_dark_borders(image: Image.Image) -> Image.Image:
+    """Paint white the dark bands a scanner leaves around the paper.
+
+    Tesseract binarizes with one global Otsu threshold; a few rows of black
+    border are enough to pull it between black and white, and faded grey print
+    then falls on the white side and vanishes (issue #19). tessdoc "Improving
+    the quality of the output" lists scanning-border removal for this.
+
+    The bands are painted, not cropped: a crop leaves print touching the image
+    edge, which tessdoc ("Missing borders") warns against and which made
+    Tesseract drop a column of amounts. A page without such a band is returned
+    as is (recordings are keyed by its text), and so is an all-dark one, which
+    OCR then reports empty.
+    """
+    gray = image.convert("L")
+    width, height = gray.size
+    # Reducing by the full width leaves one pixel per row, the mean of that row
+    # (and likewise per column), computed in C without a Python pixel loop.
+    rows = gray.reduce((width, 1)).tobytes()
+    columns = gray.reduce((1, height)).tobytes()
+    vertical = _paper_span(rows)
+    horizontal = _paper_span(columns)
+    if vertical is None or horizontal is None:
+        return image
+    (top, bottom), (left, right) = vertical, horizontal
+    paper = (left, top, right, bottom)
+    if paper == (0, 0, width, height):
+        return image
+    # Paint a copy rather than paste onto a new image: a new palette ("P")
+    # image would hold only white, and pasted indices would point nowhere.
+    whitened = image.copy()
+    draw = ImageDraw.Draw(whitened)
+    bands = [
+        (0, 0, width, top),  # above the paper
+        (0, bottom, width, height),  # below
+        (0, 0, left, height),  # left of it
+        (right, 0, width, height),  # right of it
+    ]
+    for x0, y0, x1, y1 in bands:
+        if x0 < x1 and y0 < y1:  # ImageDraw boxes are inclusive: last pixel is x1 - 1
+            draw.rectangle((x0, y0, x1 - 1, y1 - 1), fill="white")
+    return whitened
+
+
+def _paper_span(means: bytes) -> tuple[int, int] | None:
+    """The ``[start, end)`` range left after dropping dark means at both ends.
+
+    ``None`` when every mean is dark: there is no paper to keep.
+    """
+    start = 0
+    while start < len(means) and means[start] < DARK_EDGE_MAX_MEAN:
+        start += 1
+    end = len(means)
+    while end > start and means[end - 1] < DARK_EDGE_MAX_MEAN:
+        end -= 1
+    return (start, end) if start < end else None
 
 
 def _normalize(text: str) -> str:

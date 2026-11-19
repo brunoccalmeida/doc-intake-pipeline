@@ -93,6 +93,21 @@ def draw_text(text: str) -> Image.Image:
     return image
 
 
+def faded_receipt_with_scanner_borders() -> Image.Image:
+    """Light-grey print on white between two black bands, like SROIE X51006619346.
+
+    A thermal roll fades to grey; the scanner lid leaves black bands above and
+    below the paper. Those few dark rows were enough for Tesseract's global
+    Otsu threshold to land between black and white, erasing the grey print.
+    """
+    image = Image.new("L", (1400, 400), color=255)
+    draw = ImageDraw.Draw(image)
+    draw.text((40, 150), "TOTAL 12.50 CASH", fill=200, font=ImageFont.load_default(size=64))
+    draw.rectangle((0, 0, 1399, 11), fill=0)
+    draw.rectangle((0, 388, 1399, 399), fill=0)
+    return image
+
+
 def words(page: PageText) -> set[str]:
     return set(page.text.split())
 
@@ -117,6 +132,90 @@ def test_line_breaks_are_newlines_and_text_is_otherwise_literal(tmp_path: Path) 
     document = ingest(pdf, tessdata_dir=tmp_path)
 
     assert document.pages[0].text == "TOTAL 12.50\nTHANK YOU"
+
+
+def test_faded_print_between_dark_scanner_borders_is_read(
+    tmp_path: Path, tessdata_dir: Path
+) -> None:
+    image = tmp_path / "receipt.png"
+    faded_receipt_with_scanner_borders().save(image)
+
+    document = ingest(image, tessdata_dir=tessdata_dir)
+
+    assert {"TOTAL", "12.50", "CASH"} <= words(document.pages[0])
+
+
+def test_dark_borders_are_whitened_keeping_the_page_size(
+    tmp_path: Path, tessdata_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Cropping them instead left print touching the image edge, and Tesseract
+    # then dropped the amount column of SROIE X51007339159 (issue #19); tessdoc
+    # "Missing borders" warns about such tight crops.
+    seen: list[Image.Image] = []
+
+    def fake_image_to_text(image: Image.Image, **_: str) -> str:
+        seen.append(image)
+        return "TOTAL"
+
+    monkeypatch.setattr("core.ingest.tesserocr.image_to_text", fake_image_to_text)
+    page = faded_receipt_with_scanner_borders()
+    path = tmp_path / "receipt.png"
+    page.save(path)
+
+    ingest(path, tessdata_dir=tessdata_dir)
+
+    ocr_input = seen[0].convert("L")
+    assert ocr_input.size == page.size
+    width, height = page.size
+    white = (255, 255)  # (darkest, brightest) of a pure white region
+    assert ocr_input.crop((0, 0, width, 12)).getextrema() == white, "top border still dark"
+    assert ocr_input.crop((0, height - 12, width, height)).getextrema() == white, (
+        "bottom border still dark"
+    )
+
+
+def test_palette_image_with_dark_borders_keeps_its_colours(
+    tmp_path: Path, tessdata_dir: Path
+) -> None:
+    # Optimized PNGs are often palette ("P") images: whitening the border must
+    # not drop the palette and turn the print into other colours.
+    image = tmp_path / "receipt.png"
+    faded_receipt_with_scanner_borders().convert("P").save(image)
+
+    document = ingest(image, tessdata_dir=tessdata_dir)
+
+    assert {"TOTAL", "12.50", "CASH"} <= words(document.pages[0])
+
+
+def test_page_without_dark_borders_reaches_ocr_unchanged(
+    tmp_path: Path, tessdata_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A recording is keyed by the document text (evals/recording.py), so the
+    # border trim must leave a borderless page exactly as it was.
+    page = draw_text("TOTAL 12.50 CASH")
+    seen: list[Image.Image] = []
+
+    def fake_image_to_text(image: Image.Image, **_: str) -> str:
+        seen.append(image)
+        return "TOTAL"
+
+    monkeypatch.setattr("core.ingest.tesserocr.image_to_text", fake_image_to_text)
+    path = tmp_path / "receipt.png"
+    page.save(path)
+
+    ingest(path, tessdata_dir=tessdata_dir)
+
+    assert seen[0].size == page.size
+    assert seen[0].tobytes() == page.tobytes(), "same size, different pixels"
+
+
+def test_all_dark_image_is_empty_not_a_crash(tmp_path: Path, tessdata_dir: Path) -> None:
+    # Every row is "dark border": trimming must not leave a zero-size image.
+    image = tmp_path / "receipt.png"
+    Image.new("L", (300, 200), color=0).save(image)
+
+    with pytest.raises(EmptyDocumentError):
+        ingest(image, tessdata_dir=tessdata_dir)
 
 
 @pytest.mark.parametrize("name", ["receipt.png", "receipt.jpg", "RECEIPT.JPEG"])
