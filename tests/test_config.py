@@ -20,6 +20,7 @@ def isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("DOC_INTAKE_LOG_LEVEL", raising=False)
+    monkeypatch.delenv("DOC_INTAKE_TESSDATA_DIR", raising=False)
     return tmp_path
 
 
@@ -47,3 +48,12 @@ def test_invalid_value_fails_naming_the_field(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv("DOC_INTAKE_LOG_LEVEL", "LOUD")
     with pytest.raises(ValidationError, match="log_level"):
         Settings()
+
+
+def test_tessdata_dir_defaults_to_the_project_cache() -> None:
+    assert Settings().tessdata_dir == Path(".cache/tessdata")
+
+
+def test_tessdata_dir_is_read_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DOC_INTAKE_TESSDATA_DIR", "/opt/tessdata")
+    assert Settings().tessdata_dir == Path("/opt/tessdata")
