@@ -174,6 +174,19 @@ def test_dark_borders_are_whitened_keeping_the_page_size(
     )
 
 
+def test_palette_image_with_dark_borders_keeps_its_colours(
+    tmp_path: Path, tessdata_dir: Path
+) -> None:
+    # Optimized PNGs are often palette ("P") images: whitening the border must
+    # not drop the palette and turn the print into other colours.
+    image = tmp_path / "receipt.png"
+    faded_receipt_with_scanner_borders().convert("P").save(image)
+
+    document = ingest(image, tessdata_dir=tessdata_dir)
+
+    assert {"TOTAL", "12.50", "CASH"} <= words(document.pages[0])
+
+
 def test_page_without_dark_borders_reaches_ocr_unchanged(
     tmp_path: Path, tessdata_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -15,7 +15,7 @@ from typing import Annotated, Literal
 
 import pypdfium2 as pdfium
 import tesserocr
-from PIL import Image
+from PIL import Image, ImageDraw
 from pydantic import Field
 
 from core.result import StrictModel
@@ -169,8 +169,19 @@ def _whiten_dark_borders(image: Image.Image) -> Image.Image:
     paper = (left, top, right, bottom)
     if paper == (0, 0, width, height):
         return image
-    whitened = Image.new(image.mode, image.size, "white")
-    whitened.paste(image.crop(paper), paper[:2])
+    # Paint a copy rather than paste onto a new image: a new palette ("P")
+    # image would hold only white, and pasted indices would point nowhere.
+    whitened = image.copy()
+    draw = ImageDraw.Draw(whitened)
+    bands = [
+        (0, 0, width, top),  # above the paper
+        (0, bottom, width, height),  # below
+        (0, 0, left, height),  # left of it
+        (right, 0, width, height),  # right of it
+    ]
+    for x0, y0, x1, y1 in bands:
+        if x0 < x1 and y0 < y1:  # ImageDraw boxes are inclusive: last pixel is x1 - 1
+            draw.rectangle((x0, y0, x1 - 1, y1 - 1), fill="white")
     return whitened
 
 
