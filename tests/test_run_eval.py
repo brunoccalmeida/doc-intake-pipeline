@@ -6,8 +6,9 @@ the other golden-set tests; the unreadable case builds its own blank image.
 """
 
 import json
+import logging
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -18,7 +19,8 @@ from core.config import Settings
 from core.ingest import OcrDataMissingError
 from core.llm import LLMRequest, LLMResponse
 from core.result import Citation, ExtractedField
-from evals.run import run_eval
+from core.runlog import RUN_LOGGER, RunLogEntry
+from evals.run import Usage, run_eval
 from evals.sroie import MANIFEST_PATH, load_manifest
 from packs.receipt import RECEIPT, Receipt
 
@@ -43,7 +45,10 @@ def golden_text(document_id: str) -> str:
     return (SETTINGS.sroie_dir / f"{document_id}.json").read_text(encoding="utf-8")
 
 
-def test_golden_answer_scores_every_field_correct_and_meters_the_call() -> None:
+def test_golden_answer_scores_every_field_correct_and_meters_the_call(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO, logger=RUN_LOGGER)
     provider = ScriptedProvider(golden_text(FIRST_ID))
 
     run = run_eval(
@@ -52,15 +57,61 @@ def test_golden_answer_scores_every_field_correct_and_meters_the_call() -> None:
         provider,
         golden_dir=SETTINGS.sroie_dir,
         tessdata_dir=SETTINGS.tessdata_dir,
+        run_id="run-1",
+        provider_name="scripted",
     )
 
     [score] = run.scores
     assert score.id == FIRST_ID
     assert set(score.fields.values()) == {"correct"}
+    assert run.usage.documents == 1
     assert run.usage.calls == 1
     assert (run.usage.input_tokens, run.usage.output_tokens) == (1_000, 200)
     assert run.usage.cost_usd == Decimal("0.008")  # 1000 x $4/M + 200 x $20/M
+    assert run.usage.average_cost_usd == Decimal("0.008")
     assert run.usage.models == ("claude-opus-5-5",)
+    [line] = logged(caplog)
+    assert (line["run_id"], line["document_id"], line["provider"]) == (
+        "run-1",
+        FIRST_ID,
+        "scripted",
+    )
+
+
+def logged(caplog: pytest.LogCaptureFixture) -> list[dict[str, object]]:
+    return [json.loads(r.getMessage()) for r in caplog.records if r.name == RUN_LOGGER]
+
+
+def test_average_cost_is_over_every_document_rounded_to_a_millionth_of_a_dollar() -> None:
+    usage = Usage.of(
+        [entry(cost="0.008"), entry(cost="0.008"), entry(cost="0", calls=0)],
+    )
+    assert usage.documents == 3
+    assert usage.cost_usd == Decimal("0.016")
+    assert usage.average_cost_usd == Decimal("0.005333")  # 0.016 / 3, half-even
+
+
+def test_a_run_without_documents_has_no_average() -> None:
+    assert Usage.of([]).average_cost_usd is None
+
+
+def entry(*, cost: str, calls: int = 1) -> RunLogEntry:
+    return RunLogEntry(
+        timestamp=datetime(2026, 11, 19, tzinfo=UTC),
+        run_id="run-1",
+        document_id="X",
+        pack="receipt",
+        provider="scripted",
+        models=("claude-opus-5-5",) if calls else (),
+        status="ok" if calls else "failed",
+        errors=[] if calls else ["EmptyDocumentError"],
+        calls=calls,
+        retries=0,
+        input_tokens=1_000 * calls,
+        output_tokens=200 * calls,
+        latency_ms=0,
+        cost_usd=Decimal(cost),
+    )
 
 
 def write_golden(directory: Path, document_id: str) -> None:
@@ -78,22 +129,36 @@ def write_golden(directory: Path, document_id: str) -> None:
 
 
 def test_an_unreadable_document_is_scored_failed_without_calling_the_provider(
-    tmp_path: Path,
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
+    caplog.set_level(logging.INFO, logger=RUN_LOGGER)
     write_golden(tmp_path, "X1")
     Image.new("RGB", (400, 200), "white").save(tmp_path / "X1.jpg")
     provider = ScriptedProvider(json.dumps({}))
 
     run = run_eval(
-        ["X1"], RECEIPT, provider, golden_dir=tmp_path, tessdata_dir=SETTINGS.tessdata_dir
+        ["X1"],
+        RECEIPT,
+        provider,
+        golden_dir=tmp_path,
+        tessdata_dir=SETTINGS.tessdata_dir,
+        run_id="run-1",
+        provider_name="scripted",
     )
 
     [score] = run.scores
     assert score.status == "failed"
     assert score.error == "EmptyDocumentError"
     assert provider.requests == []
+    assert run.usage.documents == 1
     assert run.usage.calls == 0
     assert run.usage.cost_usd == 0
+    [line] = logged(caplog)
+    assert (line["document_id"], line["status"], line["errors"]) == (
+        "X1",
+        "failed",
+        ["EmptyDocumentError"],
+    )
 
 
 def test_missing_ocr_data_stops_the_run_instead_of_scoring_a_failure(tmp_path: Path) -> None:
@@ -107,4 +172,6 @@ def test_missing_ocr_data_stops_the_run_instead_of_scoring_a_failure(tmp_path: P
             ScriptedProvider("{}"),
             golden_dir=tmp_path,
             tessdata_dir=tmp_path / "no-tessdata",
+            run_id="run-1",
+            provider_name="scripted",
         )

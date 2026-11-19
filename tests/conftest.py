@@ -1,8 +1,12 @@
 """Fixtures shared by more than one test module."""
 
+import logging
 import os
+from collections.abc import Iterator
 
 import pytest
+
+from core.runlog import RUN_LOGGER
 
 # Every API key variable the settings read (core/config.py).
 API_KEY_VARIABLES = ("DOC_INTAKE_ANTHROPIC_API_KEY", "DOC_INTAKE_OPENAI_API_KEY")
@@ -20,6 +24,23 @@ def no_real_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     for name in API_KEY_VARIABLES:
         monkeypatch.setenv(name, "")
+
+
+@pytest.fixture(autouse=True)
+def restore_run_logger() -> Iterator[None]:
+    """Leave the run logger as each test found it (test isolation).
+
+    Logging is process-wide state. A script's ``main`` configures the run
+    logger not to propagate (``scripts/logs.py``), and pytest's ``caplog``
+    listens on the root: without this, a test reading ``caplog`` would pass or
+    fail depending on whether a script test ran before it.
+    """
+    logger = logging.getLogger(RUN_LOGGER)
+    handlers, level, propagate = logger.handlers[:], logger.level, logger.propagate
+    yield
+    logger.handlers[:] = handlers
+    logger.setLevel(level)
+    logger.propagate = propagate
 
 
 @pytest.fixture

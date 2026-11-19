@@ -65,6 +65,15 @@ Tokens de entrada e saída vêm do `usage` da resposta do provedor; o preço por
 
 **Parte feita na #6:** a tabela é [`core/pricing.py`](../core/pricing.py), só com as taxas base que o pipeline usa (sem cache, YAGNI), conferidas em 2026-11-19 na [página oficial](https://platform.claude.com/docs/en/about-claude/pricing). O custo usa o modelo que *respondeu* (um fallback do servidor pode trocar o modelo), e modelo sem preço é erro, não custo zero. O custo total do eval sai no relatório; custo por documento no log de execução fica na #7.
 
+**Feito na #7:** [`core/runlog.py`](../core/runlog.py) emite **uma linha JSON por documento** (`RunLogEntry`, Pydantic: `Decimal` sai como texto exato, data em ISO 8601) no logger `core.runlog`, em INFO. A linha leva ids, pack, provedor, modelos que responderam, status, erros, chamadas, novas tentativas, tokens, latência e custo; nunca texto, valor ou citação do documento (teste com mutação). As decisões:
+
+- **O núcleo só emite; os scripts configuram** ([`scripts/logs.py`](../scripts/logs.py), `dictConfig`). O *cookbook* do Python diz que configurar handlers é "the responsibility of the application developer, not the library developer" ([logging cookbook, 3.14](https://docs.python.org/3.14/howto/logging-cookbook.html)). A saída vai para o stderr: o processo escreve o log como fluxo e o ambiente roteia ([Twelve-Factor, Logs](https://12factor.net/logs)); o stdout do `extract` já é o resultado. `disable_existing_loggers=False`, porque o padrão desligaria os loggers do SDK ([logging.config](https://docs.python.org/3.14/library/logging.config.html)).
+- **`run_id` é UUIDv7** (`uuid.uuid7`, novo no 3.14): único e ordenado pelo tempo.
+- **No `extract`, o documento é identificado pelo SHA-256 do conteúdo**, não pelo nome do arquivo, que pode ser de um cliente; pelo mesmo motivo, um arquivo ilegível registra só a classe do erro.
+- **Latência é a da extração** (todas as chamadas, novas tentativas incluídas), sem a leitura e o OCR. No eval em replay ela é quase zero e não mede o provedor.
+- **Preço checado antes da chamada paga** (`price_of` no início dos scripts, fail fast); depois da chamada, modelo sem preço continua sendo erro, e nenhuma linha sai com custo zero.
+- **Custo médio no relatório do eval** = total ÷ documentos, ilegíveis incluídos (custaram zero), arredondado a um milionésimo de dólar (meia-par, padrão do `Decimal`). Linha de base em replay: US$ 0,349772 no total, US$ 0,017489 por documento. **Julgamento próprio:** a média por documento *enviado* é a pergunta do cliente; a média por documento lido seria US$ 0,019432.
+
 ### D6. Dados do conjunto-ouro
 
 Começar pelo SROIE (recibos com gabarito de empresa, endereço, data e total). Licença e procedência registradas em `docs/DATA.md` antes de commitar qualquer arquivo (ver #5). CORD entra quando o pack de nota fiscal crescer; CUAD (contratos) na semana 3.

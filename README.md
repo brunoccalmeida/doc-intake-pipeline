@@ -39,7 +39,7 @@ LLM extraction demos are easy; trusting them in production is not. This project 
 | LLM extractor with validation and retry | done    |
 | Golden set (SROIE receipts)             | done    |
 | Per-field eval gating CI                | done    |
-| Run log and cost per document           | planned |
+| Run log and cost per document           | done    |
 
 ## Development
 
@@ -54,6 +54,12 @@ uv run pytest        # tests (no network, no API key)
 uv run poe export-schemas  # rewrite the committed JSON Schemas after a schema change
 uv run poe extract <file>  # extract one receipt with the configured provider (paid API call)
 uv run poe eval            # score the golden set from recorded responses, gate on the baseline
+```
+
+Both `extract` and `eval` write one JSON line per document to stderr: run and document ids, status and validation errors, calls, retries, tokens, latency and cost in exact USD, never document content. `extract` identifies the document by the SHA-256 of its bytes, not its file name. `DOC_INTAKE_LOG_LEVEL=WARNING` silences these lines. Example (from the eval, a receipt the OCR could not read):
+
+```json
+{"timestamp":"2026-11-19T16:26:22.727730Z","run_id":"01a1f4a1-5155-7174-935e-97d9683416f0","document_id":"X51006619346","pack":"receipt","provider":"claude","models":[],"status":"failed","errors":["EmptyDocumentError"],"calls":0,"retries":0,"input_tokens":0,"output_tokens":0,"latency_ms":0,"cost_usd":"0"}
 ```
 
 Each pack's JSON Schema (what the LLM is asked to fill, e.g. [`packs/receipt/receipt.schema.json`](packs/receipt/receipt.schema.json)) is committed; a snapshot test fails when a model change alters it, so every schema change is a visible diff in review.

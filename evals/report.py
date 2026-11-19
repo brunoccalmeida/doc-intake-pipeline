@@ -52,11 +52,15 @@ def render_report(run: EvalRun, baseline: Baseline | None, *, regressions: list[
 
     usage = run.usage
     lines += ["", "## Usage", ""]
-    lines += ["| Calls | Input tokens | Output tokens | Cost (USD) | Models |"]
-    lines += ["| --- | --- | --- | --- | --- |"]
+    lines += [
+        "| Documents | Calls | Input tokens | Output tokens | Cost (USD) "
+        "| Average per document (USD) | Models |"
+    ]
+    lines += ["| --- | --- | --- | --- | --- | --- | --- |"]
+    average = "none" if usage.average_cost_usd is None else f"${usage.average_cost_usd}"
     lines.append(
-        f"| {usage.calls} | {usage.input_tokens} | {usage.output_tokens} "
-        f"| ${usage.cost_usd} | {', '.join(usage.models) or 'none'} |"
+        f"| {usage.documents} | {usage.calls} | {usage.input_tokens} | {usage.output_tokens} "
+        f"| ${usage.cost_usd} | {average} | {', '.join(usage.models) or 'none'} |"
     )
     lines += [
         "",

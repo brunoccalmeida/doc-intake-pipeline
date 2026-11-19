@@ -12,6 +12,7 @@ from evals.run import EvalRun, Usage
 from evals.scoring import DocumentScore
 
 USAGE = Usage(
+    documents=3,
     calls=3,
     input_tokens=4_500,
     output_tokens=1_200,
@@ -75,7 +76,9 @@ def test_failures_by_document_and_field_with_a_failed_document_on_one_line() -> 
 def test_usage_and_cost() -> None:
     report = render_report(RUN, BASELINE, regressions=[])
 
-    assert "| 3 | 4500 | 1200 | $0.042 | claude-opus-5-5 |" in report
+    assert "| Documents | Calls | Input tokens | Output tokens | Cost (USD) " in report
+    assert "| Average per document (USD) | Models |" in report
+    assert "| 3 | 3 | 4500 | 1200 | $0.042 | $0.014000 | claude-opus-5-5 |" in report
 
 
 def test_no_baseline_yet_is_said_instead_of_a_column_of_blanks() -> None:

@@ -7,7 +7,8 @@
 The recordings directory (``DOC_INTAKE_RECORDINGS_DIR``) is a clone of the
 private recordings repository (``docs/DATA.md``). Writes the Markdown report
 and exits 1 when the gate fails or a recording is missing; the report holds
-ids, field names and outcomes only, so CI can publish it.
+ids, field names and outcomes only, so CI can publish it. Each document is
+also logged on stderr as a JSON line (``core.runlog``), with no content either.
 """
 
 import argparse
@@ -16,6 +17,8 @@ from pathlib import Path
 
 from core.config import Settings
 from core.llm import LLMProvider
+from core.pricing import price_of
+from core.runlog import new_run_id
 from evals.baseline import BASELINE_PATH, load_baseline, regressions, save_baseline
 from evals.recording import MissingRecordingError, RecordingProvider, RecordingStore, ReplayProvider
 from evals.report import render_report
@@ -24,6 +27,7 @@ from evals.scoring import field_accuracy
 from evals.sroie import MANIFEST_PATH, load_manifest
 from packs.receipt import RECEIPT
 from providers import make_provider
+from scripts.logs import configure_run_log
 
 REPORT_PATH = Path(".cache/eval/report.md")
 
@@ -41,6 +45,10 @@ def main(argv: list[str] | None = None) -> int:
     report_path: Path = args.report
 
     settings = Settings()
+    configure_run_log(settings.log_level)
+    # Before anything is read or recorded: an unpriced model would be paid for
+    # and then fail when its cost is computed.
+    price_of(settings.model)
     store = RecordingStore(settings.recordings_dir)
     provider: LLMProvider
     if args.record:
@@ -59,6 +67,8 @@ def main(argv: list[str] | None = None) -> int:
             provider,
             golden_dir=settings.sroie_dir,
             tessdata_dir=settings.tessdata_dir,
+            run_id=new_run_id(),
+            provider_name=settings.provider,
             max_retries=settings.max_retries,
         )
     except MissingRecordingError as error:
@@ -79,8 +89,9 @@ def main(argv: list[str] | None = None) -> int:
     report_path.write_text(render_report(run, baseline, regressions=found), encoding="utf-8")
     usage = run.usage
     print(
-        f"documents={len(run.scores)} calls={usage.calls} input_tokens={usage.input_tokens} "
-        f"output_tokens={usage.output_tokens} cost_usd={usage.cost_usd} report={report_path}",
+        f"documents={usage.documents} calls={usage.calls} input_tokens={usage.input_tokens} "
+        f"output_tokens={usage.output_tokens} cost_usd={usage.cost_usd} "
+        f"average_cost_usd={usage.average_cost_usd} report={report_path}",
         file=sys.stderr,
     )
     if found:

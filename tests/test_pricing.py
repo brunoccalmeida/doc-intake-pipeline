@@ -4,7 +4,7 @@ from decimal import Decimal
 
 import pytest
 
-from core.pricing import PRICES, UnknownModelPriceError, cost_usd
+from core.pricing import PRICES, UnknownModelPriceError, cost_usd, price_of
 
 
 def test_cost_is_tokens_times_the_price_per_million_exactly() -> None:
@@ -19,6 +19,15 @@ def test_cost_of_nothing_is_zero() -> None:
 def test_a_model_without_a_price_fails_naming_it() -> None:
     with pytest.raises(UnknownModelPriceError, match="'model-x'"):
         cost_usd("model-x", input_tokens=1, output_tokens=1)
+
+
+def test_price_of_a_known_model_is_its_row() -> None:
+    assert price_of("claude-opus-5-5") is PRICES["claude-opus-5-5"]
+
+
+def test_price_of_an_unknown_model_fails_before_any_call_is_paid() -> None:
+    with pytest.raises(UnknownModelPriceError, match="'model-x'"):
+        price_of("model-x")
 
 
 def test_every_price_is_a_non_negative_decimal() -> None:
