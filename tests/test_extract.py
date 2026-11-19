@@ -51,8 +51,12 @@ class FakeProvider:
         return LLMResponse(text=text, input_tokens=100, output_tokens=20, model="fake-1")
 
 
-def cited(value: object, quote: str, page: int = 1) -> dict[str, Any]:
-    return {"value": value, "citation": {"page": page, "quote": quote}, "reason": None}
+def cited(value: object, quote: str, page: int = 1, source: str = "text") -> dict[str, Any]:
+    return {
+        "value": value,
+        "citation": {"page": page, "source": source, "quote": quote},
+        "reason": None,
+    }
 
 
 def sale_json(**overrides: object) -> str:

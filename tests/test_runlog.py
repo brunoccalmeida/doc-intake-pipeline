@@ -33,7 +33,11 @@ PACK = Pack(name="sale", schema=Sale, instructions="Read the seller and the amou
 
 
 def cited(value: object, quote: str) -> dict[str, Any]:
-    return {"value": value, "citation": {"page": 1, "quote": quote}, "reason": None}
+    return {
+        "value": value,
+        "citation": {"page": 1, "source": "text", "quote": quote},
+        "reason": None,
+    }
 
 
 VALID = json.dumps(

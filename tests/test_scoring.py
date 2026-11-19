@@ -24,7 +24,9 @@ from packs.receipt import Receipt
 
 
 def cited[T](value: T) -> ExtractedField[T]:
-    return ExtractedField[T](value=value, citation=Citation(page=1, quote="q"), reason=None)
+    return ExtractedField[T](
+        value=value, citation=Citation(page=1, source="text", quote="q"), reason=None
+    )
 
 
 def empty() -> ExtractedField[str]:

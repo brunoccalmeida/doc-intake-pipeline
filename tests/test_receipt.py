@@ -17,7 +17,11 @@ from packs.receipt import Receipt
 
 
 def cited(value: object, quote: str) -> dict[str, Any]:
-    return {"value": value, "citation": {"page": 1, "quote": quote}, "reason": None}
+    return {
+        "value": value,
+        "citation": {"page": 1, "source": "text", "quote": quote},
+        "reason": None,
+    }
 
 
 def receipt_json(**overrides: object) -> str:
