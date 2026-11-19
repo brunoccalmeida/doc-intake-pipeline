@@ -16,9 +16,12 @@ from providers import MissingApiKeyError, make_provider
 from providers.claude import ClaudeProvider, claude_output_format
 from providers.gpt import OpenAIProvider, openai_text_format
 
+# The shell's DOC_INTAKE_* variables are cleared for every test here.
+pytestmark = pytest.mark.usefixtures("no_doc_intake_env")
+
 
 def settings(**values: object) -> Settings:
-    # _env_file=None: a developer's .env must not change the outcome.
+    # _env_file=None: a developer's .env must not change the outcome either.
     return Settings.model_validate({"_env_file": None, **values})
 
 

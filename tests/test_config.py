@@ -4,7 +4,6 @@ A wrong value must stop the program before it touches any document (fail
 fast), naming the variable, instead of surfacing later as odd behaviour.
 """
 
-import os
 from pathlib import Path
 
 import pytest
@@ -14,15 +13,12 @@ from core.config import Settings
 
 
 @pytest.fixture(autouse=True)
-def isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+def isolated(no_doc_intake_env: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """Run each test in an empty directory with no DOC_INTAKE_ variable set.
 
     A developer's real .env or shell must not change a test's outcome.
     """
     monkeypatch.chdir(tmp_path)
-    for name in list(os.environ):
-        if name.startswith("DOC_INTAKE_"):
-            monkeypatch.delenv(name)
     return tmp_path
 
 

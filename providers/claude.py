@@ -19,8 +19,10 @@ MAX_TOKENS = 16_000
 # written out so a model change does not silently change it. The eval (#6)
 # is what should tune it.
 EFFORT = "medium"
-# On a safety refusal the API re-runs the request on a model it picks for the
-# refusal category; LLMResponse.model records which model answered.
+# On a safety refusal the API re-runs the request on the model Anthropic
+# recommends for the refusal category; for a category with none, or a model
+# with no server-side fallback (Haiku 5.5), the refusal stands. LLMResponse.model
+# records which model answered. Source: Anthropic docs, "Refusals and fallback".
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 
