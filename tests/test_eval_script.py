@@ -40,6 +40,11 @@ class Answer:
 def recordings(no_doc_intake_env: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     directory = tmp_path / "recordings"
     monkeypatch.setenv("DOC_INTAKE_RECORDINGS_DIR", str(directory))
+    # Environment wins over .env: a developer's .env (another provider, model or
+    # retry count) must not change the key or the expected error.
+    monkeypatch.setenv("DOC_INTAKE_PROVIDER", "claude")
+    monkeypatch.setenv("DOC_INTAKE_CLAUDE_MODEL", "claude-opus-5-5")
+    monkeypatch.setenv("DOC_INTAKE_MAX_RETRIES", "2")
     return directory
 
 
