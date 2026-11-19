@@ -8,10 +8,10 @@ Estado do projeto entre chats. Guarda **só o estado e a próxima missão**; o r
 
 | Item             | Estado |
 | ---------------- | ------ |
-| Última missão    | [#7](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/7): log de execução, uma linha JSON por documento no stderr (`core/runlog.py`), custo médio por documento no relatório do eval e preço checado antes da chamada paga (D5 do [ARCHITECTURE.md](ARCHITECTURE.md)). Replay: US$ 0,349772 no total, US$ 0,017489 por documento |
-| Próxima missão   | [#18](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/18): perguntas ao usuário em português no `AGENTS.md` (P1, menor número entre as P1 desbloqueadas; a #13 espera crédito na OpenAI). Antes dela, fechar a semana 1 (horas reais e roteiro do vídeo, abaixo) |
-| Pendências       | P1: [#19](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/19) OCR vazio em 2 recibos desbotados (agora visíveis no log como `EmptyDocumentError`); [#20](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/20) valor copiando erro do OCR; [#13](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/13) execução na OpenAI (sem crédito; vai precisar do preço do modelo em `core/pricing.py`, senão o script para antes da chamada). P2: [#16](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/16) moeda `$` |
-| PRs abertos      | nenhum após o merge da #7 |
+| Última missão    | [#18](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/18): regra de idioma no `AGENTS.md` pelo critério "quem lê", com as caixas de pergunta nomeadas; semana 1 fechada (abaixo) |
+| Próxima missão   | [#19](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/19): OCR vazio em 2 recibos desbotados (P1, menor número entre as P1 desbloqueadas; a #13 espera crédito na OpenAI). Conferir nela o 2º critério da #18: toda pergunta ao usuário em português |
+| Pendências       | P1: [#20](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/20) valor copiando erro do OCR; [#13](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/13) execução na OpenAI (sem crédito; vai precisar do preço do modelo em `core/pricing.py`, senão o script para antes da chamada). P2: [#16](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/16) moeda `$`; [#23](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/23) vídeo de demonstração |
+| PRs abertos      | nenhum após o merge da #18 |
 | Gravações do eval | Repositório privado `brunoccalmeida/doc-intake-recordings`, clonado em `.cache/recordings`; commit fixado em `evals/recordings.json`; CI lê com deploy key somente leitura (secret `RECORDINGS_DEPLOY_KEY` no Actions e no Dependabot). Regravar: `uv run poe eval --record` (pago), push lá, atualizar pino e linha de base no mesmo PR ([DATA.md](DATA.md)) |
 | Portões          | `uv run poe check` (ruff, formatação, pyright estrito) e `uv run pytest` (exigem antes `uv run poe fetch-tessdata` e `uv run poe fetch-golden`; sem os dados os testes falham, não pulam); `uv run poe eval` (replay, sem custo); no CI, `ci-passed` agrega `check`, `test`, `eval`, `secret-scan` (gitleaks), `workflow-audit` (zizmor) e `dependency-audit` (`uv audit`, também diário) |
 | Repositório      | Ruleset "Protect main": PR só com squash, histórico linear, `ci-passed` obrigatório com branch atualizada; squash usa título e corpo do PR; auto-merge e apagar branch ligados; alertas e atualizações de segurança do Dependabot ligados |
@@ -33,16 +33,6 @@ Estado do projeto entre chats. Guarda **só o estado e a próxima missão**; o r
 - O Docker Desktop fica desligado: abrir antes de comparar algo com o Linux (`python:3.14-slim` + binário do `uv` copiado de `ghcr.io/astral-sh/uv:0.13.9`).
 - Chave de API vai no `.env` (criado com `Copy-Item .env.example .env`), nunca no `.env.example`, que é versionado. O agente não lê nem grava o `.env`; `uv run poe extract <arquivo>` falha nomeando a variável que falta, sem gastar nada.
 
-## Plano da semana 1 (~16 h)
+## Medida de esforço
 
-| Issue | Missão                                                                          | Horas |
-| ----- | ------------------------------------------------------------------------------- | ----- |
-| #1    | Esqueleto: `core/`, `packs/`, `workflows/`, `evals/`, ambiente Python, lint e testes no CI | ~2    |
-| #2    | Schema Pydantic do recibo/nota fiscal e do resultado, com citação da origem      | ~1,5  |
-| #3    | Leitura de PDF e imagem, com OCR para documento escaneado                       | ~3    |
-| #4    | Extrator com LLM, provedor trocável, saída validada e nova tentativa             | ~3    |
-| #5    | Conjunto-ouro: 20 recibos do SROIE com gabarito convertido para o schema         | ~2    |
-| #6    | Eval: precisão por campo, relatório Markdown e CI barrando piora                 | ~3    |
-| #7    | Log por execução e custo por documento                                           | ~1,5  |
-
-No fim da semana: conferir horas reais contra a estimativa e o que entra no vídeo de demonstração.
+Semana 1 (#1 a #7) fechada: ~1,6 h de atenção do usuário e ≥ 2,2 h de agente, contra ~16 h estimadas; tabela por missão e método no PR da #18. Horas humanas não medem projeto conduzido por agente: medir **atenção do usuário** e **trabalho do agente**, reconstruídos das transcrições locais (`~/.claude/projects/<projeto>/*.jsonl`). A métrica oficial equivalente, `claude_code.active_time.total` com `type=user`/`cli` ([Monitoring usage](https://code.claude.com/docs/en/monitoring-usage)), exige telemetria ligada; não ligada (YAGNI).
