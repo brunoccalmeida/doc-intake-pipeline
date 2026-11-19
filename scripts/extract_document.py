@@ -10,28 +10,14 @@ in the run log is #7.
 
 import argparse
 import sys
-from dataclasses import dataclass, field
 from pathlib import Path
 
 from core.config import Settings
 from core.extract import extract
 from core.ingest import ingest
-from core.llm import LLMProvider, LLMRequest, LLMResponse
+from core.llm import Metered
 from packs.receipt import RECEIPT
 from providers import make_provider
-
-
-@dataclass
-class Metered:
-    """Wraps a provider and keeps every response, to report tokens per run."""
-
-    inner: LLMProvider
-    responses: list[LLMResponse] = field(default_factory=list[LLMResponse])
-
-    def complete(self, request: LLMRequest) -> LLMResponse:
-        response = self.inner.complete(request)
-        self.responses.append(response)
-        return response
 
 
 def main(argv: list[str] | None = None) -> int:

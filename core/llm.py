@@ -6,7 +6,7 @@ inversion, ``docs/ARCHITECTURE.md`` D2). Concrete providers live in the
 implements the same method.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 from pydantic import BaseModel
@@ -45,3 +45,16 @@ class LLMProvider(Protocol):
     """Anything that answers an ``LLMRequest``; transport errors propagate."""
 
     def complete(self, request: LLMRequest) -> LLMResponse: ...
+
+
+@dataclass
+class Metered:
+    """Wraps a provider and keeps every response, to report calls and tokens per run."""
+
+    inner: LLMProvider
+    responses: list[LLMResponse] = field(default_factory=list[LLMResponse])
+
+    def complete(self, request: LLMRequest) -> LLMResponse:
+        response = self.inner.complete(request)
+        self.responses.append(response)
+        return response
