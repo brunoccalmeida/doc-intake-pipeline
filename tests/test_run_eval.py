@@ -116,7 +116,9 @@ def entry(*, cost: str, calls: int = 1) -> RunLogEntry:
 
 def write_golden(directory: Path, document_id: str) -> None:
     def cited[T](value: T) -> ExtractedField[T]:
-        return ExtractedField[T](value=value, citation=Citation(page=1, quote="q"), reason=None)
+        return ExtractedField[T](
+            value=value, citation=Citation(page=1, source="text", quote="q"), reason=None
+        )
 
     golden = Receipt(
         company=cited("ACME"),

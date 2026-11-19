@@ -12,12 +12,19 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from core.extract import extract
+from core.ingest import Document, PageText
+from core.llm import LLMRequest, LLMResponse
 from core.result import ExtractionResult
-from packs.receipt import Receipt
+from packs.receipt import RECEIPT, Receipt
 
 
 def cited(value: object, quote: str) -> dict[str, Any]:
-    return {"value": value, "citation": {"page": 1, "quote": quote}, "reason": None}
+    return {
+        "value": value,
+        "citation": {"page": 1, "source": "text", "quote": quote},
+        "reason": None,
+    }
 
 
 def receipt_json(**overrides: object) -> str:
@@ -128,3 +135,27 @@ def test_every_field_is_required() -> None:
     del fields["currency"]
     with pytest.raises(ValidationError, match="currency"):
         Receipt.model_validate(fields)
+
+
+def test_receipt_pack_accepts_a_currency_code_converted_from_the_printed_symbol() -> None:
+    # "RM" is printed and the pack asks for "MYR": only company and address
+    # are read as printed, so the code is not held to its quote (review of #26).
+    text = "ACME SDN BHD\nNO. 12, JALAN MAJU\n25/12/2018\nTOTAL RM 9.00"
+    document = Document(pages=(PageText(number=1, text=text, source="text_layer", image=None),))
+    answer = json.dumps(
+        {
+            "company": cited("ACME SDN BHD", "ACME SDN BHD"),
+            "address": cited("NO. 12, JALAN MAJU", "NO. 12, JALAN MAJU"),
+            "date": cited("2018-12-25", "25/12/2018"),
+            "total": cited("9.00", "TOTAL RM 9.00"),
+            "currency": cited("MYR", "RM 9.00"),
+        }
+    )
+
+    class Scripted:
+        def complete(self, request: LLMRequest) -> LLMResponse:
+            return LLMResponse(text=answer, input_tokens=1, output_tokens=1, model="fake")
+
+    result = extract(document, RECEIPT, Scripted())
+
+    assert (result.status, result.errors) == ("ok", [])

@@ -17,7 +17,7 @@ class Pair(BaseModel, frozen=True):
     name: ExtractedField[str]
 
 
-CITED = Citation(page=1, quote="ACME SDN BHD")
+CITED = Citation(page=1, source="text", quote="ACME SDN BHD")
 
 
 def test_value_with_citation_is_accepted() -> None:
@@ -47,7 +47,7 @@ def test_every_key_must_be_written_even_when_null(missing: str) -> None:
     # The provider's schema lists every key as required (OpenAI's strict mode
     # demands it); the model enforces the same contract, so a producer always
     # states the evidence or its absence instead of leaving it implied.
-    data = {"value": "x", "citation": {"page": 1, "quote": "x"}, "reason": None}
+    data = {"value": "x", "citation": {"page": 1, "source": "text", "quote": "x"}, "reason": None}
     del data[missing]
     with pytest.raises(ValidationError, match=rf"{missing}\s+Field required"):
         ExtractedField[str].model_validate(data)
@@ -76,19 +76,36 @@ def test_empty_value_with_citation_is_rejected() -> None:
 @pytest.mark.parametrize("quote", ["", "   "])
 def test_blank_quote_is_rejected(quote: str) -> None:
     with pytest.raises(ValidationError, match="quote"):
-        Citation(page=1, quote=quote)
+        Citation(page=1, source="text", quote=quote)
 
 
 def test_pages_are_numbered_from_one() -> None:
     with pytest.raises(ValidationError, match="page"):
-        Citation(page=0, quote="ACME SDN BHD")
+        Citation(page=0, source="text", quote="ACME SDN BHD")
+
+
+def test_citation_must_say_where_the_quote_was_read() -> None:
+    # "text": the page's text (text layer or OCR), which the engine can check;
+    # "image": the page image, which only a person can check (issue #26).
+    with pytest.raises(ValidationError, match=r"source\s+Field required"):
+        Citation.model_validate({"page": 1, "quote": "ACME SDN BHD"})
+
+
+def test_citation_source_is_text_or_image() -> None:
+    with pytest.raises(ValidationError, match=r"source\s+Input should be 'text' or 'image'"):
+        Citation.model_validate({"page": 1, "source": "memory", "quote": "ACME SDN BHD"})
 
 
 def test_unknown_keys_are_rejected() -> None:
     # An LLM that adds a key it was not asked for is not following the schema.
     with pytest.raises(ValidationError, match="confidence"):
         ExtractedField[str].model_validate(
-            {"value": "x", "citation": {"page": 1, "quote": "x"}, "reason": None, "confidence": 0.9}
+            {
+                "value": "x",
+                "citation": {"page": 1, "source": "text", "quote": "x"},
+                "reason": None,
+                "confidence": 0.9,
+            }
         )
 
 

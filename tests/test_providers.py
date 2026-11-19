@@ -4,17 +4,20 @@ No test here calls a provider (AGENTS.md invariant 4): they build clients and
 schemas offline. The live call is the manual run recorded in the PR.
 """
 
+import base64
 from collections.abc import Iterator
+from dataclasses import replace
 from typing import Any, cast
 
 import pytest
 from pydantic import SecretStr
 
 from core.config import Settings
+from core.llm import ImageInput, LLMRequest
 from packs.receipt import Receipt
 from providers import MissingApiKeyError, make_provider
-from providers.claude import ClaudeProvider, claude_output_format
-from providers.gpt import OpenAIProvider, openai_text_format
+from providers.claude import ClaudeProvider, claude_content, claude_output_format
+from providers.gpt import OpenAIProvider, openai_input, openai_text_format
 
 # The shell's DOC_INTAKE_* variables are cleared for every test here.
 pytestmark = pytest.mark.usefixtures("no_doc_intake_env")
@@ -115,3 +118,76 @@ def test_openai_schema_has_no_ref_beside_other_keys() -> None:
 
     schema = openai_text_format("receipt", Receipt)["schema"]
     assert all(set(node) == {"$ref"} for node in refs(schema))
+
+
+IMAGE_REQUEST = LLMRequest(
+    instructions="Read the seller.",
+    images=(
+        ImageInput(label="Image of page 1:", media_type="image/jpeg", data=b"page 1 jpeg"),
+        ImageInput(label="Image of page 2:", media_type="image/png", data=b"page 2 png"),
+    ),
+    prompt="<document>ACME</document>",
+    schema_name="receipt",
+    output_schema=Receipt,
+)
+
+
+def test_claude_content_puts_each_labelled_image_before_the_prompt() -> None:
+    # "Claude works best when images come before text"; a short label before
+    # each image ties it to its page (Anthropic docs, "Vision").
+    assert claude_content(IMAGE_REQUEST) == [
+        {"type": "text", "text": "Image of page 1:"},
+        {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/jpeg",
+                "data": base64.b64encode(b"page 1 jpeg").decode(),
+            },
+        },
+        {"type": "text", "text": "Image of page 2:"},
+        {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/png",
+                "data": base64.b64encode(b"page 2 png").decode(),
+            },
+        },
+        {"type": "text", "text": "<document>ACME</document>"},
+    ]
+
+
+def test_openai_input_puts_each_labelled_image_before_the_prompt_at_original_detail() -> None:
+    # "original" is what OpenAI recommends for OCR-like fine detail
+    # (OpenAI docs, "Images and vision").
+    jpeg = base64.b64encode(b"page 1 jpeg").decode()
+    png = base64.b64encode(b"page 2 png").decode()
+    assert openai_input(IMAGE_REQUEST) == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "input_text", "text": "Image of page 1:"},
+                {
+                    "type": "input_image",
+                    "image_url": f"data:image/jpeg;base64,{jpeg}",
+                    "detail": "original",
+                },
+                {"type": "input_text", "text": "Image of page 2:"},
+                {
+                    "type": "input_image",
+                    "image_url": f"data:image/png;base64,{png}",
+                    "detail": "original",
+                },
+                {"type": "input_text", "text": "<document>ACME</document>"},
+            ],
+        }
+    ]
+
+
+def test_request_without_images_is_the_prompt_alone() -> None:
+    plain = replace(IMAGE_REQUEST, images=())
+    assert claude_content(plain) == [{"type": "text", "text": "<document>ACME</document>"}]
+    assert openai_input(plain) == [
+        {"role": "user", "content": [{"type": "input_text", "text": "<document>ACME</document>"}]}
+    ]

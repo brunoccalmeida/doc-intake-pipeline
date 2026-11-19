@@ -89,7 +89,9 @@ def test_unknown_total_format_fails(text: str) -> None:
         parse_total(text)
 
 
-MYR = ExtractedField[str](value="MYR", citation=Citation(page=1, quote="RM"), reason=None)
+MYR = ExtractedField[str](
+    value="MYR", citation=Citation(page=1, source="image", quote="RM"), reason=None
+)
 
 
 def test_entities_become_a_receipt_citing_the_printed_text() -> None:
@@ -105,9 +107,9 @@ def test_entities_become_a_receipt_citing_the_printed_text() -> None:
     receipt = to_receipt(entities, currency=MYR)
 
     assert receipt.date.value == date(2016, 6, 7)
-    assert receipt.date.citation == Citation(page=1, quote="7/6/2016")
+    assert receipt.date.citation == Citation(page=1, source="image", quote="7/6/2016")
     assert receipt.total.value == Decimal("399.00")
-    assert receipt.total.citation == Citation(page=1, quote="RM 399.00")
+    assert receipt.total.citation == Citation(page=1, source="image", quote="RM 399.00")
     assert receipt.company.value == "SECURITY & OA TRADING"
     assert receipt.currency == MYR
 

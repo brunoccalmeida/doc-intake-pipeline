@@ -57,10 +57,21 @@ class StrictModel(BaseModel, frozen=True, extra="forbid"):
     """
 
 
+type QuoteSource = Literal["text", "image"]
+
+
+# The docstring is the schema description the LLM reads, so it speaks to the
+# model. Why "image" quotes send the result to review: docs/ARCHITECTURE.md D12.
 class Citation(StrictModel, frozen=True):
-    """Where a value was read: the page (numbered from 1) and the literal text."""
+    """Where a value was read: the page (numbered from 1), the source and the literal text.
+
+    source "text": the quote is copied from the page's text. source "image": the
+    quote is the text as printed on the page image, used only where the page's
+    text misreads or misses it.
+    """
 
     page: Annotated[int, Field(ge=1)]
+    source: QuoteSource
     quote: NonBlankText
 
 

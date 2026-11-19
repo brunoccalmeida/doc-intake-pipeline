@@ -10,14 +10,16 @@ literally, so the only change is ``\\r\\n`` to ``\\n``. Error messages name the
 file, never its content (AGENTS.md invariant 6).
 """
 
+import io
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 import pypdfium2 as pdfium
 import tesserocr
 from PIL import Image, ImageDraw
-from pydantic import Field
+from pydantic import Field, model_validator
 
+from core.llm import ImageMediaType
 from core.result import StrictModel
 
 PDF_SUFFIXES = frozenset({".pdf"})
@@ -37,12 +39,33 @@ DARK_EDGE_MAX_MEAN = 128
 type TextSource = Literal["text_layer", "ocr"]
 
 
+class PageImage(StrictModel, frozen=True):
+    """An encoded page image (the file's bytes) and its media type."""
+
+    media_type: ImageMediaType
+    data: bytes
+
+
 class PageText(StrictModel, frozen=True):
-    """One page's text, numbered from 1 like ``Citation.page``."""
+    """One page's text, numbered from 1 like ``Citation.page``.
+
+    An OCR page also carries the image its text was read from, so the model
+    can read what OCR misread (issue #26); a text layer page is exact and
+    carries none.
+    """
 
     number: Annotated[int, Field(ge=1)]
     text: str
     source: TextSource
+    image: PageImage | None
+
+    @model_validator(mode="after")
+    def _image_matches_source(self) -> Self:
+        if self.source == "ocr" and self.image is None:
+            raise ValueError("an OCR page carries the image it was read from")
+        if self.source == "text_layer" and self.image is not None:
+            raise ValueError("a text layer page carries no image")
+        return self
 
 
 class Document(StrictModel, frozen=True):
@@ -93,7 +116,8 @@ def ingest(path: Path, *, tessdata_dir: Path) -> Document:
     if suffix in PDF_SUFFIXES:
         pages = _read_pdf(path, tessdata_dir)
     else:
-        pages = [PageText(number=1, text=_ocr(_open_image(path), tessdata_dir), source="ocr")]
+        image, page_image = _open_image(path)
+        pages = [PageText(number=1, text=_ocr(image, tessdata_dir), source="ocr", image=page_image)]
 
     if not any(page.text.strip() for page in pages):
         raise EmptyDocumentError(f"{path.name}: no text found on any page")
@@ -110,26 +134,53 @@ def _read_pdf(path: Path, tessdata_dir: Path) -> list[PageText]:
                 page = pdf[index]
                 text = _normalize(page.get_textpage().get_text_bounded())
                 if text.strip():
-                    pages.append(PageText(number=index + 1, text=text, source="text_layer"))
+                    pages.append(
+                        PageText(number=index + 1, text=text, source="text_layer", image=None)
+                    )
                 else:
                     image = page.render(scale=OCR_DPI / 72).to_pil()
                     pages.append(
-                        PageText(number=index + 1, text=_ocr(image, tessdata_dir), source="ocr")
+                        PageText(
+                            number=index + 1,
+                            text=_ocr(image, tessdata_dir),
+                            source="ocr",
+                            image=_png(image),
+                        )
                     )
     except pdfium.PdfiumError as error:
         raise UnreadableDocumentError(f"{path.name}: not a readable PDF ({error})") from error
     return pages
 
 
-def _open_image(path: Path) -> Image.Image:
+def _open_image(path: Path) -> tuple[Image.Image, PageImage]:
+    """The decoded image for OCR, and the file itself for the model.
+
+    The model gets the file's own bytes, not a re-encoding: every lossy pass
+    blurs print (Anthropic docs, "Vision", image quality guidance). Its media
+    type comes from the content, not the extension, which can lie.
+    """
     try:
         with Image.open(path) as image:
             image.load()  # Pillow decodes lazily: force it so corruption fails here
-            return image.copy()
+            decoded, found = image.copy(), image.format
     # UnidentifiedImageError and truncated files are OSErrors; the decompression
     # bomb guard (over 2x Image.MAX_IMAGE_PIXELS) is not, so it is named too.
     except (OSError, Image.DecompressionBombError) as error:
         raise UnreadableDocumentError(f"{path.name}: not a readable image ({error})") from error
+    media_type = _MEDIA_TYPES.get(found or "")
+    if media_type is None:
+        raise UnreadableDocumentError(f"{path.name}: the file is {found}, not a PNG or JPEG")
+    return decoded, PageImage(media_type=media_type, data=path.read_bytes())
+
+
+_MEDIA_TYPES: dict[str, ImageMediaType] = {"PNG": "image/png", "JPEG": "image/jpeg"}
+
+
+def _png(image: Image.Image) -> PageImage:
+    """A rendered page as PNG: lossless, so the model sees the pixels OCR read."""
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return PageImage(media_type="image/png", data=buffer.getvalue())
 
 
 def _ocr(image: Image.Image, tessdata_dir: Path) -> str:

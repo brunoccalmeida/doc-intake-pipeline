@@ -5,6 +5,7 @@ with a text layer is written by hand, and images are drawn with Pillow, so a
 scanned page is an image whose words only OCR can recover.
 """
 
+import io
 from pathlib import Path
 
 import pytest
@@ -15,11 +16,14 @@ from core.config import Settings
 from core.ingest import (
     EmptyDocumentError,
     OcrDataMissingError,
+    PageImage,
     PageText,
     UnreadableDocumentError,
     UnsupportedFileTypeError,
     ingest,
 )
+
+PNG_PAGE = PageImage(media_type="image/png", data=b"\x89PNG\r\n\x1a\n")
 
 
 @pytest.fixture(scope="module")
@@ -231,6 +235,37 @@ def test_image_is_read_with_ocr(tmp_path: Path, tessdata_dir: Path, name: str) -
     assert {"TOTAL", "12.50", "CASH"} <= words(page)
 
 
+@pytest.mark.parametrize(
+    ("name", "media_type"),
+    [("receipt.png", "image/png"), ("receipt.jpg", "image/jpeg"), ("RECEIPT.JPEG", "image/jpeg")],
+)
+def test_image_page_keeps_the_original_file_for_the_model(
+    tmp_path: Path, tessdata_dir: Path, name: str, media_type: str
+) -> None:
+    # The file's own bytes, not a re-encoding: every lossy pass blurs print
+    # (Anthropic docs, "Vision", image quality guidance).
+    image = tmp_path / name
+    draw_text("TOTAL 12.50 CASH").save(image)
+
+    page = ingest(image, tessdata_dir=tessdata_dir).pages[0]
+
+    assert page.image is not None
+    assert page.image.media_type == media_type
+    assert page.image.data == image.read_bytes()
+
+
+def test_image_whose_content_is_not_its_extension_is_unreadable(
+    tmp_path: Path, tessdata_dir: Path
+) -> None:
+    # The media type sent to the model comes from the content; a GIF named
+    # .png would be declared as PNG and rejected by the API, so it fails here.
+    image = tmp_path / "receipt.png"
+    draw_text("TOTAL 12.50 CASH").save(image, format="GIF")
+
+    with pytest.raises(UnreadableDocumentError, match=r"receipt\.png.*GIF"):
+        ingest(image, tessdata_dir=tessdata_dir)
+
+
 def test_scanned_pdf_without_text_layer_is_read_with_ocr(
     tmp_path: Path, tessdata_dir: Path
 ) -> None:
@@ -241,6 +276,40 @@ def test_scanned_pdf_without_text_layer_is_read_with_ocr(
 
     assert [page.source for page in document.pages] == ["ocr"]
     assert {"TOTAL", "12.50", "CASH"} <= words(document.pages[0])
+
+
+def test_scanned_pdf_page_sends_the_rendered_page_the_ocr_read(
+    tmp_path: Path, tessdata_dir: Path
+) -> None:
+    scanned = tmp_path / "scanned.pdf"
+    draw_text("TOTAL 12.50 CASH").save(scanned, resolution=150.0)  # 1400x240 px at 150 dpi
+
+    page = ingest(scanned, tessdata_dir=tessdata_dir).pages[0]
+
+    assert page.image is not None
+    assert page.image.media_type == "image/png"  # lossless: no compression artefacts
+    with Image.open(io.BytesIO(page.image.data)) as rendered:
+        assert rendered.format == "PNG"
+        assert rendered.size == (2800, 480)  # the same 300 dpi render OCR read
+
+
+def test_text_layer_page_carries_no_image(tmp_path: Path) -> None:
+    # Its text is exact, so an image would only add tokens (issue #26).
+    pdf = write_pdf(tmp_path / "receipt.pdf", ["TOTAL 12.50"])
+
+    page = ingest(pdf, tessdata_dir=tmp_path / "no-tessdata").pages[0]
+
+    assert page.image is None
+
+
+def test_ocr_page_requires_its_image() -> None:
+    with pytest.raises(ValidationError, match="an OCR page carries the image it was read from"):
+        PageText(number=1, text="TOTAL", source="ocr", image=None)
+
+
+def test_text_layer_page_rejects_an_image() -> None:
+    with pytest.raises(ValidationError, match="a text layer page carries no image"):
+        PageText(number=1, text="TOTAL", source="text_layer", image=PNG_PAGE)
 
 
 def test_ocr_without_language_data_names_the_fix(tmp_path: Path) -> None:

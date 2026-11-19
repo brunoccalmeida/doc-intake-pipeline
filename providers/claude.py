@@ -6,8 +6,14 @@ numeric and string constraints (``minimum``, ``pattern``...), so the SDK's
 validation still enforces them (Anthropic docs, "Structured outputs").
 """
 
+import base64
+
 import anthropic
-from anthropic.types.beta import BetaJSONOutputFormatParam
+from anthropic.types.beta import (
+    BetaImageBlockParam,
+    BetaJSONOutputFormatParam,
+    BetaTextBlockParam,
+)
 from pydantic import BaseModel
 
 from core.llm import LLMRequest, LLMResponse
@@ -30,6 +36,27 @@ def claude_output_format(schema: type[BaseModel]) -> BetaJSONOutputFormatParam:
     return {"type": "json_schema", "schema": anthropic.transform_schema(schema)}
 
 
+def claude_content(request: LLMRequest) -> list[BetaTextBlockParam | BetaImageBlockParam]:
+    """Each image after its label, then the prompt: "Claude works best when images
+    come before text" (Anthropic docs, "Vision"). Base64, not the Files API: each
+    request is sent once, so there is no upload to reuse."""
+    content: list[BetaTextBlockParam | BetaImageBlockParam] = []
+    for image in request.images:
+        content.append({"type": "text", "text": image.label})
+        content.append(
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": image.media_type,
+                    "data": base64.b64encode(image.data).decode("ascii"),
+                },
+            }
+        )
+    content.append({"type": "text", "text": request.prompt})
+    return content
+
+
 class ClaudeProvider:
     """An ``LLMProvider`` backed by the Claude Messages API."""
 
@@ -43,7 +70,7 @@ class ClaudeProvider:
             model=self._model,
             max_tokens=MAX_TOKENS,
             system=request.instructions,
-            messages=[{"role": "user", "content": request.prompt}],
+            messages=[{"role": "user", "content": claude_content(request)}],
             output_config={
                 "effort": EFFORT,
                 "format": claude_output_format(request.output_schema),

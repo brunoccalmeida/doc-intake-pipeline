@@ -15,25 +15,38 @@ reports the document instead of skipping it.
 """
 
 from dataclasses import dataclass
+from typing import TypeIs
 
 from pydantic import BaseModel, ValidationError
 
-from core.ingest import Document
-from core.llm import LLMProvider, LLMRequest
-from core.result import ExtractedField, ExtractionResult
+from core.ingest import Document, PageText
+from core.llm import ImageInput, LLMProvider, LLMRequest
+from core.result import Citation, ExtractedField, ExtractionResult
 
 ENGINE_INSTRUCTIONS = """\
 You extract fields from one document. Its text is given page by page, as read \
-from the file (OCR text may contain recognition errors).
+from the file. A page read by OCR also comes with its image, shown before the \
+text; OCR text may contain recognition errors.
 
 For every field, return exactly one of:
-- a value, with a citation: the page number and a quote copied character for \
-character from that page's text, showing where the value was read;
+- a value, with a citation: the page number, the source and a quote showing \
+where the value was read.
+  - source "text": the quote is copied character for character from that \
+page's text. Use it whenever the page's text shows the value correctly.
+  - source "image": the quote is the text exactly as printed on the page image. \
+Use it only when the page's text misreads or misses what the image shows.
+  A field read as printed (listed below) has its value spelled exactly as in \
+its quote, with nothing added that is not printed (no commas, words or \
+corrections), and its quote covers the whole value, every line of it; the \
+quote may hold more than the value. Other fields are converted as their \
+description says, and their quote keeps the printed text.
 - null as the value, with citation null and a short reason saying why the \
 document does not show it.
 
-Never guess or infer a value the document does not show. A reason is only for \
-a null value. Reply with JSON that matches the schema, and nothing else."""
+Never guess or infer a value the document does not show, and never correct a \
+reading from general knowledge: only the page text and the page image are \
+evidence. A reason is only for a null value. Reply with JSON that matches the \
+schema, and nothing else."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +56,14 @@ class Pack[S: BaseModel]:
     name: str
     schema: type[S]
     instructions: str
+    # Fields whose value is the text as printed: a value must sit inside its
+    # quote (D11). The others are converted (a code, a date) and are not.
+    printed: frozenset[str]
+
+    def __post_init__(self) -> None:
+        unknown = self.printed - set(self.schema.model_fields)
+        if unknown:
+            raise ValueError(f"printed fields not in the schema: {', '.join(sorted(unknown))}")
 
 
 def extract[S: BaseModel](
@@ -52,11 +73,13 @@ def extract[S: BaseModel](
     if max_retries < 0:
         raise ValueError(f"max_retries must be 0 or more, got {max_retries}")
     instructions = _instructions(pack)
+    images = _page_images(document)
     prompt = _document_prompt(document)
     errors: list[str] = []
     for _ in range(1 + max_retries):
         request = LLMRequest(
             instructions=instructions,
+            images=images,
             prompt=prompt,
             schema_name=pack.name,
             output_schema=pack.schema,
@@ -68,7 +91,7 @@ def extract[S: BaseModel](
             errors = _describe(error)
             prompt = _retry_prompt(_document_prompt(document), answer, errors)
             continue
-        problems = _citation_problems(fields, document)
+        problems = _citation_problems(fields, document, pack.printed)
         if problems:
             return ExtractionResult[S](status="needs_review", fields=fields, errors=problems)
         return ExtractionResult[S](status="ok", fields=fields)
@@ -84,9 +107,25 @@ def _instructions[S: BaseModel](pack: Pack[S]) -> str:
         if info.description
     )
     parts = [ENGINE_INSTRUCTIONS, pack.instructions]
+    if pack.printed:
+        parts.append(f"Fields read as printed: {', '.join(sorted(pack.printed))}.")
     if guide:
         parts.append(f"Fields:\n{guide}")
     return "\n\n".join(parts)
+
+
+def _page_images(document: Document) -> tuple[ImageInput, ...]:
+    # "Introduce each one with a short text label" (Anthropic docs, "Vision",
+    # multiple images), so the model can tie an image to its page number.
+    return tuple(
+        ImageInput(
+            label=f"Image of page {page.number}:",
+            media_type=page.image.media_type,
+            data=page.image.data,
+        )
+        for page in document.pages
+        if page.image is not None
+    )
 
 
 def _document_prompt(document: Document) -> str:
@@ -121,29 +160,55 @@ def _describe(error: ValidationError) -> list[str]:
     return described
 
 
-def _citation_problems(fields: BaseModel, document: Document) -> list[str]:
-    """Every cited quote must appear on the page it names.
+def _citation_problems(fields: BaseModel, document: Document, printed: frozenset[str]) -> list[str]:
+    """What a person must check in each cited field; at most one problem per field.
+
+    - a "text" quote must appear on the page it names;
+    - an "image" quote cannot be checked by code, so it always goes to review
+      (``docs/ARCHITECTURE.md`` D12), and it must cite a page whose image was sent;
+    - a field read as printed must have its value inside its quote (D11).
 
     Comparison ignores how whitespace is laid out (a model often copies a
     multi-line passage as one line), and nothing else: case, punctuation and
     OCR errors must match, so a paraphrase is caught.
     """
-    pages = {page.number: _squash(page.text) for page in document.pages}
+    pages = {page.number: page for page in document.pages}
     problems: list[str] = []
     for name in type(fields).model_fields:
         field = getattr(fields, name)
-        if not isinstance(field, ExtractedField) or field.citation is None:
+        if not _is_field(field) or field.citation is None:
             continue
-        citation = field.citation
-        page_text = pages.get(citation.page)
-        if page_text is None:
-            problems.append(
-                f"{name}: cites page {citation.page}, but the document has {len(pages)} pages"
-            )
-        elif _squash(citation.quote) not in page_text:
-            problems.append(f"{name}: quote not found on page {citation.page}")
+        text = field.value if name in printed and isinstance(field.value, str) else None
+        problem = _citation_problem(text, field.citation, pages)
+        if problem is not None:
+            problems.append(f"{name}: {problem}")
     return problems
+
+
+def _citation_problem(
+    text: str | None, citation: Citation, pages: dict[int, PageText]
+) -> str | None:
+    """The first problem found, or None; ``text`` is the value of a printed field."""
+    page = pages.get(citation.page)
+    if page is None:
+        return f"cites page {citation.page}, but the document has {len(pages)} pages"
+    quote = _squash(citation.quote)
+    if citation.source == "text" and quote not in _squash(page.text):
+        return f"quote not found on page {citation.page}"
+    if citation.source == "image" and page.image is None:
+        return f"cites the image of page {citation.page}, which was not sent"
+    if text is not None and _squash(text) not in quote:
+        return "value is not the text of its quote"
+    if citation.source == "image":
+        return f"read from the image of page {citation.page}; check it on the page"
+    return None
 
 
 def _squash(text: str) -> str:
     return " ".join(text.split())
+
+
+def _is_field(value: object) -> TypeIs[ExtractedField[object]]:
+    # getattr loses the field's type parameter; isinstance alone would leave it
+    # Unknown, which strict pyright rejects (PEP 742).
+    return isinstance(value, ExtractedField)

@@ -1,7 +1,7 @@
 """Recorded provider responses: keyed by what was asked, replayed without a network.
 
 The key is a hash of everything that shapes the answer (provider, requested
-model, instructions, prompt, output schema), so changing any of them needs a
+model, instructions, images, prompt, output schema), so changing any of them needs a
 new recording instead of silently scoring a stale one (``docs/ARCHITECTURE.md``
 D4). Replay never calls a provider; a missing recording fails, naming the fix.
 """
@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from core.llm import LLMRequest, LLMResponse
+from core.llm import ImageInput, LLMRequest, LLMResponse
 from core.result import ExtractedField, StrictModel
 from evals.recording import (
     PIN_PATH,
@@ -33,8 +33,10 @@ class OtherSale(StrictModel, frozen=True):
     seller: ExtractedField[str]
 
 
+IMAGE = ImageInput(label="Image of page 1:", media_type="image/png", data=b"page 1 png")
 REQUEST = LLMRequest(
     instructions="Read the seller.",
+    images=(IMAGE,),
     prompt="<document>ACME</document>",
     schema_name="sale",
     output_schema=Sale,
@@ -72,8 +74,23 @@ def test_key_is_a_stable_sha256_of_the_request() -> None:
         lambda: key(replace(REQUEST, output_schema=OtherSale)),
         lambda: key(model="m-2"),
         lambda: key(provider="openai"),
+        lambda: key(replace(REQUEST, images=(replace(IMAGE, data=b"other png"),))),
+        lambda: key(replace(REQUEST, images=(replace(IMAGE, label="Image of page 2:"),))),
+        lambda: key(replace(REQUEST, images=(replace(IMAGE, media_type="image/jpeg"),))),
+        lambda: key(replace(REQUEST, images=())),
     ],
-    ids=["prompt", "instructions", "schema-name", "schema", "model", "provider"],
+    ids=[
+        "prompt",
+        "instructions",
+        "schema-name",
+        "schema",
+        "model",
+        "provider",
+        "image-bytes",
+        "image-label",
+        "image-type",
+        "no-image",
+    ],
 )
 def test_key_changes_with_anything_that_shapes_the_answer(changed: object) -> None:
     assert callable(changed)

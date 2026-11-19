@@ -2,12 +2,15 @@
   "$defs": {
     "Citation": {
       "additionalProperties": false,
-      "description": "Where a value was read: the page (numbered from 1) and the literal text.",
+      "description": "Where a value was read: the page (numbered from 1), the source and the literal text.\n\nsource \"text\": the quote is copied from the page's text. source \"image\": the\nquote is the text as printed on the page image, used only where the page's\ntext misreads or misses it.",
       "properties": {
         "page": {
           "minimum": 1,
           "title": "Page",
           "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/QuoteSource"
         },
         "quote": {
           "$ref": "#/$defs/NonBlankText"
@@ -15,6 +18,7 @@
       },
       "required": [
         "page",
+        "source",
         "quote"
       ],
       "title": "Citation",
@@ -210,6 +214,13 @@
     },
     "NonBlankText": {
       "pattern": "\\S",
+      "type": "string"
+    },
+    "QuoteSource": {
+      "enum": [
+        "text",
+        "image"
+      ],
       "type": "string"
     }
   },

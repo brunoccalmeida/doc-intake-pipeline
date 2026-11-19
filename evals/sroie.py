@@ -120,7 +120,9 @@ def to_receipt(entities: bytes, *, currency: ExtractedField[str]) -> Receipt:
         raise ValueError(f"ground truth without {', '.join(missing)}")
 
     def cited[T](value: T, quote: str) -> ExtractedField[T]:
-        return ExtractedField[T](value=value, citation=Citation(page=1, quote=quote), reason=None)
+        return ExtractedField[T](
+            value=value, citation=Citation(page=1, source="image", quote=quote), reason=None
+        )
 
     return Receipt(
         company=cited(raw["company"], raw["company"]),
