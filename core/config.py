@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # SROIE golden set (images and converted records), fetched by "uv run poe fetch-golden".
     # Outside Git: SROIE has no published licence (docs/DATA.md).
     sroie_dir: Path = Path(".cache/golden/sroie")
+    # Recorded provider responses the eval replays: a clone of the private
+    # recordings repository (they quote the documents; docs/DATA.md).
+    recordings_dir: Path = Path(".cache/recordings")
 
     # LLM extraction (docs/ARCHITECTURE.md D2, D3). Each vendor's recommended
     # general-purpose model is the default; the eval (#6) is what should move it.
@@ -46,3 +49,12 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     # Retries after the first call when the answer fails validation.
     max_retries: Annotated[int, Field(ge=0)] = 2
+
+    @property
+    def model(self) -> str:
+        """The model of the selected provider: what a run asks for."""
+        match self.provider:
+            case "claude":
+                return self.claude_model
+            case "openai":
+                return self.openai_model
