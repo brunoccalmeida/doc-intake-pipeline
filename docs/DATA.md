@@ -31,6 +31,12 @@ Without a licence, default copyright applies ([GitHub Docs: licensing a reposito
 
 **Attribution:** any use of these results cites the paper above.
 
+### Recorded responses (eval)
+
+The eval replays recorded LLM responses (`docs/ARCHITECTURE.md` D4). Each response quotes its receipt (company, address, date, total and the cited lines), so it is derived from SROIE as much as the converted ground truth is, and stays out of this repository for the same reason. The recordings live in the **private** repository `brunoccalmeida/doc-intake-recordings`; this repository pins the commit it replays in [`evals/recordings.json`](../evals/recordings.json), and CI reads it with a read-only deploy key. What is public is only what is ours: per-field scores, outcomes by receipt id and field, tokens and cost (the eval report holds no value from a receipt).
+
+To re-record after a prompt, schema or model change: clone the private repository into `DOC_INTAKE_RECORDINGS_DIR` (default `.cache/recordings`), run `uv run poe eval --record` (paid API calls, only for requests not yet recorded), commit and push there, then update the pin and the baseline in the same pull request.
+
 ### Why the mirror
 
 The official download needs a logged-in account, so it cannot be fetched by a pinned, scriptable command. Of the public mirrors, `Losyash/SROIE-datasetv2` keeps the original file names (`X51005447841`) and the original `test` split with its ground truth, unmodified. `zzzDavid/ICDAR-2019-SROIE`, the most starred, was not used: it renames the files and rewrites ground truth with its own script, so its records are no longer traceable to SROIE ids.
@@ -87,3 +93,4 @@ Judged by eye, to know what the set covers:
 
 - **Contamination:** SROIE, ground truth included, is widely copied across public GitHub and Hugging Face repositories, so current LLMs have likely seen these receipts and their answers. Accuracy measured on this set may be optimistic; publishing test data in plain text is what feeds that ([Jacovi et al., 2023](https://aclanthology.org/2023.emnlp-main.308)). This is one more reason the converted records stay out of Git.
 - **Small sample:** 20 receipts from one country and one period (2016-2018) detect regressions; they do not estimate accuracy on other documents.
+- **One draw per request:** the recordings hold one answer from a model that does not answer the same way twice. Replay makes the gate deterministic, but a re-recording can move a score by sampling alone, with no change to the pipeline. A drop seen right after a re-recording is checked against a second recording before it is blamed on the change.
