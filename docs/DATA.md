@@ -52,6 +52,8 @@ SROIE annotates `company`, `address`, `date` and `total` as transcribed text. Ea
 
 Any date or total format not seen in these 20 receipts fails the conversion, so a new format is looked at instead of guessed.
 
+Issue #5 asked to normalize with "the same functions the pack uses", but the pack has none: the LLM returns ISO dates and decimal totals, and the pack's schema only validates them. So the conversion has its own parsers for SROIE's printed formats ([`parse_date`, `parse_total`](../evals/sroie.py)), and what they produce goes through the same `Receipt` schema as the model's answers, with the same `IsoDate` and `Money` rules. Golden records and extractions are therefore held to one definition of a valid value.
+
 ### Currency: our annotation
 
 SROIE does not annotate currency, and the `Receipt` schema requires it. We read it from each image, following the pack's rule (ISO code of the printed symbol; null when none is printed, even if the country suggests one):
