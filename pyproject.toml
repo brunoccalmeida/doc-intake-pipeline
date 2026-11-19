@@ -1,0 +1,73 @@
+[project]
+name = "doc-intake-pipeline"
+version = "0.1.0"
+description = "LLM document intake pipeline with source citations, schema validation and per-field evals gating CI"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.14"
+dependencies = [
+    "pydantic-settings>=2.16.3",
+]
+
+[dependency-groups]
+dev = [
+    "poethepoet>=0.49.0",
+    "pyright[nodejs]>=1.1.414",
+    "pytest>=9.2.0",
+    "pyyaml>=6.0.3",
+    "ruff>=0.17.5",
+    "types-pyyaml>=6.0.12.20261113",
+]
+
+[tool.uv]
+# One uv version for every machine: setup-uv in CI reads this same field
+# (its "version" input defaults to the version in pyproject.toml).
+required-version = "==0.13.9"
+# An application, not a library: nothing is built or published, so uv installs
+# only the dependencies and the packages are imported from the project root.
+package = false
+
+[tool.pytest]
+# pytest 9 reads native TOML here (no ini_options table needed).
+testpaths = ["tests"]
+# The project is not installed (package = false): put its root on sys.path so
+# tests import core, packs and evals exactly as the application does.
+pythonpath = ["."]
+# Unknown markers and config keys are errors, not warnings (fail fast).
+strict = true
+addopts = ["-ra"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.ruff.lint]
+# Rule families beyond the default (E4, E7, E9, F), each catching a class of
+# bug or inconsistency the type checker does not: imports (I), modern syntax
+# (UP), likely bugs (B), simplifications (SIM, C4), pathlib over os.path (PTH),
+# pytest style (PT), naming (N), security smells (S) and ruff's own (RUF).
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "PTH", "PT", "N", "S", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# S101: pytest's assertion rewriting is how tests assert; outside tests a bare
+# assert is stripped by "python -O" and must not guard anything.
+"tests/**" = ["S101"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+pythonVersion = "3.14"
+include = ["core", "packs", "evals", "scripts", "tests"]
+venvPath = "."
+venv = ".venv"
+# A suppression that no longer suppresses anything is noise: report it.
+reportUnnecessaryTypeIgnoreComment = "error"
+
+[tool.poe.tasks]
+lint = "ruff check ."
+format-check = "ruff format --check ."
+types = "pyright"
+format = "ruff format ."
+# The local gate, the same commands as CI's "check" job. Every step runs even
+# after a failure, so one run reports every problem; the exit is still non-zero.
+check.sequence = ["lint", "format-check", "types"]
+check.ignore_fail = "return_non_zero"

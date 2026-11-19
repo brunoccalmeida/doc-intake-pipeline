@@ -55,6 +55,19 @@ Tokens de entrada e saída vêm do `usage` da resposta do provedor; o preço por
 
 Começar pelo SROIE (recibos com gabarito de empresa, endereço, data e total). Licença e procedência registradas em `docs/DATA.md` antes de commitar qualquer arquivo (ver #5). CORD entra quando o pack de nota fiscal crescer; CUAD (contratos) na semana 3.
 
-### D7. Ferramentas Python (a confirmar na #1)
+### D7. Ferramentas Python (decidida na #1)
 
-Recomendação: `uv` (ambiente, Python fixado e lockfile), `ruff` (lint e formatação), `pyright` (tipos, modo estrito), `pytest`, `poethepoet` para o `check`. O UAT usa Poetry; a escolha aqui é registrada na #1 com a fonte que a sustenta (inclusive suporte do Dependabot ao lockfile escolhido).
+| Peça | Escolha | Por quê | Fonte |
+| --- | --- | --- | --- |
+| Ambiente e lockfile | `uv` 0.13.9, fixado em `[tool.uv] required-version` | Um binário só para Python, venv, lock e auditoria. O `setup-uv` lê a mesma versão do `pyproject.toml`, então local e CI não divergem | [uv: GitHub Actions](https://docs.astral.sh/uv/guides/integration/github/); `action.yml` do `astral-sh/setup-uv` v10.3.3 |
+| Python | 3.14 (`.python-version`) | A 3.15 já saiu (3.15.2), mas a #3 traz bibliotecas de PDF/OCR com extensões nativas; a 3.14 tem um ano de wheels publicados. **Julgamento próprio**, rever quando a #3 fixar as dependências (comentário na #3) | [python.org: downloads](https://www.python.org/downloads/); [ciclo de vida das versões](https://devguide.python.org/versions/) |
+| Projeto | `package = false` | É aplicação, não biblioteca: nada é construído nem publicado. Os pacotes são importados da raiz (`pythonpath = ["."]` no pytest) | [uv: projetos](https://docs.astral.sh/uv/concepts/projects/config/) |
+| Lint e formatação | `ruff` 0.17 | Substitui flake8/isort/black num binário; famílias de regra escolhidas e comentadas no `pyproject.toml` | [ruff: regras](https://docs.astral.sh/ruff/rules/) |
+| Tipos | `pyright[nodejs]` 1.1.414, `strict` | O `ty` (Astral) ainda é 0.0.x e não tem modo estrito. O extra `nodejs` é o que o README do pacote recomenda, porque traz o Node como wheel em vez de baixá-lo em tempo de execução | [pyright: instalação](https://github.com/microsoft/pyright/blob/main/docs/installation.md); [pyright-python](https://github.com/RobertCraigie/pyright-python) |
+| Testes | `pytest` 9, config nativa `[tool.pytest]` com `strict = true` | `strict` liga `strict_config`, `strict_markers`, `strict_xfail` e `strict_parametrization_ids` (fail fast em config errada) | [pytest: customize](https://docs.pytest.org/en/9.0.x/reference/customize.html); [referência `strict`](https://docs.pytest.org/en/stable/reference/reference.html#confval-strict) |
+| Tarefas | `poethepoet`: `uv run poe check` | `check` é uma sequência com `ignore_fail = "return_non_zero"`: roda lint, formatação e tipos mesmo após uma falha e reporta tudo de uma vez, com saída não-zero | [poe: sequence](https://poethepoet.natn.io/tasks/task_types/sequence.html) |
+| Auditoria de dependências | `uv audit --locked` | Lê o `uv.lock` direto, consulta o OSV (segunda fonte além do Dependabot). É **experimental** na 0.13.9; risco aceito porque o uv é fixado e só muda num PR que roda o mesmo job | `uv audit --help` (0.13.9) |
+| Atualizações | Dependabot, ecossistemas `uv` e `github-actions`, agrupados, `cooldown` de 7 dias | O Dependabot tem suporte nativo ao `uv` e atualiza o `uv.lock` | [GitHub: ecossistemas suportados](https://docs.github.com/en/code-security/dependabot/ecosystems-supported-by-dependabot/supported-ecosystems-and-repositories) |
+| Workflow reutilizável | `uses: $/.github/workflows/security.yml` | Sintaxe self-repository (julho de 2026): mesmo commit do chamador, sem depender do sistema de arquivos em tempo de execução como o `./` | [zizmor: self-repository](https://docs.zizmor.sh/audits/#self-repository); [GitHub changelog](https://github.blog/changelog/2026-07-30-reference-same-repository-actions-with-self-repository-syntax/) |
+
+O UAT usa Poetry. Aqui o uv ganhou por cobrir Python, lock e auditoria com uma ferramenta só, e por ter suporte nativo no Dependabot e no `setup-uv`.

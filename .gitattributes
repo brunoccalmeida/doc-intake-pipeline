@@ -1,0 +1,4 @@
+# Store text with LF in the repository and check it out with LF everywhere,
+# whatever each machine's core.autocrlf says: CI (Linux) and Windows clones
+# then see byte-identical files, so ruff and gitleaks report the same thing.
+* text=auto eol=lf
