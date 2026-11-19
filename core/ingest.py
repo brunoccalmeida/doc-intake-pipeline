@@ -117,9 +117,7 @@ def ingest(path: Path, *, tessdata_dir: Path) -> Document:
         pages = _read_pdf(path, tessdata_dir)
     else:
         image, page_image = _open_image(path)
-        pages = [
-            PageText(number=1, text=_ocr(image, tessdata_dir), source="ocr", image=page_image)
-        ]
+        pages = [PageText(number=1, text=_ocr(image, tessdata_dir), source="ocr", image=page_image)]
 
     if not any(page.text.strip() for page in pages):
         raise EmptyDocumentError(f"{path.name}: no text found on any page")
