@@ -7,21 +7,34 @@ implements the same method.
 """
 
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Literal, Protocol
 
 from pydantic import BaseModel
+
+type ImageMediaType = Literal["image/png", "image/jpeg"]
+
+
+@dataclass(frozen=True, slots=True)
+class ImageInput:
+    """An image the model reads before the prompt, introduced by a short label."""
+
+    label: str
+    media_type: ImageMediaType
+    data: bytes
 
 
 @dataclass(frozen=True, slots=True)
 class LLMRequest:
-    """One self-contained call: instructions, the user prompt and the output schema.
+    """One self-contained call: instructions, images, the user prompt and the output schema.
 
     ``output_schema`` is the Pydantic model itself, not its JSON Schema: each
     provider turns it into the schema dialect its API enforces, with its SDK's
-    own helper.
+    own helper. ``images`` go before the prompt, each after its label:
+    "Claude works best when images come before text" (Anthropic docs, "Vision").
     """
 
     instructions: str
+    images: tuple[ImageInput, ...]
     prompt: str
     schema_name: str
     output_schema: type[BaseModel]

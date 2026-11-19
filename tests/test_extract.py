@@ -15,7 +15,7 @@ from pydantic import Field
 
 from core.extract import Pack, extract
 from core.ingest import Document, PageImage, PageText
-from core.llm import LLMRequest, LLMResponse
+from core.llm import ImageInput, LLMRequest, LLMResponse
 from core.result import ExtractedField, StrictModel
 
 PAGE_1 = "ACME TRADING SDN BHD\nNO. 12, JALAN MAJU\nTOTAL   RM 9.00"
@@ -184,6 +184,64 @@ def test_quote_with_changed_letters_is_not_a_match() -> None:
     provider = FakeProvider([sale_json(company=cited("ACME", "Acme Trading Sdn Bhd"))])
     result = extract(DOCUMENT, PACK, provider)
     assert result.status == "needs_review"
+
+
+def test_request_carries_the_image_of_every_ocr_page_and_only_those() -> None:
+    # Page 1 is a text layer (exact text, no image); page 2 was read by OCR.
+    provider = FakeProvider([sale_json()])
+    extract(DOCUMENT, PACK, provider)
+    assert provider.requests[0].images == (
+        ImageInput(label="Image of page 2:", media_type="image/png", data=b"page 2 png"),
+    )
+
+
+def test_retry_sends_the_images_again() -> None:
+    # Each request is self-contained (D10): a retry has no conversation history.
+    provider = FakeProvider(["not json", sale_json()])
+    extract(DOCUMENT, PACK, provider)
+    assert provider.requests[1].images == provider.requests[0].images
+
+
+def test_text_value_must_be_inside_its_quote() -> None:
+    # D11: a text value is the text as read; commas the page does not print
+    # (seen in #20) make a value that is nowhere in the document.
+    added_comma = cited("ACME TRADING SDN BHD, NO. 12", "ACME TRADING SDN BHD\nNO. 12")
+    provider = FakeProvider([sale_json(company=added_comma)])
+    result = extract(DOCUMENT, PACK, provider)
+    assert result.status == "needs_review"
+    assert result.errors == ["company: value is not the text of its quote"]
+
+
+def test_text_value_inside_a_longer_quote_is_ok() -> None:
+    # A quote is often the whole printed line around the value.
+    provider = FakeProvider([sale_json(company=cited("ACME", "ACME TRADING SDN BHD"))])
+    assert extract(DOCUMENT, PACK, provider).status == "ok"
+
+
+def test_value_read_from_the_page_image_goes_to_review() -> None:
+    # The engine can check a quote against the page text, not against pixels:
+    # a person checks it (AWS A2I pattern: an activation condition, D12).
+    from_image = cited("THANK YOU", "THANK YOU", page=2, source="image")
+    provider = FakeProvider([sale_json(company=from_image)])
+    result = extract(DOCUMENT, PACK, provider)
+    assert result.status == "needs_review"
+    assert result.fields is not None, "the fields stay for the reviewer"
+    assert result.errors == ["company: read from the image of page 2; check it on the page"]
+
+
+def test_image_quote_must_still_hold_the_whole_text_value() -> None:
+    from_image = cited("THANK YOU AGAIN", "THANK YOU", page=2, source="image")
+    provider = FakeProvider([sale_json(company=from_image)])
+    result = extract(DOCUMENT, PACK, provider)
+    assert result.errors == ["company: value is not the text of its quote"]
+
+
+def test_image_citation_of_a_page_without_image_is_flagged() -> None:
+    from_image = cited("ACME TRADING SDN BHD", "ACME TRADING SDN BHD", source="image")
+    provider = FakeProvider([sale_json(company=from_image)])
+    result = extract(DOCUMENT, PACK, provider)
+    assert result.status == "needs_review"
+    assert result.errors == ["company: cites the image of page 1, which was not sent"]
 
 
 def test_empty_field_needs_no_citation_check() -> None:

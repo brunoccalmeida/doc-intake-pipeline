@@ -1,7 +1,7 @@
 """Record provider responses once, with a real key, and replay them in CI for free.
 
 A recording is keyed by the SHA-256 of everything that shapes the answer: the
-provider, the requested model, the instructions, the prompt and the output
+provider, the requested model, the instructions, the images, the prompt and the output
 schema (``docs/ARCHITECTURE.md`` D4). Change any of them, a prompt edit or a
 new model, and the key changes: replay then fails, asking for a new recording
 instead of scoring an answer to a question nobody asks anymore. A retry is a
@@ -67,6 +67,15 @@ def request_key(request: LLMRequest, *, provider: str, model: str) -> str:
             "provider": provider,
             "model": model,
             "instructions": request.instructions,
+            # Each image by its digest: as discriminating as the bytes, and short.
+            "images": [
+                {
+                    "label": image.label,
+                    "media_type": image.media_type,
+                    "sha256": hashlib.sha256(image.data).hexdigest(),
+                }
+                for image in request.images
+            ],
             "prompt": request.prompt,
             "schema_name": request.schema_name,
             "schema": request.output_schema.model_json_schema(),

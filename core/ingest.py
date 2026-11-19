@@ -19,6 +19,7 @@ import tesserocr
 from PIL import Image, ImageDraw
 from pydantic import Field, model_validator
 
+from core.llm import ImageMediaType
 from core.result import StrictModel
 
 PDF_SUFFIXES = frozenset({".pdf"})
@@ -36,7 +37,6 @@ OCR_LANGUAGE = "eng"
 DARK_EDGE_MAX_MEAN = 128
 
 type TextSource = Literal["text_layer", "ocr"]
-type ImageMediaType = Literal["image/png", "image/jpeg"]
 
 
 class PageImage(StrictModel, frozen=True):

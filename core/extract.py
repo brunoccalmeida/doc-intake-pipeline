@@ -15,12 +15,13 @@ reports the document instead of skipping it.
 """
 
 from dataclasses import dataclass
+from typing import TypeIs
 
 from pydantic import BaseModel, ValidationError
 
-from core.ingest import Document
-from core.llm import LLMProvider, LLMRequest
-from core.result import ExtractedField, ExtractionResult
+from core.ingest import Document, PageText
+from core.llm import ImageInput, LLMProvider, LLMRequest
+from core.result import Citation, ExtractedField, ExtractionResult
 
 ENGINE_INSTRUCTIONS = """\
 You extract fields from one document. Its text is given page by page, as read \
@@ -52,11 +53,13 @@ def extract[S: BaseModel](
     if max_retries < 0:
         raise ValueError(f"max_retries must be 0 or more, got {max_retries}")
     instructions = _instructions(pack)
+    images = _page_images(document)
     prompt = _document_prompt(document)
     errors: list[str] = []
     for _ in range(1 + max_retries):
         request = LLMRequest(
             instructions=instructions,
+            images=images,
             prompt=prompt,
             schema_name=pack.name,
             output_schema=pack.schema,
@@ -87,6 +90,20 @@ def _instructions[S: BaseModel](pack: Pack[S]) -> str:
     if guide:
         parts.append(f"Fields:\n{guide}")
     return "\n\n".join(parts)
+
+
+def _page_images(document: Document) -> tuple[ImageInput, ...]:
+    # "Introduce each one with a short text label" (Anthropic docs, "Vision",
+    # multiple images), so the model can tie an image to its page number.
+    return tuple(
+        ImageInput(
+            label=f"Image of page {page.number}:",
+            media_type=page.image.media_type,
+            data=page.image.data,
+        )
+        for page in document.pages
+        if page.image is not None
+    )
 
 
 def _document_prompt(document: Document) -> str:
@@ -122,28 +139,54 @@ def _describe(error: ValidationError) -> list[str]:
 
 
 def _citation_problems(fields: BaseModel, document: Document) -> list[str]:
-    """Every cited quote must appear on the page it names.
+    """What a person must check in each cited field; at most one problem per field.
+
+    - a "text" quote must appear on the page it names;
+    - an "image" quote cannot be checked by code, so it always goes to review
+      (``docs/ARCHITECTURE.md`` D12), and it must cite a page whose image was sent;
+    - a text value must be inside its quote (D11): the value is the text as read.
 
     Comparison ignores how whitespace is laid out (a model often copies a
     multi-line passage as one line), and nothing else: case, punctuation and
     OCR errors must match, so a paraphrase is caught.
     """
-    pages = {page.number: _squash(page.text) for page in document.pages}
+    pages = {page.number: page for page in document.pages}
     problems: list[str] = []
     for name in type(fields).model_fields:
         field = getattr(fields, name)
-        if not isinstance(field, ExtractedField) or field.citation is None:
+        if not _is_field(field) or field.citation is None:
             continue
-        citation = field.citation
-        page_text = pages.get(citation.page)
-        if page_text is None:
-            problems.append(
-                f"{name}: cites page {citation.page}, but the document has {len(pages)} pages"
-            )
-        elif _squash(citation.quote) not in page_text:
-            problems.append(f"{name}: quote not found on page {citation.page}")
+        text = field.value if isinstance(field.value, str) else None
+        problem = _citation_problem(text, field.citation, pages)
+        if problem is not None:
+            problems.append(f"{name}: {problem}")
     return problems
+
+
+def _citation_problem(
+    text: str | None, citation: Citation, pages: dict[int, PageText]
+) -> str | None:
+    """The first problem found, or None; ``text`` is the value when it is text."""
+    page = pages.get(citation.page)
+    if page is None:
+        return f"cites page {citation.page}, but the document has {len(pages)} pages"
+    quote = _squash(citation.quote)
+    if citation.source == "text" and quote not in _squash(page.text):
+        return f"quote not found on page {citation.page}"
+    if citation.source == "image" and page.image is None:
+        return f"cites the image of page {citation.page}, which was not sent"
+    if text is not None and _squash(text) not in quote:
+        return "value is not the text of its quote"
+    if citation.source == "image":
+        return f"read from the image of page {citation.page}; check it on the page"
+    return None
 
 
 def _squash(text: str) -> str:
     return " ".join(text.split())
+
+
+def _is_field(value: object) -> TypeIs[ExtractedField[object]]:
+    # getattr loses the field's type parameter; isinstance alone would leave it
+    # Unknown, which strict pyright rejects (PEP 742).
+    return isinstance(value, ExtractedField)
