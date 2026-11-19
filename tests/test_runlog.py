@@ -205,6 +205,46 @@ def test_an_unreadable_document_is_logged_as_failed_by_error_class_at_no_cost(
     assert "ZEPHYR" not in record.getMessage()
 
 
+@dataclass
+class GivesUpOnRetry:
+    """Answers invalid once (a paid call), then fails like an SDK out of retries."""
+
+    calls: int = 0
+
+    def complete(self, request: LLMRequest) -> LLMResponse:
+        self.calls += 1
+        if self.calls > 1:
+            raise ConnectionError("rate limited while reading ZEPHYR QUILL TRADING")
+        return LLMResponse(
+            text=INVALID, input_tokens=1_000, output_tokens=200, model="claude-opus-5-5"
+        )
+
+
+def test_a_transport_error_mid_retry_still_logs_what_was_paid_then_propagates(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO, logger=RUN_LOGGER)
+
+    with pytest.raises(ConnectionError):
+        extract_logged(
+            DOCUMENT,
+            PACK,
+            GivesUpOnRetry(),
+            document_id="doc-3",
+            run_id="run-1",
+            provider_name="fake",
+            clock=FakeClock(step=0.25),
+        )
+
+    [record] = [r for r in caplog.records if r.name == RUN_LOGGER]
+    line = json.loads(record.getMessage())
+    assert (line["document_id"], line["status"]) == ("doc-3", "failed")
+    assert line["errors"] == ["ConnectionError"]  # the class only: a message can quote content
+    assert (line["calls"], line["retries"], line["cost_usd"]) == (1, 0, "0.008")
+    assert line["latency_ms"] == 250
+    assert "ZEPHYR" not in record.getMessage()
+
+
 def test_run_ids_are_unique_and_sort_by_creation_time() -> None:
     ids = [new_run_id() for _ in range(5)]
     assert len(set(ids)) == 5

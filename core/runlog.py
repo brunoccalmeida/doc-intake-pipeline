@@ -79,30 +79,42 @@ def extract_logged[S: BaseModel](
 
     Latency is the extraction's (every call, retries included), not reading
     the file. A model without a price raises ``UnknownModelPriceError`` and
-    nothing is logged: an entry costing zero would look free.
+    nothing is logged: an entry costing zero would look free. A provider error
+    is logged as ``failed`` with the calls already paid, then re-raised.
     """
     metered = Metered(provider)
+
+    def entry(status: Status, errors: list[str], elapsed: float) -> RunLogEntry:
+        responses = metered.responses
+        return RunLogEntry(
+            timestamp=datetime.now(UTC),
+            run_id=run_id,
+            document_id=document_id,
+            pack=pack.name,
+            provider=provider_name,
+            models=tuple(sorted({r.model for r in responses})),
+            status=status,
+            errors=errors,
+            calls=len(responses),
+            retries=max(len(responses) - 1, 0),
+            input_tokens=sum(r.input_tokens for r in responses),
+            output_tokens=sum(r.output_tokens for r in responses),
+            latency_ms=round(elapsed * 1000),
+            cost_usd=_cost(responses),
+        )
+
     started = clock()
-    result = extract(document, pack, metered, max_retries=max_retries)
-    elapsed = clock() - started
-    entry = RunLogEntry(
-        timestamp=datetime.now(UTC),
-        run_id=run_id,
-        document_id=document_id,
-        pack=pack.name,
-        provider=provider_name,
-        models=tuple(sorted({r.model for r in metered.responses})),
-        status=result.status,
-        errors=result.errors,
-        calls=len(metered.responses),
-        retries=max(len(metered.responses) - 1, 0),
-        input_tokens=sum(r.input_tokens for r in metered.responses),
-        output_tokens=sum(r.output_tokens for r in metered.responses),
-        latency_ms=round(elapsed * 1000),
-        cost_usd=_cost(metered.responses),
-    )
-    _emit(entry)
-    return result, entry
+    try:
+        result = extract(document, pack, metered, max_retries=max_retries)
+    except Exception as error:
+        # A transport error after paid calls (an SDK out of retries, say): log
+        # what was spent, by the error's class only (its message may quote
+        # the document), then let the caller see the error.
+        _emit(entry("failed", [type(error).__name__], clock() - started))
+        raise
+    logged = entry(result.status, result.errors, clock() - started)
+    _emit(logged)
+    return result, logged
 
 
 def log_unreadable(
