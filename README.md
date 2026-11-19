@@ -6,17 +6,17 @@ A document intake pipeline that reads PDFs and images (including scanned ones), 
 
 ## At a Glance
 
-Eval on 20 SROIE receipts, Claude Opus 5.5, after whitening dark scanner borders before OCR ([#19](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/19)); the [first eval](https://github.com/brunoccalmeida/doc-intake-pipeline/actions/runs/44561724676) is the previous column:
+Eval on 20 SROIE receipts, Claude Opus 5.5, sending each scanned page's image along with its OCR text ([#26](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/26)); the previous column is OCR text alone:
 
-| Field | Correct | Accuracy | First eval |
+| Field | Correct | Accuracy | OCR text only |
 | --- | --- | --- | --- |
-| company | 16/20 | 80% | 15/20 |
-| address | 10/20 | 50% | 9/20 |
-| date | 17/20 | 85% | 17/20 |
-| total | 18/20 | 90% | 18/20 |
-| currency | 19/20 | 95% | 17/20 |
+| company | 19/20 | 95% | 16/20 |
+| address | 19/20 | 95% | 10/20 |
+| date | 19/20 | 95% | 17/20 |
+| total | 20/20 | 100% | 18/20 |
+| currency | 20/20 | 100% | 19/20 |
 
-20 calls, 56,858 input and 9,009 output tokens, **$0.41** for the whole set (about 2 cents per receipt). Every receipt is now read; most remaining text errors are the model faithfully copying OCR misreadings ([#20](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/20)). The numbers are a regression baseline, not a claim about other documents (see [`docs/DATA.md`](docs/DATA.md), known limitations).
+20 calls, 112,909 input and 8,760 output tokens, **$0.63** for the whole set (about 3 cents per receipt). A value read from the page image cannot be checked against the text by code, so it goes to human review: 14 of the 20 receipts end `needs_review`, each naming the fields to check. The numbers are a regression baseline, not a claim about other documents (see [`docs/DATA.md`](docs/DATA.md), known limitations).
 
 ## Why this exists
 
@@ -70,13 +70,13 @@ OCR runs on Tesseract bundled in the `tesserocr` wheel, so nothing is installed 
 
 Configuration comes from `DOC_INTAKE_*` environment variables, validated at startup; copy `.env.example` to `.env` for local runs.
 
-Extraction runs on Claude or OpenAI, chosen by `DOC_INTAKE_PROVIDER`, with each provider's native structured output. The engine (`core/`) only knows the `LLMProvider` interface; vendor SDKs are imported in `providers/` alone, and a lint rule rejects them anywhere else. An answer that fails schema validation is retried with the errors (`DOC_INTAKE_MAX_RETRIES`, default 2) and then reported as `failed`, never partial; a citation whose quote is not on the page it names turns the result into `needs_review`.
+Extraction runs on Claude or OpenAI, chosen by `DOC_INTAKE_PROVIDER`, with each provider's native structured output. The engine (`core/`) only knows the `LLMProvider` interface; vendor SDKs are imported in `providers/` alone, and a lint rule rejects them anywhere else. An answer that fails schema validation is retried with the errors (`DOC_INTAKE_MAX_RETRIES`, default 2) and then reported as `failed`, never partial; a citation whose quote is not on the page it names turns the result into `needs_review`. Each scanned page is sent with its image; a citation says whether its quote came from the page text or the page image, and a value read from the image, which code cannot check, also turns the result into `needs_review`. Fields read as printed (company, address) must sit inside their quote.
 
 Every pull request must pass the `ci-passed` gate: lint, types, tests, the eval, secret scan, workflow audit and dependency audit.
 
 ## Eval
 
-The eval runs the real pipeline (OCR, LLM extraction, validation) over the golden set and scores every field against the ground truth: exact match after folding case and whitespace, dates and amounts by value, an empty field against a value counted as an error both ways. CI does not call the LLM: it replays provider responses recorded once with a real key, keyed by a hash of provider, model, instructions, prompt and schema, so a changed prompt or model fails until it is re-recorded (and re-scored). Replay is deterministic, so the gate has zero tolerance: any field with fewer correct answers than [`evals/baseline.json`](evals/baseline.json) fails the build, naming the field. The Markdown report is posted as the job summary and uploaded as an artifact.
+The eval runs the real pipeline (OCR, LLM extraction, validation) over the golden set and scores every field against the ground truth: exact match after folding case and whitespace, dates and amounts by value, an empty field against a value counted as an error both ways. CI does not call the LLM: it replays provider responses recorded once with a real key, keyed by a hash of provider, model, instructions, page images, prompt and schema, so a changed prompt or model fails until it is re-recorded (and re-scored). Replay is deterministic, so the gate has zero tolerance: any field with fewer correct answers than [`evals/baseline.json`](evals/baseline.json) fails the build, naming the field. The Markdown report is posted as the job summary and uploaded as an artifact.
 
 The recordings quote the receipts, which have no licence, so they live in a private repository pinned by commit ([`docs/DATA.md`](docs/DATA.md)); pull requests from forks cannot run the eval. Design and alternatives: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) D4.
 
