@@ -76,8 +76,8 @@ Ao reportar: **erro observado**, **causa raiz**, **análise**, **solução propo
 
 ## Comunicação
 
-- Conversa e documentação interna (regras, resumo de sessão, arquitetura) em **português (Brasil)**.
-- Em **inglês**: código, commits, issues, PRs, README e relatórios de eval. O critério é quem lê: o que é público segue o idioma do código.
+- O critério é **quem lê**. Tudo o que se dirige ao usuário sai em **português (Brasil)**: a conversa, os planos, as notas de progresso e as caixas de pergunta (`AskUserQuestion`: pergunta, opções, descrições e prévias), mesmo sendo entrada estruturada de ferramenta. A documentação interna (regras, resumo de sessão, arquitetura) também.
+- Em **inglês**, só o que é publicado com o código: código, commits, issues, PRs, README e relatórios de eval.
 - Explicar o **porquê**; opiniões fundamentadas, não só concordância.
 
 ## Segurança
