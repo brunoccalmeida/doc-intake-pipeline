@@ -25,6 +25,7 @@ arquivo (PDF/imagem)
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `core/`      | Motor genérico: ingest, interface `LLMProvider`, extração com nova tentativa, validação, log e custo. Não conhece tipo de documento.        |
 | `packs/`     | Um pack por tipo de documento (recibo/nota fiscal agora; contrato na semana 3): schema, instruções de extração e normalização dos campos. |
+| `providers/` | Implementações de `LLMProvider` (Claude, OpenAI) e a fábrica `make_provider`. Único lugar que importa SDK de provedor (D10).             |
 | `evals/`     | Conjuntos-ouro por pack, pontuação por campo, relatório em Markdown e a linha de base que o CI compara.                                    |
 | `workflows/` | Workflows do n8n exportados (JSON) que chamam o pipeline. Entra quando for usado (YAGNI); a semana 1 não tem n8n.                          |
 | `tests/`     | Testes unitários e de integração, sempre com provedor falso.                                                                              |
@@ -85,7 +86,7 @@ O UAT usa Poetry. Aqui o uv ganhou por cobrir Python, lock e auditoria com uma f
 | Alias PEP 695 (`type Money = ...`) para tipos com restrição | packs | Gera nomes legíveis no `$defs` do JSON Schema (`ExtractedField[Money]`), que é o que o LLM lê | [Pydantic 2.14: Models (genéricos)](https://pydantic.dev/docs/validation/2.14/concepts/models/) |
 | JSON Schema de cada pack commitado com teste de snapshot; `uv run poe export-schemas` regrava | `packs/json_schema.py` | Mudar o schema muda o pedido ao LLM e pode mexer no eval: tem que aparecer no diff. Sem dependência nova (comparação de texto basta) | julgamento próprio (YAGNI) |
 
-Pendente para a #4: o schema atual tem `Money` como `number` **ou** `string` e `citation`/`reason` fora de `required`. Conferir na doc do SDK escolhido o que a saída estruturada nativa aceita antes de ajustar.
+Revisto na #4: `citation` e `reason` passaram a ser **obrigatórios, mesmo nulos** (sem default). O modo estrito da OpenAI exige toda propriedade em `required`, e no Claude a decodificação restrita passa a obrigar a chave; os dois provedores recebem o mesmo contrato e todo produtor (LLM, gabarito, teste) declara a evidência ou a ausência dela. `Money` continua `number` ou `string`: os dois provedores aceitam `anyOf`. Detalhes na D10.
 
 ### D9. Leitura de PDF e imagem (decidida na #3)
 
@@ -100,5 +101,22 @@ Pendente para a #4: o schema atual tem `Money` como `number` **ou** `string` e `
 | Texto literal | só `\r\n` → `\n` | O PDFium termina linhas com `\r\n` (observado no 5.15 e travado por teste); a citação (D1) compara com este texto, então nada mais é alterado | sonda + `tests/test_ingest.py` |
 | Tipos | stubs mínimos em `typings/` (`stubPath`) | O `pypdfium2` não publica tipos e o stub do `tesserocr` anota a imagem como o módulo `PIL.Image`: o pyright estrito reprova 8 pontos sem eles (sonda). O stub cobre só a API usada, e os testes exercitam cada chamada | [pyright: import resolution](https://github.com/microsoft/pyright/blob/main/docs/import-resolution.md) |
 | Erros | `IngestError` → `UnsupportedFileTypeError`, `UnreadableDocumentError` (ausente ou corrompido), `EmptyDocumentError`, `OcrDataMissingError` | Uma hierarquia: o pipeline marca o documento como `failed` com o motivo, sem pular nada. A mensagem cita o nome do arquivo, nunca o conteúdo (invariante 6) | AGENTS.md |
+
+### D10. Extrator com LLM (decidida na #4)
+
+`core/extract.py`: `extract(document, pack, provider, *, max_retries=2) -> ExtractionResult`. `core/llm.py` define `LLMRequest` (instruções, prompt, nome e modelo Pydantic do schema), `LLMResponse` (texto cru, tokens, modelo que respondeu) e o `Protocol` `LLMProvider`. Um `Pack` é nome + schema + instruções.
+
+| Regra | Onde | Por quê | Fonte |
+| --- | --- | --- | --- |
+| SDK de provedor só em `providers/`; o ruff (`TID251`, banned-api) barra `anthropic`/`openai` em qualquer outro lugar | `pyproject.toml` | A D2 vira portão: um import errado reprova no lint, não na revisão. Provado com sonda em `core/` e `packs/` | [ruff: banned-api](https://docs.astral.sh/ruff/settings/#lint_flake8-tidy-imports_banned-api) |
+| O pedido carrega o **modelo Pydantic**, não o JSON Schema; cada provedor converte com o helper do próprio SDK (`anthropic.transform_schema`, `to_strict_json_schema` da OpenAI) | `providers/` | Cada API aceita um dialeto: o Claude rejeita `minimum`/`pattern` (o helper move para a descrição); a OpenAI estrita exige tudo em `required` e `$ref` sem chaves irmãs. Testes conferem as duas regras sem rede | [Anthropic: Structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs); [OpenAI: Structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs) |
+| `to_strict_json_schema` vem de `openai.lib._pydantic` (módulo com `_`) | `providers/gpt.py` | É a conversão que o próprio `responses.parse` usa; o `parse` não serve porque valida dentro da chamada (`model_parse_json`): um `ValidationError` perde o texto cru, que a nova tentativa reenvia, e os tokens gastos. Risco de mudança no SDK coberto pelo teste do schema | código do SDK 3.55 (`lib/_parsing/_responses.py`) |
+| Descrições dos campos também nas instruções | `core/extract.py` | O `transform_schema` da Anthropic descarta a `description` ao lado de um `$ref` (observado com sonda no SDK 2.10) | sonda |
+| `max_retries` = novas tentativas **depois** da primeira (padrão 2, logo até 3 chamadas); a nova tentativa reenvia o documento com a resposta rejeitada e os erros | `core/extract.py`, `DOC_INTAKE_MAX_RETRIES` | Pedido autocontido, sem histórico de conversa: neutro entre provedores e sem replay de blocos de raciocínio | julgamento próprio |
+| Erros do resultado sem o valor de entrada (`include_input=False`) | `core/extract.py` | Os erros vão para o log; o valor rejeitado é conteúdo do documento (invariante 6). Teste de mutação com `str(error)` reprova | AGENTS.md |
+| Erro de transporte (rede, autenticação, limite após as tentativas do SDK) **propaga**, não vira `failed` | `core/extract.py` | Não é falha de validação; quem chama decide e reporta o documento, sem pular | D3 (fail loudly) |
+| Citação conferida contra a página citada, ignorando só o layout de espaços (`" ".join(s.split())`); página inexistente ou trecho ausente → `needs_review` com os campos mantidos | `core/extract.py` | O modelo costuma juntar linhas com espaço; caixa, pontuação e erro de OCR têm de bater, então paráfrase é pega | D1 |
+| Claude: `claude-opus-5-5`, `effort: medium` explícito, `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`); OpenAI: `gpt-6.2-astra`, Responses API com `store=False` | `providers/`, `core/config.py` | Modelo recomendado de cada fornecedor como padrão; o eval (#6) é quem deve mudá-lo. Recusa de segurança é reexecutada pelo servidor em outro modelo, registrado em `LLMResponse.model`. `store=False`: documento de cliente não fica guardado na OpenAI | [Anthropic: models](https://platform.claude.com/docs/en/about-claude/models/overview); [OpenAI: models](https://developers.openai.com/api/docs/models) |
+| Chaves `DOC_INTAKE_ANTHROPIC_API_KEY`/`DOC_INTAKE_OPENAI_API_KEY` como `SecretStr`, opcionais no `Settings`; `make_provider` falha nomeando a variável | `core/config.py`, `providers/__init__.py` | Ingest e testes rodam sem chave; quem extrai falha antes da primeira chamada. `SecretStr` não aparece em `repr` nem em traceback | [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) |
 
 Python 3.15 (revisão pedida pela D7): as bibliotecas da #3 e o `pydantic-core` já publicam wheels cp315 (ou `py3`), mas o PyYAML 6.0.3 (dev) não, e seria compilado do código-fonte. Fica no 3.14; a troca está na [#11](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/11).

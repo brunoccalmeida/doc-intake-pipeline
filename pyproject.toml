@@ -6,6 +6,8 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.14"
 dependencies = [
+    "anthropic>=2.10.0",
+    "openai>=3.55.1",
     "pillow>=13.0.0",
     "pydantic>=2.14.3",
     "pydantic-settings>=2.16.3",
@@ -49,18 +51,27 @@ line-length = 100
 # Rule families beyond the default (E4, E7, E9, F), each catching a class of
 # bug or inconsistency the type checker does not: imports (I), modern syntax
 # (UP), likely bugs (B), simplifications (SIM, C4), pathlib over os.path (PTH),
-# pytest style (PT), naming (N), security smells (S) and ruff's own (RUF).
-select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "PTH", "PT", "N", "S", "RUF"]
+# pytest style (PT), naming (N), security smells (S), banned imports (TID)
+# and ruff's own (RUF).
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "PTH", "PT", "N", "S", "TID", "RUF"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# The engine depends on core.llm.LLMProvider, never on a vendor SDK
+# (docs/ARCHITECTURE.md D2): only the providers package may import one.
+"anthropic".msg = "import vendor SDKs only in providers/ (docs/ARCHITECTURE.md D2)"
+"openai".msg = "import vendor SDKs only in providers/ (docs/ARCHITECTURE.md D2)"
 
 [tool.ruff.lint.per-file-ignores]
 # S101: pytest's assertion rewriting is how tests assert; outside tests a bare
 # assert is stripped by "python -O" and must not guard anything.
 "tests/**" = ["S101"]
+# The one package allowed to import vendor SDKs (see banned-api above).
+"providers/**" = ["TID251"]
 
 [tool.pyright]
 typeCheckingMode = "strict"
 pythonVersion = "3.14"
-include = ["core", "packs", "evals", "scripts", "tests", "typings"]
+include = ["core", "packs", "providers", "evals", "scripts", "tests", "typings"]
 # Local stubs for libraries that ship no usable types (pypdfium2, tesserocr):
 # pyright resolves stubPath before installed packages. Each stub holds only
 # the API the project calls; see the header of each file.
@@ -79,6 +90,8 @@ format = "ruff format ."
 export-schemas = "python -m packs.json_schema"
 # Download Tesseract's English model (pinned, checksum-verified) for OCR.
 fetch-tessdata = "python -m scripts.fetch_tessdata"
+# Extract one receipt with the configured real provider: calls a paid API.
+extract = "python -m scripts.extract_document"
 # The local gate, the same commands as CI's "check" job. Every step runs even
 # after a failure, so one run reports every problem; the exit is still non-zero.
 check.sequence = ["lint", "format-check", "types"]
