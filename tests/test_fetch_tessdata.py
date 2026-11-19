@@ -9,7 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from scripts.fetch_tessdata import ChecksumMismatchError, install
+from scripts.download import ChecksumMismatchError
+from scripts.fetch_tessdata import install
 
 PAYLOAD = b"pretend traineddata"
 PAYLOAD_SHA256 = hashlib.sha256(PAYLOAD).hexdigest()

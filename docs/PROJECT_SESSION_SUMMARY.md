@@ -8,11 +8,11 @@ Estado do projeto entre chats. Guarda **só o estado e a próxima missão**; o r
 
 | Item             | Estado |
 | ---------------- | ------ |
-| Última missão    | [#4](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/4): `core/extract.py` (validação, nova tentativa limitada, conferência de citação), `core/llm.py` (`LLMProvider`), `providers/` (Claude e OpenAI, saída estruturada nativa), `citation`/`reason` obrigatórios no schema (D10 do [ARCHITECTURE.md](ARCHITECTURE.md)) |
-| Próxima missão   | [#5](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/5): conjunto-ouro com 20 recibos do SROIE (P0, menor número; não precisa de chave). O gabarito escreve `citation`/`reason` explicitamente, mesmo nulos |
-| Pendências       | [#13](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/13): execução manual na OpenAI (sem crédito na OpenAI por ora). A #6 precisa de chave real para gravar respostas: há saldo só na Anthropic |
-| PRs abertos      | nenhum após o merge da #4 |
-| Portões          | `uv run poe check` (ruff, formatação, pyright estrito) e `uv run pytest` (os testes de OCR exigem `uv run poe fetch-tessdata` antes; sem o modelo eles falham, não pulam); no CI, `ci-passed` agrega `check`, `test`, `secret-scan` (gitleaks), `workflow-audit` (zizmor) e `dependency-audit` (`uv audit`, também diário) |
+| Última missão    | [#5](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/5): conjunto-ouro SROIE fora do Git (sem licença publicada na fonte); `uv run poe fetch-golden` baixa 20 recibos de espelho fixado por commit, confere SHA-256 e converte em `.cache/golden/sroie` ([DATA.md](DATA.md), D6 do [ARCHITECTURE.md](ARCHITECTURE.md)) |
+| Próxima missão   | [#6](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/6): eval por campo, relatório e portão no CI (P0). Compara texto sem diferenciar maiúsculas (o SROIE anota tudo em maiúsculas) e precisa de chave real para gravar respostas: há saldo só na Anthropic |
+| Pendências       | [#13](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/13): execução manual na OpenAI (sem crédito por ora); [#16](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/16): símbolo de moeda ambíguo (`$`), decidir depois do eval |
+| PRs abertos      | nenhum após o merge da #5 |
+| Portões          | `uv run poe check` (ruff, formatação, pyright estrito) e `uv run pytest` (exigem antes `uv run poe fetch-tessdata` e `uv run poe fetch-golden`; sem os dados os testes falham, não pulam); no CI, `ci-passed` agrega `check`, `test`, `secret-scan` (gitleaks), `workflow-audit` (zizmor) e `dependency-audit` (`uv audit`, também diário) |
 | Repositório      | Ruleset "Protect main": PR só com squash, histórico linear, `ci-passed` obrigatório com branch atualizada; squash usa título e corpo do PR; auto-merge e apagar branch ligados; alertas e atualizações de segurança do Dependabot ligados |
 | Travas do agente | `.claude/settings.json` nega merge `--admin`, force push, push na `main` e leitura/escrita do `.env`; plugin `mission` com `autoUpdate: false` |
 
@@ -25,6 +25,7 @@ Estado do projeto entre chats. Guarda **só o estado e a próxima missão**; o r
 - Script Python via heredoc (ou sed) no Git Bash erra escapes com barra invertida, como o do CRLF: casa nada ou grava quebra real. Para mutação ou edição pontual, usar o Edit.
 - `Path.write_text` no Windows grava CRLF; o `.gitattributes` normaliza no commit (o aviso do Git é esperado).
 - Workflow reutilizável do mesmo repositório usa `$/...` (sintaxe self-repository); o zizmor reprova `./...`.
+- O WebFetch reprova o certificado de `rrc.cvc.uab.es` (portal do SROIE); o `curl` do Git Bash lê a página normalmente.
 - Chave de API vai no `.env` (criado com `Copy-Item .env.example .env`), nunca no `.env.example`, que é versionado. O agente não lê nem grava o `.env`; `uv run poe extract <arquivo>` falha nomeando a variável que falta, sem gastar nada.
 
 ## Plano da semana 1 (~16 h)

@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # Tesseract language data (eng.traineddata), fetched by "uv run poe fetch-tessdata".
     # Not checked here: only OCR needs it, and OCR fails naming the fix when it is missing.
     tessdata_dir: Path = Path(".cache/tessdata")
+    # SROIE golden set (images and converted records), fetched by "uv run poe fetch-golden".
+    # Outside Git: SROIE has no published licence (docs/DATA.md).
+    sroie_dir: Path = Path(".cache/golden/sroie")
 
     # LLM extraction (docs/ARCHITECTURE.md D2, D3). Each vendor's recommended
     # general-purpose model is the default; the eval (#6) is what should move it.

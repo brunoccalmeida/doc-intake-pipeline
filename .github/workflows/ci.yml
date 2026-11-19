@@ -72,6 +72,13 @@ jobs:
       - name: Fetch OCR language data
         run: uv run poe fetch-tessdata
 
+      # SROIE has no published licence, so the golden set is not in Git: the
+      # 20 receipts are downloaded from a pinned mirror commit and checked
+      # against the SHA-256 in evals/golden/sroie.json (docs/DATA.md). Without
+      # them the golden-set tests fail.
+      - name: Fetch golden set
+        run: uv run poe fetch-golden
+
       # No API key exists in this workflow: unit tests use a fake provider
       # (AGENTS.md invariant 4), so a test that reaches the network fails.
       - name: Run tests

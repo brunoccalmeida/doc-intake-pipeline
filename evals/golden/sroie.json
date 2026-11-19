@@ -1,0 +1,254 @@
+{
+  "source": "Losyash/SROIE-datasetv2",
+  "commit": "235ba41db8e7c7dc1437143baadb0882a4446d5c",
+  "split": "test",
+  "seed": "sroie-golden-v1",
+  "size": 20,
+  "receipts": [
+    {
+      "id": "X51005433518",
+      "image_sha256": "ba56e3ba4244daaa8296fa665fd7b4b69583523ec4e0fe5126219ff56ef5f42d",
+      "entities_sha256": "94d9b393a2cbc4a1155ddd6f256c82212a92274ef05f815985a801fb4a75e69a",
+      "currency": {
+        "value": null,
+        "citation": null,
+        "reason": "'$' is printed, which does not identify one currency"
+      }
+    },
+    {
+      "id": "X51005444041",
+      "image_sha256": "2a2f7d3a5ffb47cf2c04edbcc39f37529442e5086fe61eace984d2d0eb9d1f12",
+      "entities_sha256": "bfd9f79a8143e06af19dc4ac1be8ef1ba4d0880ff51078a9604a4e503a531b35",
+      "currency": {
+        "value": null,
+        "citation": null,
+        "reason": "no currency is printed"
+      }
+    },
+    {
+      "id": "X51005447841",
+      "image_sha256": "6781925a504c8690c12267adf2ccba49c53bf5395aa6fef5546a578962e367af",
+      "entities_sha256": "1f5e8abab1a3476309d12810c15a39248f486e4e19057f06d319addc5945b296",
+      "currency": {
+        "value": "MYR",
+        "citation": {
+          "page": 1,
+          "quote": "RM"
+        },
+        "reason": null
+      }
+    },
+    {
+      "id": "X51005568889",
+      "image_sha256": "89840195ece552a6c8b3007ad20eb2e992d530aff324e653288726427a56484b",
+      "entities_sha256": "822e8af5395a5459b236387b592ce4a37b9343e9abb3f2240fddf8c0fc0f407b",
+      "currency": {
+        "value": "MYR",
+        "citation": {
+          "page": 1,
+          "quote": "RM"
+        },
+        "reason": null
+      }
+    },
+    {
+      "id": "X51005587261",
+      "image_sha256": "3dc8622554fae18daeef4aedb288a37539cb9720f22f2d4823c5cc3927ceb903",
+      "entities_sha256": "b65042d51607b45cabed59fe087e8fe7dc4c3146b90082ad45a1ef4f89c02078",
+      "currency": {
+        "value": "MYR",
+        "citation": {
+          "page": 1,
+          "quote": "RM"
+        },
+        "reason": null
+      }
+    },
+    {
+      "id": "X51005675099",
+      "image_sha256": "647d9ab0191f50cf2bfc0ab933e8c26033fc2c619c6f94e2a45ad786388af80c",
+      "entities_sha256": "b73b7e68dfa82aff0bfe2e1bc6b86393210e20a229590c8612c7aa4e0a11b016",
+      "currency": {
+        "value": "MYR",
+        "citation": {
+          "page": 1,
+          "quote": "RM"
+        },
+        "reason": null
+      }
+    },
+    {
+      "id": "X51005676534",
+      "image_sha256": "c4eddfb8fd5190ade0421e11782f3a9f10c6bae794cb233df9c2a998ebc3e2c4",
+      "entities_sha256": "8958fa7843e91d86c4b84f869b3a4f2cc4aa1480f3fd0cda9fef323ae9824c7a",
+      "currency": {
+        "value": "MYR",
+        "citation": {
+          "page": 1,
+          "quote": "RM"
+        },
+        "reason": null
+      }
+    },
+    {
+      "id": "X51005719903",
+      "image_sha256": "216eebd7a0c507097be5291e26064468533c506ad6865d8dece945b16c8617e3",
+      "entities_sha256": "ece7f64f61a047040a47b6cb70f40510854671cecbf1fa87edfd9e198e3e70ad",
+      "currency": {
+        "value": null,
+        "citation": null,
+        "reason": "no currency is printed"
+      }
+    },
+    {
+      "id": "X51005757342",
+      "image_sha256": "22d6f3275344e8ab631f31da590c028cd77475b7aecdeee5c93e3aa3d2a6b79d",
+      "entities_sha256": "333c879f70afea4c9b73d975ef5ef24dd176d894aa9cf6fe097b6a6e5fa0dbeb",
+      "currency": {
+        "value": "MYR",
+        "citation": {
+          "page": 1,
+          "quote": "RM"
+        },
+        "reason": null
+      }
+    },
+    {
+      "id": "X51006329183",
+      "image_sha256": "6b10944345842f5acb281edee83424468647d30bb468275b991384ace9e09070",
+      "entities_sha256": "7e3076bb9c485b47a4d6f2c96080872e3fbc0022812c5ad8632d3327296f17b8",
+      "currency": {
+        "value": "MYR",
+        "citation": {
+          "page": 1,
+          "quote": "RM"
+        },
+        "reason": null
+      }
+    },
+    {
+      "id": "X51006335818",
+      "image_sha256": "b150bff42e4eb768a065519002247be87e3d60e45cb4a0359a656a0484d95378",
+      "entities_sha256": "83333840178a8657c98d6c452f078e7e92707510805545f7a0a3eb81176b2c6a",
+      "currency": {
+        "value": "MYR",
+        "citation": {
+          "page": 1,
+          "quote": "RM"
+        },
+        "reason": null
+      }
+    },
+    {
+      "id": "X51006414512",
+      "image_sha256": "967e8c2ac061046debd4bf2367f632478fa4373340bbae8106682c4ea056ab85",
+      "entities_sha256": "bda4a2d36d910298966b7c5ba0b06e5b4f3fb5c4f1b94f321523047e9662d6a8",
+      "currency": {
+        "value": "MYR",
+        "citation": {
+          "page": 1,
+          "quote": "RM"
+        },
+        "reason": null
+      }
+    },
+    {
+      "id": "X51006619346",
+      "image_sha256": "deeb6494ada975e1d5eae1720bb1899ed910af780b551a2d3f05dcaa629b47e9",
+      "entities_sha256": "db187c16ef1ebcc1d71e6eaf2ffdf9d0bae27c6504f26ef4ecb7bd446fdb50bf",
+      "currency": {
+        "value": "MYR",
+        "citation": {
+          "page": 1,
+          "quote": "RM"
+        },
+        "reason": null
+      }
+    },
+    {
+      "id": "X51006619784",
+      "image_sha256": "8b8a4132fe5337cf3735e6be6ab8293a9fecf5485f281c153b6f01d61045bec4",
+      "entities_sha256": "431943c1898eeebcf3de44d9837e9dff2649e4c190c04fecae4580c99712eb10",
+      "currency": {
+        "value": "MYR",
+        "citation": {
+          "page": 1,
+          "quote": "RM"
+        },
+        "reason": null
+      }
+    },
+    {
+      "id": "X51007231276",
+      "image_sha256": "08e2d1982ced94c838298024c50dd42ce34336e8b5e4f067a09e8e5d07aec331",
+      "entities_sha256": "0a8799a3354c048e79f3489002c2b27d5924cf0f280f72adac1461412d9607fc",
+      "currency": {
+        "value": null,
+        "citation": null,
+        "reason": "'$' is printed, which does not identify one currency"
+      }
+    },
+    {
+      "id": "X51007231341",
+      "image_sha256": "5372868977ab67846f38e74b5791585f85490ece4211842bd220af912a6fdc6f",
+      "entities_sha256": "0177a7ca25fd20420028f5ac5c632afee6e5efd6ec10dc169c4e485d4779af69",
+      "currency": {
+        "value": null,
+        "citation": null,
+        "reason": "'$' is printed, which does not identify one currency"
+      }
+    },
+    {
+      "id": "X51007339159",
+      "image_sha256": "6f2430a8d3a6564974bbdf56906db7bf83a85f8e94431b4cf1e5fd8c662c549c",
+      "entities_sha256": "bd131352fa4d47b425ea66d49a8fa8528d88849048f6f0ba8e50d5e23abe7a9e",
+      "currency": {
+        "value": "MYR",
+        "citation": {
+          "page": 1,
+          "quote": "RM"
+        },
+        "reason": null
+      }
+    },
+    {
+      "id": "X51008042781",
+      "image_sha256": "d85d0e9c0a72926b242c4b72f2141d6fca515a16568d23d80f8ded9c0847cc26",
+      "entities_sha256": "0babbed6d9239e762bde229edefe9c36357702fe1a91894997a1b23155ddd188",
+      "currency": {
+        "value": "MYR",
+        "citation": {
+          "page": 1,
+          "quote": "RM"
+        },
+        "reason": null
+      }
+    },
+    {
+      "id": "X51008099088",
+      "image_sha256": "389c5785712d1d3dab8e994f14b7463fa31d27b4c2c4f22e74b9cc4d086cce2f",
+      "entities_sha256": "1f487d8d85a4e9e190093cfa0b5a00242414cfd9bd0b44488e109b8215472091",
+      "currency": {
+        "value": "MYR",
+        "citation": {
+          "page": 1,
+          "quote": "RM"
+        },
+        "reason": null
+      }
+    },
+    {
+      "id": "X51009447842",
+      "image_sha256": "5599437a296b736c203c9b44f0739ffd5fffdf1fdedccd0f2fbd54ac9c134b4f",
+      "entities_sha256": "231061026b37eee34d965b3eba44f655676b04aee1921061e29f9ee4399f4359",
+      "currency": {
+        "value": "MYR",
+        "citation": {
+          "page": 1,
+          "quote": "RM"
+        },
+        "reason": null
+      }
+    }
+  ]
+}
