@@ -71,3 +71,18 @@ Começar pelo SROIE (recibos com gabarito de empresa, endereço, data e total). 
 | Workflow reutilizável | `uses: $/.github/workflows/security.yml` | Sintaxe self-repository (julho de 2026): mesmo commit do chamador, sem depender do sistema de arquivos em tempo de execução como o `./` | [zizmor: self-repository](https://docs.zizmor.sh/audits/#self-repository); [GitHub changelog](https://github.blog/changelog/2026-07-30-reference-same-repository-actions-with-self-repository-syntax/) |
 
 O UAT usa Poetry. Aqui o uv ganhou por cobrir Python, lock e auditoria com uma ferramenta só, e por ter suporte nativo no Dependabot e no `setup-uv`.
+
+### D8. Schema e resultado (decidida na #2)
+
+| Regra | Onde | Por quê | Fonte |
+| --- | --- | --- | --- |
+| Valor exige citação; vazio exige motivo; motivo só com vazio; citação só com valor | `ExtractedField` (`core/result.py`) | A invariante "nada inventado" vira tipo: nenhum produtor (LLM, gabarito, teste) consegue esquecê-la | D1 |
+| `failed` não carrega campos; status diferente de `ok` exige `errors`; `ok` não tem `errors` | `ExtractionResult` | Falha nunca sai parcial e nada passa em silêncio | D3 |
+| Base `StrictModel`: `frozen=True, extra="forbid"` como **argumentos de classe**, repetidos em cada subclasse | `core/result.py` | Verificador de tipos só lê config passada como argumento de classe e não herda `frozen` (PEP 681); o pyright reprova subclasse que esquecer. Chave extra = produtor fora do schema | [Pydantic 2.14: Configuration](https://pydantic.dev/docs/validation/2.14/concepts/config/); [PEP 681](https://peps.python.org/pep-0681/) |
+| `IsoDate` aceita só texto `AAAA-MM-DD` | `core/result.py` | O Pydantic lê timestamp Unix como data (no modo lax e, como texto, até no `strict`): qualquer número do documento viraria data. Observado com sonda no 2.14.3 e travado por teste | sonda + `tests/test_receipt.py` |
+| Citação literal (`pattern=r"\S"`, sem `strip`) | `Citation.quote` | A #4 confere a citação contra o texto lido; alterá-la quebraria a conferência | D1 |
+| Dinheiro `Decimal` com `ge=0`; JSON número vira `Decimal` pela representação curta (`10.10` → `10.1`, sem `10.0999…`) | `packs/receipt` | Comportamento observado, não documentado (a doc diz só "valor aceito pelo construtor de `Decimal`"): o teste trava contra mudança de versão | [Pydantic 2.14: tipos da stdlib](https://pydantic.dev/docs/validation/2.14/api/pydantic/standard_library_types/) |
+| Alias PEP 695 (`type Money = ...`) para tipos com restrição | packs | Gera nomes legíveis no `$defs` do JSON Schema (`ExtractedField[Money]`), que é o que o LLM lê | [Pydantic 2.14: Models (genéricos)](https://pydantic.dev/docs/validation/2.14/concepts/models/) |
+| JSON Schema de cada pack commitado com teste de snapshot; `uv run poe export-schemas` regrava | `packs/json_schema.py` | Mudar o schema muda o pedido ao LLM e pode mexer no eval: tem que aparecer no diff. Sem dependência nova (comparação de texto basta) | julgamento próprio (YAGNI) |
+
+Pendente para a #4: o schema atual tem `Money` como `number` **ou** `string` e `citation`/`reason` fora de `required`. Conferir na doc do SDK escolhido o que a saída estruturada nativa aceita antes de ajustar.
