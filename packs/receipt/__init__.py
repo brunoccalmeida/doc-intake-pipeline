@@ -39,6 +39,7 @@ class Receipt(StrictModel, frozen=True):
 RECEIPT = Pack(
     name="receipt",
     schema=Receipt,
+    printed=frozenset({"company", "address"}),
     instructions="""\
 The document is a purchase receipt or a simple invoice.
 - company and address: the seller's, as printed (usually at the top), not the buyer's.

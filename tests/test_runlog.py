@@ -38,7 +38,12 @@ class Sale(StrictModel, frozen=True):
     total: ExtractedField[Decimal]
 
 
-PACK = Pack(name="sale", schema=Sale, instructions="Read the seller and the amount paid.")
+PACK = Pack(
+    name="sale",
+    schema=Sale,
+    instructions="Read the seller and the amount paid.",
+    printed=frozenset({"company"}),
+)
 
 
 def cited(value: object, quote: str) -> dict[str, Any]:

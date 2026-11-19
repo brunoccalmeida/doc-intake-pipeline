@@ -36,7 +36,12 @@ class Sale(StrictModel, frozen=True):
     total: ExtractedField[Decimal]
 
 
-PACK = Pack(name="sale", schema=Sale, instructions="Read the seller and the amount paid.")
+PACK = Pack(
+    name="sale",
+    schema=Sale,
+    instructions="Read the seller and the amount paid.",
+    printed=frozenset({"company"}),
+)
 
 
 @dataclass
@@ -96,7 +101,11 @@ def test_field_descriptions_reach_the_instructions() -> None:
         company: ExtractedField[str] = Field(description="Name of the seller as printed.")
 
     provider = FakeProvider([json.dumps({"company": cited("ACME", "ACME")})])
-    extract(DOCUMENT, Pack(name="d", schema=WithDescription, instructions="x"), provider)
+    extract(
+        DOCUMENT,
+        Pack(name="d", schema=WithDescription, instructions="x", printed=frozenset()),
+        provider,
+    )
     assert "company: Name of the seller as printed." in provider.requests[0].instructions
 
 
@@ -216,6 +225,45 @@ def test_text_value_inside_a_longer_quote_is_ok() -> None:
     # A quote is often the whole printed line around the value.
     provider = FakeProvider([sale_json(company=cited("ACME", "ACME TRADING SDN BHD"))])
     assert extract(DOCUMENT, PACK, provider).status == "ok"
+
+
+class Coded(StrictModel, frozen=True):
+    """A printed field and a normalised one, like a receipt's company and currency."""
+
+    company: ExtractedField[str]
+    currency: ExtractedField[str]
+
+
+CODED = Pack(name="coded", schema=Coded, instructions="x", printed=frozenset({"company"}))
+
+
+def test_normalised_text_value_may_differ_from_its_quote() -> None:
+    # The pack asks for an ISO code where "RM" is printed: only "as printed"
+    # fields are held to their quote (review of #26).
+    answer = json.dumps(
+        {"company": cited("ACME", "ACME TRADING SDN BHD"), "currency": cited("MYR", "RM 9.00")}
+    )
+    result = extract(DOCUMENT, CODED, FakeProvider([answer]))
+    assert result.status == "ok"
+
+
+def test_printed_field_is_still_held_to_its_quote_beside_a_normalised_one() -> None:
+    answer = json.dumps(
+        {"company": cited("ACME CO", "ACME TRADING SDN BHD"), "currency": cited("MYR", "RM 9.00")}
+    )
+    result = extract(DOCUMENT, CODED, FakeProvider([answer]))
+    assert result.errors == ["company: value is not the text of its quote"]
+
+
+def test_instructions_name_the_fields_read_as_printed() -> None:
+    provider = FakeProvider([sale_json()])
+    extract(DOCUMENT, PACK, provider)
+    assert "Fields read as printed: company." in provider.requests[0].instructions
+
+
+def test_pack_refuses_a_printed_field_its_schema_lacks() -> None:
+    with pytest.raises(ValueError, match="printed fields not in the schema: seller"):
+        Pack(name="x", schema=Sale, instructions="x", printed=frozenset({"seller"}))
 
 
 def test_value_read_from_the_page_image_goes_to_review() -> None:

@@ -35,9 +35,11 @@ where the value was read.
 page's text. Use it whenever the page's text shows the value correctly.
   - source "image": the quote is the text exactly as printed on the page image. \
 Use it only when the page's text misreads or misses what the image shows.
-  A text value is spelled exactly as in its quote, with nothing added that is \
-not printed (no commas, words or corrections); the quote may hold more than \
-the value.
+  A field read as printed (listed below) has its value spelled exactly as in \
+its quote, with nothing added that is not printed (no commas, words or \
+corrections), and its quote covers the whole value, every line of it; the \
+quote may hold more than the value. Other fields are converted as their \
+description says, and their quote keeps the printed text.
 - null as the value, with citation null and a short reason saying why the \
 document does not show it.
 
@@ -54,6 +56,14 @@ class Pack[S: BaseModel]:
     name: str
     schema: type[S]
     instructions: str
+    # Fields whose value is the text as printed: a value must sit inside its
+    # quote (D11). The others are converted (a code, a date) and are not.
+    printed: frozenset[str]
+
+    def __post_init__(self) -> None:
+        unknown = self.printed - set(self.schema.model_fields)
+        if unknown:
+            raise ValueError(f"printed fields not in the schema: {', '.join(sorted(unknown))}")
 
 
 def extract[S: BaseModel](
@@ -81,7 +91,7 @@ def extract[S: BaseModel](
             errors = _describe(error)
             prompt = _retry_prompt(_document_prompt(document), answer, errors)
             continue
-        problems = _citation_problems(fields, document)
+        problems = _citation_problems(fields, document, pack.printed)
         if problems:
             return ExtractionResult[S](status="needs_review", fields=fields, errors=problems)
         return ExtractionResult[S](status="ok", fields=fields)
@@ -97,6 +107,8 @@ def _instructions[S: BaseModel](pack: Pack[S]) -> str:
         if info.description
     )
     parts = [ENGINE_INSTRUCTIONS, pack.instructions]
+    if pack.printed:
+        parts.append(f"Fields read as printed: {', '.join(sorted(pack.printed))}.")
     if guide:
         parts.append(f"Fields:\n{guide}")
     return "\n\n".join(parts)
@@ -148,13 +160,13 @@ def _describe(error: ValidationError) -> list[str]:
     return described
 
 
-def _citation_problems(fields: BaseModel, document: Document) -> list[str]:
+def _citation_problems(fields: BaseModel, document: Document, printed: frozenset[str]) -> list[str]:
     """What a person must check in each cited field; at most one problem per field.
 
     - a "text" quote must appear on the page it names;
     - an "image" quote cannot be checked by code, so it always goes to review
       (``docs/ARCHITECTURE.md`` D12), and it must cite a page whose image was sent;
-    - a text value must be inside its quote (D11): the value is the text as read.
+    - a field read as printed must have its value inside its quote (D11).
 
     Comparison ignores how whitespace is laid out (a model often copies a
     multi-line passage as one line), and nothing else: case, punctuation and
@@ -166,7 +178,7 @@ def _citation_problems(fields: BaseModel, document: Document) -> list[str]:
         field = getattr(fields, name)
         if not _is_field(field) or field.citation is None:
             continue
-        text = field.value if isinstance(field.value, str) else None
+        text = field.value if name in printed and isinstance(field.value, str) else None
         problem = _citation_problem(text, field.citation, pages)
         if problem is not None:
             problems.append(f"{name}: {problem}")
@@ -176,7 +188,7 @@ def _citation_problems(fields: BaseModel, document: Document) -> list[str]:
 def _citation_problem(
     text: str | None, citation: Citation, pages: dict[int, PageText]
 ) -> str | None:
-    """The first problem found, or None; ``text`` is the value when it is text."""
+    """The first problem found, or None; ``text`` is the value of a printed field."""
     page = pages.get(citation.page)
     if page is None:
         return f"cites page {citation.page}, but the document has {len(pages)} pages"
