@@ -181,3 +181,11 @@ Toda página lida por OCR vai ao modelo com a sua imagem; o texto do OCR continu
 | OpenAI | `input_image` com *data URL* e `detail: "original"` | Recomendado para OCR; a página não lista o `gpt-6.2-astra` nas tabelas, e valor não aceito é 400 visível na execução manual (#13) | [OpenAI, Images and vision](https://developers.openai.com/api/docs/guides/images-vision) |
 | Chave da gravação | Inclui rótulo, *media type* e SHA-256 de cada imagem | O que molda a resposta entra na chave (D4) | D4 |
 | Custo | ~2.400 tokens de imagem por recibo (1.242 a ~4.784), ~US$ 0,0097 a mais por documento na estimativa offline; a nova tentativa reenvia a imagem | Medido pela fórmula `⌈l/28⌉ × ⌈a/28⌉` nos 20 recibos | [Vision, cost](https://platform.claude.com/docs/en/build-with-claude/vision) |
+
+**Medido na #26** (gravação paga de 20 chamadas, sem nenhuma nova tentativa; US$ 0,627 no total, US$ 0,031342 por documento, contra US$ 0,017489 antes): company 16 → **19**/20, address 10 → **19**/20, date 17 → **19**/20, total 18 → **20**/20, currency 19 → **20**/20. São 20 campos errados que caíram para 3. Status: 6 `ok` e 14 `needs_review`, porque todo valor lido da imagem vai para revisão. Esse é o custo aceito do desenho: o ganho de acerto vem com revisão humana do que o código não confere. A gravação foi feita depois de um piloto pago em 4 recibos (8 campos que erravam acertaram, sem regressão no recibo de controle), e as gravações do piloto foram reaproveitadas.
+
+**Limitações** (os 3 erros restantes, todos com a citação vinda da imagem e marcados para revisão):
+
+- Dígito desgastado: uma data impressa com o último dígito do ano quase apagado é lida com o ano errado, igual à leitura do Tesseract. O gabarito está certo: o recibo cobra GST de 6%, que só vigorou até 31/05/2018. Não se corrige pelo prompt (D11).
+- Convenção de anotação: num recibo, o modelo devolve a marca do logotipo junto com a razão social, e o gabarito traz só a razão social; noutro, um endereço difere do gabarito num único sinal de pontuação desgastado. Ajustar o prompt para esses casos seria sobreajuste ao conjunto-ouro.
+- Página de PDF escaneado vai como PNG do render de 300 dpi; uma página colorida grande pode passar de 10 MB e voltar como erro 400 da API (propaga, D10). Nenhum documento do conjunto-ouro é desse tipo; reduzir no cliente fica para quando acontecer (YAGNI).
