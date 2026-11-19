@@ -34,11 +34,16 @@ class UnknownModelPriceError(KeyError):
     """The model has no row in ``PRICES``: add it, with its source, before running."""
 
 
-def cost_usd(model: str, *, input_tokens: int, output_tokens: int) -> Decimal:
+def price_of(model: str) -> Price:
+    """The model's row; call it on the configured model before a paid call (fail fast)."""
     try:
-        price = PRICES[model]
+        return PRICES[model]
     except KeyError:
         raise UnknownModelPriceError(
             f"no price for model {model!r}; add it to core/pricing.py from {PRICES_SOURCE}"
         ) from None
+
+
+def cost_usd(model: str, *, input_tokens: int, output_tokens: int) -> Decimal:
+    price = price_of(model)
     return (input_tokens * price.input_per_mtok + output_tokens * price.output_per_mtok) / _MILLION
