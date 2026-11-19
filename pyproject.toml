@@ -6,8 +6,11 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.14"
 dependencies = [
+    "pillow>=13.0.0",
     "pydantic>=2.14.3",
     "pydantic-settings>=2.16.3",
+    "pypdfium2>=5.15.2",
+    "tesserocr>=2.13.0",
 ]
 
 [dependency-groups]
@@ -57,7 +60,11 @@ select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "PTH", "PT", "N", "S", "RU
 [tool.pyright]
 typeCheckingMode = "strict"
 pythonVersion = "3.14"
-include = ["core", "packs", "evals", "scripts", "tests"]
+include = ["core", "packs", "evals", "scripts", "tests", "typings"]
+# Local stubs for libraries that ship no usable types (pypdfium2, tesserocr):
+# pyright resolves stubPath before installed packages. Each stub holds only
+# the API the project calls; see the header of each file.
+stubPath = "typings"
 venvPath = "."
 venv = ".venv"
 # A suppression that no longer suppresses anything is noise: report it.
@@ -70,6 +77,8 @@ types = "pyright"
 format = "ruff format ."
 # Rewrite each pack's committed JSON Schema; a snapshot test fails until you do.
 export-schemas = "python -m packs.json_schema"
+# Download Tesseract's English model (pinned, checksum-verified) for OCR.
+fetch-tessdata = "python -m scripts.fetch_tessdata"
 # The local gate, the same commands as CI's "check" job. Every step runs even
 # after a failure, so one run reports every problem; the exit is still non-zero.
 check.sequence = ["lint", "format-check", "types"]

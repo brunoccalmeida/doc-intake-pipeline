@@ -7,6 +7,7 @@ Instantiating ``Settings()`` raises ``ValidationError`` on any invalid value,
 so the program stops before touching a document (fail fast).
 """
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -25,3 +26,6 @@ class Settings(BaseSettings):
     )
 
     log_level: LogLevel = "INFO"
+    # Tesseract language data (eng.traineddata), fetched by "uv run poe fetch-tessdata".
+    # Not checked here: only OCR needs it, and OCR fails naming the fix when it is missing.
+    tessdata_dir: Path = Path(".cache/tessdata")

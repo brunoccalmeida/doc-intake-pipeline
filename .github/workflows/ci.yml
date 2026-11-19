@@ -66,6 +66,12 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked
 
+      # The tesserocr wheel bundles the Tesseract engine, so no apt package is
+      # needed; only the language model is downloaded, pinned by commit and
+      # SHA-256 (scripts/fetch_tessdata.py). Without it the OCR tests fail.
+      - name: Fetch OCR language data
+        run: uv run poe fetch-tessdata
+
       # No API key exists in this workflow: unit tests use a fake provider
       # (AGENTS.md invariant 4), so a test that reaches the network fails.
       - name: Run tests

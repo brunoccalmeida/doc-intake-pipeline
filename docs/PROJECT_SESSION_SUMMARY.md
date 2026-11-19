@@ -8,10 +8,10 @@ Estado do projeto entre chats. Guarda **só o estado e a próxima missão**; o r
 
 | Item             | Estado |
 | ---------------- | ------ |
-| Última missão    | [#2](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/2): `core/result.py` (`Citation`, `ExtractedField`, `ExtractionResult`, `IsoDate`, `StrictModel`) e `packs/receipt` com JSON Schema em snapshot (decisões na D8 do [ARCHITECTURE.md](ARCHITECTURE.md)) |
-| Próxima missão   | [#3](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/3): leitura de PDF e imagem com OCR (P0, menor número). A #4 herda a pendência da D8 (schema vs. saída estruturada do SDK) |
-| PRs abertos      | nenhum após o merge da #2 |
-| Portões          | `uv run poe check` (ruff, formatação, pyright estrito) e `uv run pytest`; no CI, `ci-passed` agrega `check`, `test`, `secret-scan` (gitleaks), `workflow-audit` (zizmor) e `dependency-audit` (`uv audit`, também diário) |
+| Última missão    | [#3](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/3): `core/ingest.py` (`ingest` → `Document` com texto por página, camada de texto ou OCR por página), `pypdfium2` + `tesserocr` com Tesseract embutido, modelo `eng` fixado por SHA-256 (D9 do [ARCHITECTURE.md](ARCHITECTURE.md)) |
+| Próxima missão   | [#4](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/4): extrator com LLM, provedor trocável e nova tentativa (P0, menor número). Herda a pendência da D8 (schema vs. saída estruturada do SDK) |
+| PRs abertos      | nenhum após o merge da #3 |
+| Portões          | `uv run poe check` (ruff, formatação, pyright estrito) e `uv run pytest` (os testes de OCR exigem `uv run poe fetch-tessdata` antes; sem o modelo eles falham, não pulam); no CI, `ci-passed` agrega `check`, `test`, `secret-scan` (gitleaks), `workflow-audit` (zizmor) e `dependency-audit` (`uv audit`, também diário) |
 | Repositório      | Ruleset "Protect main": PR só com squash, histórico linear, `ci-passed` obrigatório com branch atualizada; squash usa título e corpo do PR; auto-merge e apagar branch ligados; alertas e atualizações de segurança do Dependabot ligados |
 | Travas do agente | `.claude/settings.json` nega merge `--admin`, force push, push na `main` e leitura/escrita do `.env`; plugin `mission` com `autoUpdate: false` |
 
@@ -21,6 +21,8 @@ Estado do projeto entre chats. Guarda **só o estado e a próxima missão**; o r
 - `astral.sh` não resolve no PowerShell desta máquina: instalar o uv pelo instalador do release no GitHub.
 - Git Bash reescreve `gh api /caminho` como caminho de arquivo: usar o endpoint sem a barra inicial.
 - `python` no Git Bash pode travar esperando entrada (stub do Windows): rodar Python sempre por `uv run python`.
+- Script Python via heredoc (ou sed) no Git Bash erra escapes com barra invertida, como o do CRLF: casa nada ou grava quebra real. Para mutação ou edição pontual, usar o Edit.
+- `Path.write_text` no Windows grava CRLF; o `.gitattributes` normaliza no commit (o aviso do Git é esperado).
 - Workflow reutilizável do mesmo repositório usa `$/...` (sintaxe self-repository); o zizmor reprova `./...`.
 
 ## Plano da semana 1 (~16 h)
