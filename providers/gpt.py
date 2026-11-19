@@ -8,14 +8,25 @@ upgrade could move it: the schema test in ``tests/test_providers.py`` exercises
 it and fails loudly if it does.
 """
 
+import base64
+
 import openai
 from openai.lib._pydantic import to_strict_json_schema
-from openai.types.responses import ResponseFormatTextJSONSchemaConfigParam
+from openai.types.responses import (
+    ResponseFormatTextJSONSchemaConfigParam,
+    ResponseInputContentParam,
+    ResponseInputParam,
+)
 from pydantic import BaseModel
 
 from core.llm import LLMRequest, LLMResponse
 
 MAX_OUTPUT_TOKENS = 16_000
+# "For tasks that require fine visual detail ... such as optical character
+# recognition (OCR) ... use "detail": "original" when supported" (OpenAI docs,
+# "Images and vision"). The page does not list gpt-6.2-astra; an unsupported
+# value is a 400, seen on the first live run (#13), not a silent downgrade.
+IMAGE_DETAIL = "original"
 
 
 class MissingUsageError(RuntimeError):
@@ -33,6 +44,23 @@ def openai_text_format(
     }
 
 
+def openai_input(request: LLMRequest) -> ResponseInputParam:
+    """One user message: each image after its label, then the prompt."""
+    content: list[ResponseInputContentParam] = []
+    for image in request.images:
+        encoded = base64.b64encode(image.data).decode("ascii")
+        content.append({"type": "input_text", "text": image.label})
+        content.append(
+            {
+                "type": "input_image",
+                "image_url": f"data:{image.media_type};base64,{encoded}",
+                "detail": IMAGE_DETAIL,
+            }
+        )
+    content.append({"type": "input_text", "text": request.prompt})
+    return [{"role": "user", "content": content}]
+
+
 class OpenAIProvider:
     """An ``LLMProvider`` backed by the OpenAI Responses API."""
 
@@ -45,7 +73,7 @@ class OpenAIProvider:
         response = self._client.responses.create(
             model=self._model,
             instructions=request.instructions,
-            input=request.prompt,
+            input=openai_input(request),
             text={"format": openai_text_format(request.schema_name, request.output_schema)},
             max_output_tokens=MAX_OUTPUT_TOKENS,
             # Client documents are not kept on OpenAI's side for later retrieval.
