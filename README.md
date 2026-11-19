@@ -6,7 +6,7 @@ A document intake pipeline that reads PDFs and images (including scanned ones), 
 
 ## At a Glance
 
-First eval, 20 SROIE receipts, Claude Opus 5.5 ([CI run](RUN_URL)):
+First eval, 20 SROIE receipts, Claude Opus 5.5 ([CI run](https://github.com/brunoccalmeida/doc-intake-pipeline/actions/runs/44561724676)):
 
 | Field | Correct | Accuracy |
 | --- | --- | --- |
