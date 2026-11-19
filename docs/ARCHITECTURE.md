@@ -56,6 +56,8 @@ Tokens de entrada e saída vêm do `usage` da resposta do provedor; o preço por
 
 Começar pelo SROIE (recibos com gabarito de empresa, endereço, data e total). Licença e procedência registradas em `docs/DATA.md` antes de commitar qualquer arquivo (ver #5). CORD entra quando o pack de nota fiscal crescer; CUAD (contratos) na semana 3.
 
+**Decidido na #5:** o SROIE não publica licença na fonte, então nem as imagens nem o gabarito (nem o convertido) entram no Git. O repositório guarda só o que é nosso: a regra de seleção, os ids com o SHA-256 de cada arquivo e a anotação de moeda. O `uv run poe fetch-golden` baixa de um espelho fixado por commit, confere os checksums e converte localmente em `.cache/golden/sroie`. Isso é reversível: se aparecer licença que permita, commitar depois é trivial; tirar dado de um histórico público não é. Detalhes, espelho e limitações em [DATA.md](DATA.md).
+
 ### D7. Ferramentas Python (decidida na #1)
 
 | Peça | Escolha | Por quê | Fonte |

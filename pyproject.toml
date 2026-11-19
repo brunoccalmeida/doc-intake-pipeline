@@ -90,6 +90,8 @@ format = "ruff format ."
 export-schemas = "python -m packs.json_schema"
 # Download Tesseract's English model (pinned, checksum-verified) for OCR.
 fetch-tessdata = "python -m scripts.fetch_tessdata"
+# Download the SROIE golden set (pinned, checksum-verified) and convert it locally.
+fetch-golden = "python -m scripts.fetch_golden"
 # Extract one receipt with the configured real provider: calls a paid API.
 extract = "python -m scripts.extract_document"
 # The local gate, the same commands as CI's "check" job. Every step runs even

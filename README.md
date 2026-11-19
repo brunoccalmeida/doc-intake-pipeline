@@ -23,7 +23,7 @@ LLM extraction demos are easy; trusting them in production is not. This project 
 | Receipt/invoice schema with citations   | done    |
 | PDF and image reading (with OCR)        | done    |
 | LLM extractor with validation and retry | done    |
-| Golden set (SROIE receipts)             | planned |
+| Golden set (SROIE receipts)             | done    |
 | Per-field eval gating CI                | planned |
 | Run log and cost per document           | planned |
 
@@ -34,6 +34,7 @@ Requires [uv](https://docs.astral.sh/uv/) (the version is pinned in `pyproject.t
 ```bash
 uv sync              # create .venv from uv.lock
 uv run poe fetch-tessdata  # download the pinned, checksum-verified OCR model (needed by the OCR tests)
+uv run poe fetch-golden    # download and convert the pinned SROIE golden set (needed by its tests)
 uv run poe check     # lint, format check and strict type check
 uv run pytest        # tests (no network, no API key)
 uv run poe export-schemas  # rewrite the committed JSON Schemas after a schema change
@@ -52,7 +53,7 @@ Every pull request must pass the `ci-passed` gate: lint, types, tests, secret sc
 
 ## Data
 
-The first golden set uses receipts from the public ICDAR 2019 SROIE dataset. Licensing and attribution are recorded in `docs/DATA.md`. No client documents are ever stored in this repository.
+The first golden set is 20 receipts from the ICDAR 2019 SROIE dataset, chosen by a reproducible rule. SROIE publishes no licence, so its images and ground truth are not in this repository: `uv run poe fetch-golden` downloads them from a pinned mirror commit, verifies each file's SHA-256 and converts the ground truth locally (into `.cache/golden/sroie`). Source, attribution, selection rule, our currency annotation and known limitations are in [`docs/DATA.md`](docs/DATA.md). No client documents are ever stored in this repository.
 
 ## License
 
