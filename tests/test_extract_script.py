@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from core.pricing import UnknownModelPriceError
-from providers import MissingApiKeyError
+from providers import MissingCredentialError
 from scripts.extract_document import main
 
 
@@ -55,5 +55,5 @@ def test_a_missing_key_fails_before_reading_the_file(
 ) -> None:
     monkeypatch.setenv("DOC_INTAKE_PROVIDER", "claude")
     monkeypatch.setenv("DOC_INTAKE_CLAUDE_MODEL", "claude-opus-5-5")
-    with pytest.raises(MissingApiKeyError, match="DOC_INTAKE_ANTHROPIC_API_KEY"):
+    with pytest.raises(MissingCredentialError, match="DOC_INTAKE_ANTHROPIC_API_KEY"):
         main([str(tmp_path / "missing.pdf")])

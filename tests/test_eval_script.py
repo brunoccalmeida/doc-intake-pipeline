@@ -18,7 +18,7 @@ from evals.recording import RecordingProvider, RecordingStore
 from evals.run import run_eval
 from evals.sroie import MANIFEST_PATH, load_manifest
 from packs.receipt import RECEIPT
-from providers import MissingApiKeyError
+from providers import MissingCredentialError
 from scripts.run_eval import main
 
 GOLDEN = Settings().sroie_dir
@@ -165,5 +165,5 @@ def test_update_baseline_writes_the_current_scores(recordings: Path, tmp_path: P
 def test_record_without_an_api_key_fails_before_reading_anything(
     recordings: Path, tmp_path: Path
 ) -> None:
-    with pytest.raises(MissingApiKeyError, match="DOC_INTAKE_ANTHROPIC_API_KEY"):
+    with pytest.raises(MissingCredentialError, match="DOC_INTAKE_ANTHROPIC_API_KEY"):
         run(tmp_path, "--record")

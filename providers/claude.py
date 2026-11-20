@@ -17,6 +17,7 @@ from anthropic.types.beta import (
 from pydantic import BaseModel
 
 from core.llm import LLMRequest, LLMResponse
+from providers.credentials import MissingCredentialError
 
 # Room for the JSON and the model's thinking; a non-streaming call stays well
 # under the SDK's request timeout at this size (Anthropic SDK guidance).
@@ -60,9 +61,29 @@ def claude_content(request: LLMRequest) -> list[BetaTextBlockParam | BetaImageBl
 class ClaudeProvider:
     """An ``LLMProvider`` backed by the Claude Messages API."""
 
-    def __init__(self, *, api_key: str, model: str) -> None:
-        # The SDK retries connection errors, 408, 409, 429 and 5xx itself.
-        self._client = anthropic.Anthropic(api_key=api_key)
+    def __init__(
+        self, *, model: str, api_key: str | None = None, profile: str | None = None
+    ) -> None:
+        """Sign in with exactly one credential: an API key or an ant CLI profile.
+
+        Either one is passed explicitly, so the SDK reads no credential from the
+        environment: a stray ``ANTHROPIC_API_KEY`` cannot replace the profile,
+        and no implicit discovery picks an account (docs/ARCHITECTURE.md D13).
+        A missing or unreadable profile fails here, before any request.
+        """
+        if (api_key is None) == (profile is None):
+            raise ValueError("pass exactly one of api_key or profile")
+        try:
+            # The SDK retries connection errors, 408, 409, 429 and 5xx itself.
+            if profile is not None:
+                self._client = anthropic.Anthropic(profile=profile)
+            else:
+                self._client = anthropic.Anthropic(api_key=api_key)
+        except anthropic.CredentialsError as err:
+            raise MissingCredentialError(
+                f"cannot sign in with the ant CLI profile {profile!r}: {err}"
+                f" Run: ant auth login --profile {profile}"
+            ) from err
         self._model = model
 
     def complete(self, request: LLMRequest) -> LLMResponse:

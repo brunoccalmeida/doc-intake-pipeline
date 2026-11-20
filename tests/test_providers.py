@@ -7,6 +7,7 @@ schemas offline. The live call is the manual run recorded in the PR.
 import base64
 from collections.abc import Iterator
 from dataclasses import replace
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
@@ -15,7 +16,7 @@ from pydantic import SecretStr
 from core.config import Settings
 from core.llm import ImageInput, LLMRequest
 from packs.receipt import Receipt
-from providers import MissingApiKeyError, make_provider
+from providers import MissingCredentialError, make_provider
 from providers.claude import ClaudeProvider, claude_content, claude_output_format
 from providers.gpt import OpenAIProvider, openai_input, openai_text_format
 
@@ -75,8 +76,37 @@ def test_openai_is_built_when_configured() -> None:
     [("claude", "DOC_INTAKE_ANTHROPIC_API_KEY"), ("openai", "DOC_INTAKE_OPENAI_API_KEY")],
 )
 def test_missing_key_fails_naming_the_variable(provider: str, variable: str) -> None:
-    with pytest.raises(MissingApiKeyError, match=variable):
+    with pytest.raises(MissingCredentialError, match=variable):
         make_provider(settings(provider=provider))
+
+
+def test_claude_without_key_or_profile_names_both_variables() -> None:
+    with pytest.raises(
+        MissingCredentialError, match=r"DOC_INTAKE_ANTHROPIC_API_KEY.*DOC_INTAKE_ANTHROPIC_PROFILE"
+    ):
+        make_provider(settings(provider="claude"))
+
+
+@pytest.fixture
+def empty_anthropic_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """An ant CLI config directory with no profile in it: no real sign-in is read."""
+    monkeypatch.setenv("ANTHROPIC_CONFIG_DIR", str(tmp_path))
+
+
+@pytest.mark.usefixtures("empty_anthropic_config")
+def test_claude_with_a_missing_profile_fails_at_construction() -> None:
+    # Fails fast, at construction, naming the profile and the fix; no request is sent.
+    with pytest.raises(MissingCredentialError, match=r"'work'.*ant auth login --profile work"):
+        make_provider(settings(provider="claude", anthropic_profile="work"))
+
+
+@pytest.mark.usefixtures("empty_anthropic_config")
+def test_a_stray_sdk_key_cannot_replace_the_profile(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The SDK's own resolution puts ANTHROPIC_API_KEY before any profile; an
+    # explicit profile must ignore it, or a leftover export would bill another key.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-stray-not-a-real-key")
+    with pytest.raises(MissingCredentialError, match="'work'"):
+        make_provider(settings(provider="claude", anthropic_profile="work"))
 
 
 def test_claude_schema_requires_every_key_and_forbids_extras() -> None:
@@ -191,3 +221,12 @@ def test_request_without_images_is_the_prompt_alone() -> None:
     assert openai_input(plain) == [
         {"role": "user", "content": [{"type": "input_text", "text": "<document>ACME</document>"}]}
     ]
+
+
+@pytest.mark.parametrize(
+    "credential", [{}, {"api_key": "k", "profile": "work"}], ids=["none", "both"]
+)
+def test_claude_takes_exactly_one_credential(credential: dict[str, str]) -> None:
+    # With none, the SDK would fall back to its implicit discovery (D13).
+    with pytest.raises(ValueError, match="exactly one"):
+        ClaudeProvider(model="claude-opus-5-5", **credential)
