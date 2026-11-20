@@ -94,7 +94,7 @@ def empty_anthropic_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
 
 
 @pytest.mark.usefixtures("empty_anthropic_config")
-def test_claude_signs_in_with_the_configured_profile() -> None:
+def test_claude_with_a_missing_profile_fails_at_construction() -> None:
     # Fails fast, at construction, naming the profile and the fix; no request is sent.
     with pytest.raises(MissingCredentialError, match=r"'work'.*ant auth login --profile work"):
         make_provider(settings(provider="claude", anthropic_profile="work"))
