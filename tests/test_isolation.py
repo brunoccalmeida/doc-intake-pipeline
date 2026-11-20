@@ -7,10 +7,12 @@ the configured provider fails instead of making a paid call. Building it here
 calls no network either way: the client is only constructed.
 """
 
+from pathlib import Path
+
 import pytest
 
 from core.config import Settings
-from providers import MissingApiKeyError, make_provider
+from providers import MissingCredentialError, make_provider
 
 
 @pytest.mark.parametrize("provider", ["claude", "openai"])
@@ -19,11 +21,22 @@ def test_the_configured_provider_cannot_be_built_from_a_developer_s_key(
 ) -> None:
     monkeypatch.setenv("DOC_INTAKE_PROVIDER", provider)
 
-    with pytest.raises(MissingApiKeyError):
+    with pytest.raises(MissingCredentialError):
         make_provider(Settings())
 
 
 @pytest.mark.usefixtures("no_doc_intake_env")
 def test_clearing_the_environment_keeps_the_keys_blank() -> None:
-    with pytest.raises(MissingApiKeyError):
+    with pytest.raises(MissingCredentialError):
         make_provider(Settings())
+
+
+def test_a_developer_s_cli_profile_is_hidden_too(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # A profile in .env would let the provider sign in through the ant CLI and
+    # make a paid call, exactly like a key.
+    (tmp_path / ".env").write_text("DOC_INTAKE_ANTHROPIC_PROFILE=default\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert Settings().anthropic_profile is None

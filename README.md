@@ -70,6 +70,8 @@ OCR runs on Tesseract bundled in the `tesserocr` wheel, so nothing is installed 
 
 Configuration comes from `DOC_INTAKE_*` environment variables, validated at startup; copy `.env.example` to `.env` for local runs.
 
+For Claude, local runs can sign in through the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) instead of storing an API key: run `ant auth login` and set `DOC_INTAKE_ANTHROPIC_PROFILE=default` (or the profile you named). The client then uses that profile's OAuth sign-in only, ignoring any `ANTHROPIC_API_KEY` in the shell; a missing profile fails before the first call. Setting both a key and a profile is rejected at startup. On Windows, `ant` ships as `ant_<version>_windows_amd64.zip` on the [releases page](https://github.com/anthropics/anthropic-cli/releases).
+
 Extraction runs on Claude or OpenAI, chosen by `DOC_INTAKE_PROVIDER`, with each provider's native structured output. The engine (`core/`) only knows the `LLMProvider` interface; vendor SDKs are imported in `providers/` alone, and a lint rule rejects them anywhere else. An answer that fails schema validation is retried with the errors (`DOC_INTAKE_MAX_RETRIES`, default 2) and then reported as `failed`, never partial; a citation whose quote is not on the page it names turns the result into `needs_review`. Each scanned page is sent with its image; a citation says whether its quote came from the page text or the page image, and a value read from the image, which code cannot check, also turns the result into `needs_review`. Fields read as printed (company, address) must sit inside their quote.
 
 Every pull request must pass the `ci-passed` gate: lint, types, tests, the eval, secret scan, workflow audit and dependency audit.

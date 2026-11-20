@@ -8,9 +8,9 @@ so the program stops before touching a document (fail fast).
 """
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 type LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
@@ -25,6 +25,9 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         frozen=True,
+        # A validation error would print the raw input, keys included (they
+        # become SecretStr only after validation).
+        hide_input_in_errors=True,
     )
 
     log_level: LogLevel = "INFO"
@@ -47,8 +50,28 @@ class Settings(BaseSettings):
     # configured provider fails naming the missing variable (providers package).
     anthropic_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None
+    # An "ant auth login" profile, the alternative to a stored Anthropic key
+    # for local runs (docs/ARCHITECTURE.md D13). Blank counts as unset.
+    anthropic_profile: str | None = None
     # Retries after the first call when the answer fails validation.
     max_retries: Annotated[int, Field(ge=0)] = 2
+
+    @field_validator("anthropic_profile", mode="before")
+    @classmethod
+    def _blank_profile_is_unset(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @model_validator(mode="after")
+    def _one_anthropic_credential(self) -> Self:
+        key = self.anthropic_api_key
+        if key is not None and key.get_secret_value().strip() and self.anthropic_profile:
+            raise ValueError(
+                "set DOC_INTAKE_ANTHROPIC_API_KEY or DOC_INTAKE_ANTHROPIC_PROFILE, not both:"
+                " with two credentials it is unclear which account a run bills"
+            )
+        return self
 
     @property
     def model(self) -> str:

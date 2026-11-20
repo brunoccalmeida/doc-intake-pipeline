@@ -18,7 +18,7 @@ def isolated(no_doc_intake_env: None, monkeypatch: pytest.MonkeyPatch, tmp_path:
     """Run each test in an empty directory with no DOC_INTAKE_ variable set.
 
     A developer's real .env or shell must not change a test's outcome. The
-    blanked API keys (conftest.no_real_api_key) are removed too, after moving
+    blanked credentials (conftest.no_real_credentials) are removed too, after moving
     to a directory with no .env, so the defaults themselves are tested.
     """
     monkeypatch.chdir(tmp_path)
@@ -103,3 +103,34 @@ def test_api_key_is_hidden_from_repr(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "sk-test-not-a-real-key" not in repr(settings)
     assert settings.anthropic_api_key is not None
     assert settings.anthropic_api_key.get_secret_value() == "sk-test-not-a-real-key"
+
+
+def test_anthropic_profile_defaults_to_none() -> None:
+    assert Settings().anthropic_profile is None
+
+
+def test_blank_anthropic_profile_counts_as_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    # conftest blanks it to hide a developer's .env, the same way as the keys.
+    monkeypatch.setenv("DOC_INTAKE_ANTHROPIC_PROFILE", "  ")
+    assert Settings().anthropic_profile is None
+
+
+def test_anthropic_key_and_profile_together_are_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Two Anthropic credentials is ambiguous: refuse to guess which one a run uses.
+    monkeypatch.setenv("DOC_INTAKE_ANTHROPIC_API_KEY", "sk-test-not-a-real-key")
+    monkeypatch.setenv("DOC_INTAKE_ANTHROPIC_PROFILE", "default")
+    with pytest.raises(
+        ValidationError, match=r"DOC_INTAKE_ANTHROPIC_API_KEY.*DOC_INTAKE_ANTHROPIC_PROFILE"
+    ):
+        Settings()
+
+
+def test_rejected_settings_do_not_echo_the_key() -> None:
+    # A validation error prints its input, and the input holds the raw key.
+    # Pydantic shortens a long input but keeps both ends, so only the field
+    # order would be hiding the key: a field declared after it would expose it.
+    with pytest.raises(ValidationError) as error:
+        Settings.model_validate(
+            {"anthropic_api_key": "sk-test-not-a-real-key", "anthropic_profile": "p"}
+        )
+    assert "real-key" not in str(error.value)
