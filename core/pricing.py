@@ -1,20 +1,25 @@
 """Price per million tokens of each model, and the cost of a call in exact USD.
 
-Prices change, so the table is versioned with the date it was checked and its
-source, the vendor's official pricing page (``docs/ARCHITECTURE.md`` D5). Cost
-uses the model that actually answered (``LLMResponse.model``), which a
-server-side fallback can make differ from the one requested. A model missing
-from the table fails instead of costing zero: an unpriced run would look free.
+Prices change, so the table is versioned with each vendor's official pricing
+page and the date it was checked (``docs/ARCHITECTURE.md`` D5). Cost uses the
+model that actually answered (``LLMResponse.model``), which a server-side
+fallback can make differ from the one requested. A model missing from the
+table fails instead of costing zero: an unpriced run would look free.
 
-Only base input and output rates: the pipeline uses no prompt caching yet, so
-cache write and read rates would be dead entries (YAGNI).
+Only base (standard tier) input and output rates: the pipeline uses no prompt
+caching, batch or priority tier, so those rates would be dead entries (YAGNI).
+Known limit: OpenAI bills a whole request at a higher rate once its input
+passes 272K tokens; one document is a few thousand, so that tier is not modelled.
 """
 
 from dataclasses import dataclass
 from decimal import Decimal
 
-PRICES_CHECKED_ON = "2026-11-19"
-PRICES_SOURCE = "https://platform.claude.com/docs/en/about-claude/pricing"
+# Official pricing page of each vendor -> the date its rows were checked.
+PRICE_SOURCES: dict[str, str] = {
+    "https://platform.claude.com/docs/en/about-claude/pricing": "2026-11-19",
+    "https://developers.openai.com/api/docs/pricing": "2026-11-21",
+}
 
 _MILLION = Decimal(1_000_000)
 
@@ -27,6 +32,8 @@ class Price:
 
 PRICES: dict[str, Price] = {
     "claude-opus-5-5": Price(input_per_mtok=Decimal(4), output_per_mtok=Decimal(20)),
+    "gpt-6-luna": Price(input_per_mtok=Decimal("0.10"), output_per_mtok=Decimal("0.50")),
+    "gpt-6.2-astra": Price(input_per_mtok=Decimal(8), output_per_mtok=Decimal(40)),
 }
 
 
@@ -40,7 +47,8 @@ def price_of(model: str) -> Price:
         return PRICES[model]
     except KeyError:
         raise UnknownModelPriceError(
-            f"no price for model {model!r}; add it to core/pricing.py from {PRICES_SOURCE}"
+            f"no price for model {model!r}; add it to core/pricing.py from the vendor's "
+            f"pricing page ({', '.join(PRICE_SOURCES)})"
         ) from None
 
 

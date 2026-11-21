@@ -12,6 +12,19 @@ def test_cost_is_tokens_times_the_price_per_million_exactly() -> None:
     assert cost_usd("claude-opus-5-5", input_tokens=1_500, output_tokens=400) == Decimal("0.014")
 
 
+@pytest.mark.parametrize(
+    ("model", "expected"),
+    [
+        # $0.10 input and $0.50 output per million tokens.
+        ("gpt-6-luna", Decimal("0.00035")),
+        # $8 input and $40 output per million tokens.
+        ("gpt-6.2-astra", Decimal("0.028")),
+    ],
+)
+def test_openai_models_are_priced(model: str, expected: Decimal) -> None:
+    assert cost_usd(model, input_tokens=1_500, output_tokens=400) == expected
+
+
 def test_cost_of_nothing_is_zero() -> None:
     assert cost_usd("claude-opus-5-5", input_tokens=0, output_tokens=0) == 0
 
