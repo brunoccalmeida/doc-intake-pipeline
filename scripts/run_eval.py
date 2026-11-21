@@ -23,7 +23,7 @@ from evals.baseline import BASELINE_PATH, load_baseline, regressions, save_basel
 from evals.recording import MissingRecordingError, RecordingProvider, RecordingStore, ReplayProvider
 from evals.report import render_report
 from evals.run import run_eval
-from evals.scoring import field_accuracy
+from evals.scoring import field_accuracy, review_load
 from evals.sroie import MANIFEST_PATH, load_manifest
 from packs.receipt import RECEIPT
 from providers import make_provider
@@ -76,11 +76,12 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     accuracy = field_accuracy(run.scores)
+    load = review_load(run.scores)
     if args.update_baseline:
-        save_baseline(baseline_path, accuracy)
+        save_baseline(baseline_path, accuracy, load)
     baseline = load_baseline(baseline_path) if baseline_path.is_file() else None
     found = (
-        regressions(accuracy, baseline)
+        regressions(accuracy, load, baseline)
         if baseline is not None
         else [f"no baseline at {baseline_path}"]
     )

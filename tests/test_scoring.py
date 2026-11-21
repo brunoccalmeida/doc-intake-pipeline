@@ -11,12 +11,15 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from pydantic import ValidationError
 
 from core.result import Citation, ExtractedField, ExtractionResult
 from evals.scoring import (
     DocumentScore,
+    ReviewLoad,
     field_accuracy,
     field_outcome,
+    review_load,
     score_document,
     status_counts,
 )
@@ -128,7 +131,10 @@ def test_a_document_that_could_not_be_read_is_failed_and_names_the_error() -> No
 
 def test_needs_review_is_scored_on_its_fields() -> None:
     result = ExtractionResult[Receipt](
-        status="needs_review", fields=receipt(total="9.50"), errors=["total: quote not found"]
+        status="needs_review",
+        fields=receipt(total="9.50"),
+        errors=["total: quote not found"],
+        review=["total"],
     )
 
     score = score_document("X1", receipt(), result)
@@ -136,6 +142,84 @@ def test_needs_review_is_scored_on_its_fields() -> None:
     assert score.status == "needs_review"
     assert score.fields["total"] == "wrong"
     assert score.fields["company"] == "correct"
+
+
+def test_each_field_is_routed_to_review_accepted_or_empty() -> None:
+    # Review is per field (D12): the fields the result names go to a person,
+    # the other values are accepted, and an empty field has no value to accept.
+    result = ExtractionResult[Receipt](
+        status="needs_review",
+        fields=receipt(currency=empty()),
+        errors=["total: quote not found"],
+        review=["total"],
+    )
+
+    score = score_document("X1", receipt(), result)
+
+    assert score.routes == {
+        "company": "accepted",
+        "address": "accepted",
+        "date": "accepted",
+        "total": "review",
+        "currency": "empty",
+    }
+
+
+@pytest.mark.parametrize(
+    "result",
+    [ExtractionResult[Receipt](status="failed", errors=["invalid JSON"]), "EmptyDocumentError"],
+    ids=["no-valid-answer", "unreadable"],
+)
+def test_every_field_of_a_failed_document_goes_to_review(
+    result: ExtractionResult[Receipt] | str,
+) -> None:
+    # A failure is handed to a person whole (invariant 2), never accepted.
+    score = score_document("X1", receipt(), result)
+
+    assert set(score.routes.values()) == {"review"}
+    assert list(score.routes) == list(Receipt.model_fields)
+
+
+def test_routes_must_cover_the_same_fields_as_outcomes() -> None:
+    with pytest.raises(ValidationError, match="routes and outcomes name different fields"):
+        DocumentScore(id="X1", status="ok", fields={"total": "correct"}, routes={})
+
+
+def test_review_load_counts_wrong_values_where_they_land() -> None:
+    # "wrong" and "unexpected" are values that should not reach a client; a
+    # missing value is empty, not a value, and the accuracy gate already counts it.
+    golden = receipt(currency=empty())
+    accepted_wrong = ExtractionResult[Receipt](
+        status="ok", fields=receipt(company="OTHER", currency=cited("MYR"))
+    )
+    reviewed_wrong = ExtractionResult[Receipt](
+        status="needs_review",
+        fields=receipt(total="9.50", currency=empty()),
+        errors=["total: quote not found"],
+        review=["total"],
+    )
+    scores = [
+        score_document("X1", golden, accepted_wrong),
+        score_document("X2", golden, reviewed_wrong),
+        score_document("X3", golden, "EmptyDocumentError"),
+    ]
+
+    load = review_load(scores)
+
+    assert load["company"] == ReviewLoad(accepted=2, review=1, empty=0, wrong_accepted=1)
+    assert load["total"] == ReviewLoad(accepted=1, review=2, empty=0, wrong_review=1)
+    assert load["currency"] == ReviewLoad(accepted=1, review=1, empty=1, wrong_accepted=1)
+
+
+def test_review_load_total_sums_every_field() -> None:
+    load = {
+        "company": ReviewLoad(accepted=2, review=1, empty=0, wrong_accepted=1),
+        "total": ReviewLoad(accepted=1, review=2, empty=0, wrong_review=1),
+    }
+
+    assert ReviewLoad.total(load.values()) == ReviewLoad(
+        accepted=3, review=3, empty=0, wrong_accepted=1, wrong_review=1
+    )
 
 
 def test_field_accuracy_counts_correct_over_documents() -> None:
@@ -157,8 +241,8 @@ def test_field_accuracy_counts_correct_over_documents() -> None:
 
 def test_status_counts_cover_every_status_even_when_zero() -> None:
     scores = [
-        DocumentScore(id="X1", status="ok", fields={}),
-        DocumentScore(id="X2", status="failed", fields={}, error="EmptyDocumentError"),
+        DocumentScore(id="X1", status="ok", fields={}, routes={}),
+        DocumentScore(id="X2", status="failed", fields={}, routes={}, error="EmptyDocumentError"),
     ]
 
     assert status_counts(scores) == {"ok": 1, "needs_review": 0, "failed": 1}

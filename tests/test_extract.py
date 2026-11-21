@@ -165,6 +165,7 @@ def test_fabricated_quote_downgrades_to_needs_review() -> None:
     assert result.status == "needs_review"
     assert result.fields is not None, "the fields stay for the reviewer"
     assert result.errors == ["total: quote not found on page 1"]
+    assert result.review == ["total"]
 
 
 def test_quote_from_another_page_downgrades_to_needs_review() -> None:
@@ -275,6 +276,19 @@ def test_value_read_from_the_page_image_goes_to_review() -> None:
     assert result.status == "needs_review"
     assert result.fields is not None, "the fields stay for the reviewer"
     assert result.errors == ["company: read from the image of page 2; check it on the page"]
+    assert result.review == ["company"]
+
+
+def test_review_names_every_flagged_field_in_schema_order() -> None:
+    from_image = cited("THANK YOU", "THANK YOU", page=2, source="image")
+    fabricated = cited("9.00", "GRAND TOTAL RM 9.00")
+    provider = FakeProvider([sale_json(company=from_image, total=fabricated)])
+    result = extract(DOCUMENT, PACK, provider)
+    assert result.review == ["company", "total"]
+
+
+def test_ok_result_names_no_field_to_review() -> None:
+    assert extract(DOCUMENT, PACK, FakeProvider([sale_json()])).review == []
 
 
 def test_image_quote_must_still_hold_the_whole_text_value() -> None:

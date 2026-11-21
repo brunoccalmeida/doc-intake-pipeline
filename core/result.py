@@ -112,17 +112,30 @@ class ExtractionResult[S: BaseModel](StrictModel, frozen=True):
     """The outcome for one document, wrapping the pack's schema ``S``.
 
     ``ok``: fields, no errors. ``needs_review``: fields plus what a human must
-    check. ``failed``: no fields (never partial), only the errors.
+    check, with ``review`` naming those fields (each once, in schema order) so
+    a caller routes them without parsing ``errors``; every other field was
+    accepted. ``failed``: no fields (never partial), only the errors.
     """
 
     status: Status
     fields: S | None = None
     errors: list[NonBlankText] = Field(default_factory=list[str])
+    review: list[str] = Field(default_factory=list[str])
 
     @model_validator(mode="after")
     def _status_matches_content(self) -> Self:
         if self.status != "ok" and not self.errors:
             raise ValueError(f"a result with status {self.status!r} must say why in errors")
+        if self.status != "needs_review" and self.review:
+            raise ValueError("only a needs_review result names fields to review")
+        if self.status == "needs_review" and not self.review:
+            raise ValueError("a needs_review result must name the fields to check in review")
+        if len(set(self.review)) != len(self.review):
+            raise ValueError("review names a field twice")
+        if self.fields is not None:
+            unknown = [name for name in self.review if name not in type(self.fields).model_fields]
+            if unknown:
+                raise ValueError(f"review names fields not in the schema: {', '.join(unknown)}")
         match self.status:
             case "ok" if self.errors:
                 raise ValueError("an ok result carries no errors")

@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from core.config import Settings
+from core.ingest import ingest
 from core.llm import LLMRequest, LLMResponse
 from core.pricing import UnknownModelPriceError
 from evals.recording import RecordingProvider, RecordingStore
@@ -73,10 +74,30 @@ def golden_answer(**changes: object) -> str:
     return json.dumps(golden)
 
 
-def baseline(tmp_path: Path, correct: int = 1) -> Path:
+def wrong_total_from_page_text() -> str:
+    """A wrong total cited from the OCR text, so the engine accepts it without review.
+
+    The golden citations are read from the image (D12) and would all go to
+    review; any word of the page text is a quote the engine can check.
+    """
+    document = ingest(GOLDEN / f"{FIRST_ID}.jpg", tessdata_dir=Settings().tessdata_dir)
+    answer = json.loads(golden_answer(total="0.01"))
+    answer["total"]["citation"] = {
+        "page": 1,
+        "source": "text",
+        "quote": document.pages[0].text.split()[0],
+    }
+    return json.dumps(answer)
+
+
+def baseline(tmp_path: Path, correct: int = 1, wrong_accepted: int = 0) -> Path:
     path = tmp_path / "baseline.json"
-    fields = dict.fromkeys(FIELDS, correct)
-    path.write_text(json.dumps({"documents": 1, "fields": fields}), encoding="utf-8")
+    content = {
+        "documents": 1,
+        "fields": dict.fromkeys(FIELDS, correct),
+        "wrong_accepted": dict.fromkeys(FIELDS, wrong_accepted),
+    }
+    path.write_text(json.dumps(content), encoding="utf-8")
     return path
 
 
@@ -139,6 +160,25 @@ def test_a_worse_recording_fails_the_gate_naming_the_field(
     assert "total: 0/1 correct" in capsys.readouterr().err
 
 
+def test_a_wrong_value_accepted_without_review_fails_the_gate_at_equal_accuracy(
+    recordings: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The accuracy baseline already allows the wrong total (0 correct), so only
+    # the wrong-accepted count can stop it reaching a client unchecked (#38).
+    record(recordings, wrong_total_from_page_text())
+    path = baseline(tmp_path)
+    content = json.loads(path.read_text(encoding="utf-8"))
+    content["fields"]["total"] = 0
+    path.write_text(json.dumps(content), encoding="utf-8")
+
+    code, report = run(tmp_path)
+
+    assert code == 1
+    expected = "total: 1 wrong values accepted without review, above the baseline of 0"
+    assert f"- {expected}" in report
+    assert expected in capsys.readouterr().err
+
+
 def test_a_missing_recording_fails_naming_the_fix(
     recordings: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -151,7 +191,7 @@ def test_a_missing_recording_fails_naming_the_fix(
 
 
 def test_update_baseline_writes_the_current_scores(recordings: Path, tmp_path: Path) -> None:
-    record(recordings, golden_answer(total="0.01"))
+    record(recordings, wrong_total_from_page_text())
     path = baseline(tmp_path, correct=0)
 
     code, _ = run(tmp_path, "--update-baseline")
@@ -160,6 +200,8 @@ def test_update_baseline_writes_the_current_scores(recordings: Path, tmp_path: P
     written = json.loads(path.read_text(encoding="utf-8"))
     assert written["fields"]["total"] == 0
     assert written["fields"]["company"] == 1
+    assert written["wrong_accepted"]["total"] == 1
+    assert written["wrong_accepted"]["company"] == 0
 
 
 def test_record_without_an_api_key_fails_before_reading_anything(
