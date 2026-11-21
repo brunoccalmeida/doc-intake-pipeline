@@ -78,6 +78,7 @@ Ao reportar: **erro observado**, **causa raiz**, **análise**, **solução propo
 
 - O critério é **quem lê**. Tudo o que se dirige ao usuário sai em **português (Brasil)**: a conversa, os planos, as notas de progresso e as caixas de pergunta (`AskUserQuestion`: pergunta, opções, descrições e prévias), mesmo sendo entrada estruturada de ferramenta. A documentação interna (regras, resumo de sessão, arquitetura) também.
 - Em **inglês**, só o que é publicado com o código: código, commits, issues, PRs, README e relatórios de eval.
+- O idioma das respostas é fixado também pela configuração `language` no `~/.claude/settings.json` do usuário ([settings](https://code.claude.com/docs/en/settings-reference.md)), porque este arquivo chega como mensagem de usuário, sem garantia de cumprimento ([memory](https://code.claude.com/docs/en/memory.md)), e deixou notas curtas de progresso saírem em inglês (#43, medição na #50). A instrução que ela gera fala em "comments": isso vale para comentários ao usuário, não para comentários de código, que seguem em inglês com o resto do que é publicado.
 - Explicar o **porquê**; opiniões fundamentadas, não só concordância.
 
 ## Segurança
