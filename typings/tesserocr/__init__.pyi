@@ -1,9 +1,31 @@
-# Minimal stub: only the API core/ingest.py uses. tesserocr 2.13 ships its
-# own __init__.pyi, but it annotates images as "PIL.Image" (the module, not
-# the class) without importing PIL, so pyright strict sees the parameter as
-# Unknown. Signature copied from that stub; pyright resolves stubPath
-# ("typings", pyproject.toml) before the package's own stub.
+# Minimal stub: only the API this project uses (core/ingest.py, and the word
+# boxes demo/evidence.py highlights). tesserocr 2.13 ships its own
+# __init__.pyi, but it annotates images as "PIL.Image" (the module, not the
+# class) without importing PIL, and leaves iterate_level untyped, so pyright
+# strict sees Unknown. Signatures copied from that stub; pyright resolves
+# stubPath ("typings", pyproject.toml) before the package's own stub.
+
+from collections.abc import Iterator
+from typing import Self
 
 from PIL import Image
 
 def image_to_text(image: Image.Image, lang: str = ..., path: str = ...) -> str: ...
+
+class RIL(int):
+    WORD: RIL
+
+class PyResultIterator:
+    def BoundingBox(self, level: RIL, padding: int = 0) -> tuple[int, int, int, int]: ...
+    def GetUTF8Text(self, level: RIL) -> str: ...
+
+# Yields the iterator it is given, moved on to each element of the level.
+def iterate_level(iterator: PyResultIterator, level: RIL) -> Iterator[PyResultIterator]: ...
+
+class PyTessBaseAPI:
+    def __init__(self, path: str = ..., lang: str = ...) -> None: ...
+    def __enter__(self) -> Self: ...
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None: ...
+    def SetImage(self, image: Image.Image) -> None: ...
+    def Recognize(self, timeout: int = 0) -> bool: ...
+    def GetIterator(self) -> PyResultIterator: ...

@@ -1,108 +1,74 @@
-"""Render the demo video: one VHS tape per shot, its caption burned in, then joined.
+"""Render the demo video from the pipeline's real output: replay only, no cost.
 
     uv run poe demo
 
 Runs inside the demo image (``demo/Dockerfile``), from the mounted repository.
-Each shot in ``demo/shots`` is a VHS tape with one ``# Caption:`` line. VHS has
-no caption command (v0.12.1), so ffmpeg burns the caption for the whole shot in
-a band below the terminal: tied to the shot, not to a clock, it cannot drift
-out of sync when a command takes longer. The joined video is refused above the
-limits of where it is published (``demo/README.md``).
+Takes the evidence (``demo/evidence.py``), draws the shots
+(``demo/storyboard.py``) and streams them to ffmpeg, each still held for its
+duration and crossfaded into the next. The video is refused above the limits
+of where it is published (``demo/README.md``).
 """
 
-import re
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 
-SHOTS = Path("demo/shots")
+from PIL import Image
+
+from core.config import Settings
+from demo import evidence, make_receipt, storyboard
+
 OUT = Path(".cache/demo")
 VIDEO = OUT / "doc-intake-demo.mp4"
-
-# The frame: the terminal (Set Width/Height in demo/setup.tape) on top, the
-# caption band below it.
-WIDTH = 1920
-HEIGHT = 1080
-TERMINAL_HEIGHT = 880
-BAND_COLOR = "0x11111b"  # Catppuccin Mocha "crust", under the terminal's theme
-# An image a shot shows (# Image:) is drawn at its own pixels, not as terminal
-# characters, centred over the terminal.
-IMAGE_HEIGHT = 800
+FPS = 25
+FADE_SECONDS = 0.4  # each frame dissolves into the next over its last 0.4 s
 
 # Upwork portfolio video: at most 60 s. GitHub attachment on a free plan: 10 MB.
 MAX_SECONDS = 60.0
 MAX_BYTES = 10_000_000
 
-_CAPTION = re.compile(r"# Caption: (.+)")
-_IMAGE = re.compile(r"# Image: (.+)")
-_SHOT = re.compile(r"(\d+)-.+\.tape")
-# Characters libass reads as markup ({\b1}, \N): a caption is plain text.
-_ASS_MARKUP = re.compile(r"[{}\\]")
+type Tick = tuple[int, int, float]  # frame shown, frame fading in, how far in (0 to 1)
 
 
-def shot_tapes(directory: Path) -> list[Path]:
-    """The shot tapes in the order of the number their names start with."""
-    tapes = sorted(directory.glob("*.tape"))
-    unnumbered = [tape.name for tape in tapes if not _SHOT.fullmatch(tape.name)]
-    if unnumbered:
-        raise ValueError(f"shot tapes must be named <number>-<name>.tape: {unnumbered}")
-    return sorted(tapes, key=lambda tape: int(tape.name.split("-", 1)[0]))
+def timeline(durations: Sequence[float], *, fps: int, fade: float) -> list[Tick]:
+    """What each video frame shows: one still, or two in a crossfade.
+
+    The fade happens inside the outgoing still's own time, so the video's
+    length is the sum of the durations.
+    """
+    ends: list[float] = []
+    total = 0.0
+    for seconds in durations:
+        total += seconds
+        ends.append(total)
+    ticks: list[Tick] = []
+    current = 0
+    for index in range(round(total * fps)):
+        now = index / fps
+        while now >= ends[current]:
+            current += 1
+        into_fade = now - (ends[current] - fade)
+        if current + 1 < len(ends) and into_fade > 0:
+            ticks.append((current, current + 1, into_fade / fade))
+        else:
+            ticks.append((current, current, 0.0))
+    return ticks
 
 
-def caption(tape: Path) -> str:
-    """The one caption of a shot, as plain text."""
-    lines = tape.read_text(encoding="utf-8").splitlines()
-    found = [match.group(1).strip() for line in lines if (match := _CAPTION.fullmatch(line))]
-    if not found:
-        raise ValueError(f"{tape}: no caption (a '# Caption: ...' line)")
-    if len(found) > 1:
-        raise ValueError(f"{tape}: {len(found)} captions, one per shot")
-    if _ASS_MARKUP.search(found[0]):
-        raise ValueError(f"{tape}: ASS markup in the caption: {found[0]}")
-    return found[0]
+def dissolve(
+    outgoing: Image.Image, incoming: Image.Image, amount: float, *, via: Image.Image | None = None
+) -> Image.Image:
+    """``amount`` of the way from one still to the next.
 
-
-def image(tape: Path) -> Path | None:
-    """The image a shot shows over the terminal, if it names one."""
-    lines = tape.read_text(encoding="utf-8").splitlines()
-    found = [match.group(1).strip() for line in lines if (match := _IMAGE.fullmatch(line))]
-    if len(found) > 1:
-        raise ValueError(f"{tape}: {len(found)} images, at most one per shot")
-    return Path(found[0]) if found else None
-
-
-def video_filter(subtitle: Path, *, image: bool) -> str:
-    """ffmpeg's filter graph for a shot: the band, the image if any, the caption."""
-    framed = f"[0:v]pad={WIDTH}:{HEIGHT}:0:0:color={BAND_COLOR}"
-    caption = f"ass={subtitle.as_posix()}"
-    if not image:
-        return f"{framed},{caption}"
-    return (
-        f"{framed}[framed];[1:v]scale=-1:{IMAGE_HEIGHT}[image];"
-        f"[framed][image]overlay=(W-w)/2:({TERMINAL_HEIGHT}-h)/2,{caption}"
-    )
-
-
-def ass_script(text: str) -> str:
-    """An ASS subtitle that shows ``text`` for the whole shot, centred in the band."""
-    # ASS colours are &HAABBGGRR: the theme's text colour (#cdd6f4).
-    return f"""\
-[Script Info]
-ScriptType: v4.00+
-PlayResX: {WIDTH}
-PlayResY: {HEIGHT}
-WrapStyle: 0
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, \
-BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, \
-BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Caption,DejaVu Sans,46,&H00F4D6CD,&H00F4D6CD,&H00000000,&H00000000,\
--1,0,0,0,100,100,0,0,1,0,0,2,90,90,45,1
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-Dialogue: 0,0:00:00.00,9:59:59.99,Caption,,0,0,0,,{text}
-"""
+    ``via`` makes it a dip: out to that picture over the first half, in from it
+    over the second. Between shots the headline changes, and a straight
+    dissolve would show both headlines on top of each other.
+    """
+    if via is None:
+        return Image.blend(outgoing, incoming, amount)
+    if amount <= 0.5:
+        return Image.blend(outgoing, via, amount * 2)
+    return Image.blend(via, incoming, (amount - 0.5) * 2)
 
 
 def check_limits(seconds: float, size: int) -> None:
@@ -113,69 +79,84 @@ def check_limits(seconds: float, size: int) -> None:
         raise ValueError(f"the video has {size} bytes, above the {MAX_BYTES} limit")
 
 
-def _run(*args: str) -> None:
-    # Fixed tools (vhs, ffmpeg) with paths from this repository. Their output is
-    # not captured: when a shot fails, VHS names the Wait and the screen it saw.
-    subprocess.run(args, check=True)  # noqa: S603
-
-
 def _seconds(video: Path) -> float:
-    # A fixed tool with a path from this repository; ffprobe comes from the
-    # image's PATH, next to the vhs and ffmpeg that _run starts.
+    # A fixed tool with a path from this repository; ffprobe comes with ffmpeg.
     shown = subprocess.run(  # noqa: S603
         [  # noqa: S607
-            "ffprobe",
-            "-v",
-            "error",
-            "-show_entries",
-            "format=duration",
-            "-of",
-            "csv=p=0",
-            str(video),
+            "ffprobe", "-v", "error", "-show_entries", "format=duration",
+            "-of", "csv=p=0", str(video),
         ],
         check=True,
         capture_output=True,
         text=True,
-    ).stdout
+    ).stdout  # fmt: skip
     return float(shown)
 
 
-def main() -> None:
-    tapes = shot_tapes(SHOTS)
-    captions = {tape: caption(tape) for tape in tapes}  # every caption checked before rendering
-    parts = OUT / "shots"
-    parts.mkdir(parents=True, exist_ok=True)
-    VIDEO.unlink(missing_ok=True)  # an earlier render no longer matches the tapes
-
-    for tape in tapes:
-        raw = parts / f"{tape.stem}.raw.mp4"
-        _run("vhs", "--output", str(raw), str(tape))
-        subtitle = parts / f"{tape.stem}.ass"
-        subtitle.write_text(ass_script(captions[tape]), encoding="utf-8")
-        shown = image(tape)
-        inputs = ["-i", str(raw), *(["-i", str(shown)] if shown else [])]
-        # Same codec, size and rate for every shot, so they join without re-encoding.
-        _run(
-            "ffmpeg", "-y", "-loglevel", "error", *inputs,
-            "-filter_complex", video_filter(subtitle, image=shown is not None),
-            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "50",
-            str(parts / f"{tape.stem}.mp4"),
-        )  # fmt: skip
-        print(f"{tape.name}: {_seconds(parts / f'{tape.stem}.mp4'):.1f} s")
-
-    listing = parts / "shots.txt"
-    listing.write_text("".join(f"file '{tape.stem}.mp4'\n" for tape in tapes), encoding="utf-8")
-    # Joined beside the video and moved into place only within the limits, so
-    # the path to publish never holds a refused video.
-    joined = parts / "joined.mp4"
-    _run(
-        "ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-i", str(listing),
-        "-c", "copy", "-movflags", "+faststart", str(joined),
+def _encode(shots: Sequence[storyboard.Shot], video: Path) -> None:
+    """Stream every video frame to ffmpeg as raw RGB: no intermediate files."""
+    frames = [frame for shot in shots for frame in shot.frames]
+    # The index of each shot's first frame: a fade into it is a dip.
+    starts: set[int] = set()
+    count = 0
+    for shot in shots:
+        starts.add(count)
+        count += len(shot.frames)
+    background = Image.new("RGB", (storyboard.WIDTH, storyboard.HEIGHT), storyboard.BACKGROUND)
+    # A fixed tool with a path from this repository.
+    encoder = subprocess.Popen(  # noqa: S603
+        [  # noqa: S607
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-f", "rawvideo", "-pix_fmt", "rgb24",
+            "-s", f"{storyboard.WIDTH}x{storyboard.HEIGHT}", "-r", str(FPS), "-i", "-",
+            "-c:v", "libx264", "-tune", "stillimage", "-pix_fmt", "yuv420p",
+            "-movflags", "+faststart", str(video),
+        ],
+        stdin=subprocess.PIPE,
     )  # fmt: skip
-    seconds, size = _seconds(joined), joined.stat().st_size
+    if encoder.stdin is None:  # stdin=PIPE always gives one
+        raise RuntimeError("ffmpeg started without a stdin")
+    held = [frame.image.tobytes() for frame in frames]
+    with encoder.stdin as pipe:
+        for shown, fading_in, amount in timeline(
+            [frame.seconds for frame in frames], fps=FPS, fade=FADE_SECONDS
+        ):
+            if amount == 0:
+                pipe.write(held[shown])
+            else:
+                via = background if fading_in in starts else None
+                blended = dissolve(frames[shown].image, frames[fading_in].image, amount, via=via)
+                pipe.write(blended.tobytes())
+    if encoder.wait() != 0:
+        raise RuntimeError(f"ffmpeg failed with exit code {encoder.returncode}")
+
+
+def main() -> None:
+    # The provider and model the recordings were made with, so no .env or
+    # shell setting changes the keys they are looked up by.
+    settings = Settings(provider="claude", claude_model="claude-opus-5-5")
+    shots = storyboard.storyboard(
+        evidence.receipt_evidence(make_receipt.RECEIPT.path, settings),
+        evidence.receipt_evidence(make_receipt.REVIEW.path, settings),
+    )
+    stills = OUT / "frames"
+    stills.mkdir(parents=True, exist_ok=True)
+    for old in stills.glob("*.png"):
+        old.unlink()  # an earlier render's stills no longer match
+    for number, shot in enumerate(shots, 1):
+        for index, frame in enumerate(shot.frames, 1):
+            frame.image.save(stills / f"{number}-{index}.png")  # for checking by eye
+        print(f"shot {number}: {shot.seconds:.1f} s")
+
+    VIDEO.unlink(missing_ok=True)  # an earlier render no longer matches the evidence
+    # Encoded beside the video and moved into place only within the limits, so
+    # the path to publish never holds a refused video.
+    encoded = OUT / "encoded.mp4"
+    _encode(shots, encoded)
+    seconds, size = _seconds(encoded), encoded.stat().st_size
     print(f"{seconds:.1f} s, {size} bytes")
     check_limits(seconds, size)
-    joined.replace(VIDEO)
+    encoded.replace(VIDEO)
     print(f"written: {VIDEO}")
 
 

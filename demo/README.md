@@ -1,61 +1,79 @@
 # Demo video
 
-A 60-second screencast of the pipeline for clients, recorded as code: each shot is a [VHS](https://github.com/charmbracelet/vhs) script in [`shots/`](shots), so the video is re-rendered with one command instead of re-recorded by hand. It replays recorded answers: rendering needs no API key and costs nothing. Captions are burned in, so it works with the sound off.
+A 40-second sales video for the buyers of this service: business owners and finance or operations staff who type receipts in by hand. It is rendered as code. Every frame is drawn with Pillow from the pipeline's own output, replayed from recorded answers. Rendering needs no API key and costs nothing, and the video cannot show a value the pipeline did not produce. The headline on each shot carries the message, so the video works with the sound off.
 
-| Shot | Caption's point |
-| --- | --- |
-| [1](shots/1-scan.tape) | A faded receipt goes in: a simulated scan, fictional ([`receipt.png`](receipt.png)) |
-| [2](shots/2-fields.tape) | Each value found comes out with the quote it was read from |
-| [3](shots/3-null.tape) | The currency, not printed, comes out null with its reason |
-| [4](shots/4-change.tape) | A deliberate regression in the prompt ([`regression.patch`](regression.patch)) |
-| [5](shots/5-gate.tape) | The eval gate blocks it: wrong values that would be accepted without review |
-| [6](shots/6-close.tape) | The pull request cannot merge; where the code is |
+| Shot | Seconds | On screen | Headline |
+| --- | --- | --- | --- |
+| 1 | 5 | The receipt already done: every field filled in | Still typing receipts by hand? There's a faster way. |
+| 2 | 5 | A pile of fictional receipts | Every week, someone retypes all of these. |
+| 3 | 10 | The fields fill in one by one; each value's words are highlighted on the receipt | Vendor, date, total: filled in, each with the words it came from. |
+| 4 | 6 | Currency: "Not on the receipt", with the reason | Not on the receipt? Left empty, never guessed. |
+| 5 | 8 | A second receipt with a faded total, flagged "A person checks" ([`receipt-review.png`](receipt-review.png)) | Too faint to be sure? Flagged for a person to check. |
+| 6 | 6 | Both receipts and a "Send me a sample" button | Your documents, your spreadsheet. Send me a sample. |
+
+[`storyboard.py`](storyboard.py) holds the shots and their headlines. [`evidence.py`](evidence.py) gathers what they show. [`render.py`](render.py) turns them into the video.
 
 ## Render
 
-Needs Docker, and the same local data as the eval: `uv run poe fetch-tessdata`, `uv run poe fetch-golden` and the clone of the private recordings repository ([`docs/DATA.md`](../docs/DATA.md)).
+You need Docker and the OCR model (`uv run poe fetch-tessdata`).
 
 ```sh
 uv run poe demo
 ```
 
-It builds the image in [`Dockerfile`](Dockerfile) (VHS's image plus this project's locked environment) and runs [`render.py`](render.py) in it: each shot is rendered by VHS, its caption burned by ffmpeg in a band below the terminal, and the shots are joined into `.cache/demo/doc-intake-demo.mp4`. The render prints each shot's length and fails if the video runs over 60 s or 10 MB. Every shot works on a fresh copy of the repository inside the container ([`setup.tape`](setup.tape)), so the regression patch never touches your working tree.
+The command builds the image in [`Dockerfile`](Dockerfile), which holds this project's locked environment plus ffmpeg, and runs `render.py` in it:
 
-To change a caption, edit the shot's `# Caption:` line. To add a shot, name it `<number>-<name>.tape`, start it with `Source demo/setup.tape` and give it one caption; [`tests/test_demo.py`](../tests/test_demo.py) checks both, and that every `Wait` names the state it expects.
+1. It replays both receipts and finds each quote's words with OCR's own word boxes.
+2. It draws every frame and saves the stills to `.cache/demo/frames`, so they can be checked by eye.
+3. It streams the frames to ffmpeg, each held for its duration. Frames within a shot dissolve into each other. Between shots, the picture dips to the background, so two headlines never overlap.
+4. It writes `.cache/demo/doc-intake-demo.mp4`.
+
+The render prints each shot's length, and fails if the video runs over 60 s or 10 MB, or if a recording is missing. Check the stills and the video, not only the green render.
 
 ## What it replays
 
-| Shots | Recording | Where |
-| --- | --- | --- |
-| 2, 3 | Claude's answer for `receipt.png` | [`recordings/`](recordings), public: the receipt is ours |
-| 5 | The 20 answers to the patched prompt | private recordings repository (they quote SROIE) |
+Both receipts are answered by Claude and the answers are recorded in [`recordings/`](recordings). They are public, because the receipts are ours. Every recording is keyed by the prompt, schema, OCR text, page image and model (`evals/recording.py`). A change to any of them leaves the demo with nothing to replay, and [`tests/test_demo.py`](../tests/test_demo.py) fails first.
 
-Every recording is keyed by the prompt, schema, OCR text, page image and model (`evals/recording.py`). A change to any of them leaves the demo with nothing to replay; [`tests/test_demo.py`](../tests/test_demo.py) fails first for shots 2 and 3 and for a patch that no longer applies.
-
-To record again (paid, run on purpose), with the provider and model the tapes export, so no `.env` or shell setting changes the keys:
+To record again (paid, run on purpose), use the provider and model the render uses, so no `.env` or shell setting changes the keys:
 
 ```sh
 export DOC_INTAKE_PROVIDER=claude DOC_INTAKE_CLAUDE_MODEL=claude-opus-5-5
-# Shots 2 and 3 (~US$ 0.03)
-uv run poe extract --record demo/recordings demo/receipt.png
-# Shot 5 (~US$ 0.63): record the patched prompt, then undo the patch
-git apply demo/regression.patch
-uv run poe eval --record
-git checkout -- packs/receipt/__init__.py
+uv run poe extract --record demo/recordings demo/receipt.png          # about US$ 0.02
+uv run poe extract --record demo/recordings demo/receipt-review.png   # about US$ 0.02
 ```
 
-Then commit `demo/recordings`, push the private recordings and update their pin (`evals/recordings.json`).
+Then commit `demo/recordings`.
 
-To change the receipt, edit [`make_receipt.py`](make_receipt.py), run `uv run python -m demo.make_receipt` and record shots 2 and 3 again. The PNG is committed rather than regenerated, since another Pillow version could change a pixel, and with it the recording key.
+To change a receipt, edit [`make_receipt.py`](make_receipt.py), run `uv run python -m demo.make_receipt`, and record its answer again. The PNGs are committed rather than regenerated, since another Pillow version could change a pixel, and with it the recording key. A test checks that the generator still draws them. The pile in shot 2 is drawn on the fly: the pipeline never reads it, so it has no recording.
 
-## Decisions (#39)
+## Decisions (#45)
 
-**Where it is published, and its limits.** An Upwork portfolio project takes one MP4 of at most 60 seconds and 100 MB, with optional audio, recommended and in English ([Upwork support](https://support.upwork.com/hc/en-us/articles/4402033684115-Add-Video-to-Your-Project); the page refuses automated reads, so it was read in a browser on 2026-11-21). That the cover preview plays muted on hover comes only from a search summary of the same page. A GitHub attachment takes MP4 (H.264 recommended) up to 10 MB on a free plan ([GitHub Docs, attaching files](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/attaching-files)). The render enforces the stricter pair: 60 s and 10 MB.
+**Written for the buyer, not for developers.** The #39 video was a terminal screencast, and a client could not follow it. A first redo still had a shot on the eval gate ("a change that makes answers worse is blocked"). The owner cut it: that sells engineering practice to programmers, not an outcome to a client. The video now shows what the buyer gets, and nothing about how it is built. Testing and evaluation stay in the README and [`DEVELOPMENT.md`](../docs/DEVELOPMENT.md).
 
-**Captions: one per shot, burned in by ffmpeg.** VHS has no caption or overlay command ([README at v0.12.1](https://github.com/charmbracelet/vhs/blob/v0.12.1/README.md), the latest release). Its image's ffmpeg is Debian's 7.1 build, with libass ([`debian/rules`](https://salsa.debian.org/multimedia-team/ffmpeg/-/raw/debian/7%257.1.5-0+deb13u1/debian/rules); `ffmpeg -filters` in the image lists `ass` and `subtitles`), so the [`ass` filter](https://ffmpeg.org/ffmpeg-filters.html#ass) burns each caption over its whole shot and the [concat demuxer](https://ffmpeg.org/ffmpeg-formats.html#concat) joins the shots without re-encoding. A single subtitle file with timestamps was rejected: every timestamp would move whenever a command took longer. `Hide` stops capturing frames ([README](https://github.com/charmbracelet/vhs/blob/v0.12.1/README.md#hide)), so slow commands run off camera and a shot's length is its typing and its `Sleep`s. Each cut is noted in its tape (the eval's run of about 20 s in shot 5); no caption claims how long a command takes.
+**Nothing it does not do.** A second research pass proposed a spreadsheet filling in, a clickable value and a review queue. The project has none of these, so the video does not show them:
 
-**No voice-over, for now.** The hover preview plays muted, so captions carry the video. A synthetic narration was researched: [ElevenLabs](https://elevenlabs.io/terms)' free plan is non-commercial; OpenAI's speech models are deprecated, shutting down on 2027-01-06 ([guide](https://developers.openai.com/api/docs/guides/text-to-speech)); hosted voices must be disclosed as AI-generated ([OpenAI](https://developers.openai.com/api/docs/guides/text-to-speech), [Microsoft](https://learn.microsoft.com/en-us/legal/ai-code-of-conduct)); a local model with Apache-2.0 weights ([Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)) fits a video rendered as code but is unproven here (CPU, Docker, timing each clip to its shot). It is left to its own issue.
+- The flagged value carries the label "A person checks", and no review screen is shown.
+- "Your spreadsheet" appears only in the call to action. Connecting the result to the client's own tools is part of the service.
+- The hook says only that there is a faster way than typing; no amount of time saved is claimed, because none was measured.
+- A total shows as the pipeline keeps it ("23.4"), with the printed form beside it (D15).
 
-**One video.** The earlier 2:52 cut, with its narration script, was replaced: it was never published, and two cuts would both need updating on every prompt or report change. The full eval report stays in the repository for anyone who wants the detail.
+**How it is told.** These choices follow the research for #45. Where the evidence is weak, it is marked.
 
-**In the README: an uploaded attachment.** The MP4 is uploaded to GitHub and its link embedded, rather than committed: the docs above cover uploaded MP4s, not a video committed to the repository, and a regenerated binary would grow the history on every render. A GIF has the same 10 MB limit, blurs terminal text and has no sound.
+- **The outcome first.** Google's ABCD guidance for video ads says to "front-load your story arc". The research read that guidance in search snippets, because its pages refused automated reads. Upwork's cover preview plays only the first seconds. So shot 1 is the receipt already done.
+- **The problem next, then one idea per shot.**
+- **Short.** Nielsen Norman Group: "Typically, Web videos should be less than a minute long" ([NN/g](https://www.nngroup.com/articles/talking-head-video-is-boring-online/)).
+- **The receipt beside its values, with each value's words highlighted.** This follows Mayer's spatial contiguity and signaling principles ([Mayer & Fiorella](https://www.cambridge.org/core/books/cambridge-handbook-of-multimedia-learning/principles-for-reducing-extraneous-processing-in-multimedia-learning/F29A19FCD34C542806F736E0661C05F5)). Those are learning studies, so here they are a guide only.
+- **The look is our own judgment:** a light palette with one brand colour, paper with soft shadows, a highlighter, and one call-to-action button. The research found no study on these.
+
+**Headlines.** There are at most 2 lines of 42 characters ([Netflix timed text style guide](https://partnerhelp.netflixstudios.com/hc/en-us/articles/217350977)). This video holds itself to 15 characters per second; that limit is our own judgment, because the viewer also reads the receipt. Line breaks fall at the end of a sentence where they can. Text contrast is at least 4.5:1, per [WCAG 2.2 SC 1.4.3](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html). Tests check all of this, and that no developer term ("eval", "update", "ship"...) reaches the screen.
+
+**Drawn with Pillow, encoded with ffmpeg.** Pillow was already a dependency, so no new one was added (YAGNI). Remotion would render React animations, and it is free for teams of up to 3 people ([pricing](https://www.remotion.dev/docs/license/pricing.md)), but it would add a Node toolchain for transitions that ffmpeg handles here. The container is Debian with ffmpeg, pinned by digest, and gives the same encoder everywhere.
+
+**Where it is published, and its limits.**
+
+- An Upwork portfolio project takes one MP4 of at most 60 s and 100 MB ([Upwork support](https://support.upwork.com/hc/en-us/articles/4402033684115-Add-Video-to-Your-Project), read in a browser on 2026-11-21).
+- A GitHub attachment takes MP4 (H.264 recommended) up to 10 MB on a free plan ([GitHub Docs](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/attaching-files)).
+- The README embeds the MP4 as an uploaded attachment, not committed: a regenerated binary would grow the history.
+- The closing frame carries no link or contact. Upwork's rules on contact details in portfolio files could not be read, and in the README the video already sits on GitHub.
+
+**No voice-over, for now.** The muted preview needs the headlines anyway. The research found no study on whether a synthetic voice hurts trust. YouTube asks creators to disclose realistic synthetic content ([YouTube Help](https://support.google.com/youtube/answer/14328491)). Narration is [#42](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/42).

@@ -1,0 +1,411 @@
+"""The demo video's shots, drawn with Pillow from the pipeline's real output (``demo/evidence.py``).
+
+A sales video for the buyer of the service, not for developers (#45): the
+outcome first, the pain, the receipt beside its values with the words each
+came from marked like a highlighter, an empty field instead of a guess, a
+doubtful value flagged for a person, and one call to action. Nothing on
+screen claims a feature the project does not have (no spreadsheet, no review
+screen): the service connects the result to the client's own tools.
+
+Every shot is a list of still frames under a headline; ``demo/render.py``
+crossfades them into the video.
+"""
+
+from collections.abc import Sequence
+from dataclasses import dataclass, field, replace
+from functools import cache
+from pathlib import Path
+
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
+
+from core.result import ExtractedField
+from demo import make_receipt
+from demo.evidence import Box, Evidence
+
+WIDTH = 1920
+HEIGHT = 1080
+HEADLINE_BOTTOM = 190  # the headline (the caption) sits above everything else
+
+type Colour = tuple[int, int, int]
+
+# A light, plain palette (Tailwind's slate, teal and amber scales).
+BACKGROUND: Colour = (248, 250, 252)  # slate-50
+CARD: Colour = (255, 255, 255)
+BORDER: Colour = (226, 232, 240)  # slate-200
+TEXT: Colour = (15, 23, 42)  # slate-900
+MUTED: Colour = (71, 85, 105)  # slate-600
+ACCENT: Colour = (15, 118, 110)  # teal-700: the brand colour
+ACTIVE: Colour = (240, 253, 250)  # teal-50: the field being shown
+CHECK: Colour = (180, 83, 9)  # amber-700: a value a person checks
+CHECK_ACTIVE: Colour = (255, 247, 237)  # orange-50
+MARKER: Colour = (253, 230, 138)  # yellow-200: a highlighter, multiplied onto the paper
+
+# Every text colour on the background it is drawn on (tests/test_demo.py
+# checks each against WCAG's 4.5:1).
+TEXT_ON: tuple[tuple[Colour, Colour], ...] = (
+    (TEXT, BACKGROUND),
+    (MUTED, BACKGROUND),
+    (TEXT, CARD),
+    (MUTED, CARD),
+    (TEXT, ACTIVE),
+    (MUTED, ACTIVE),
+    (TEXT, CHECK_ACTIVE),
+    (MUTED, CHECK_ACTIVE),
+    (CHECK, CHECK_ACTIVE),
+    (CARD, CHECK),
+    (CARD, ACCENT),
+)
+
+# Netflix's timed text style guide: at most 42 characters per line, 2 lines.
+CAPTION_LINE = 42
+# How many characters of imbalance a break at a sentence or clause is worth.
+_PAUSE_BONUS = 16
+
+# Plain names for the pack's fields: "company" is the seller, a vendor to a buyer.
+_LABELS = {
+    "company": "Vendor",
+    "address": "Address",
+    "date": "Date",
+    "total": "Total",
+    "currency": "Currency",
+}
+
+# Layout: the receipt on the left, the fields on a card on the right.
+_RECEIPT_LEFT = 150
+_RECEIPT_TOP = 215
+_RECEIPT_HEIGHT = 800
+_CARD = (1010, 215, 1800, 1015)
+_ROW_LEFT = _CARD[0] + 40
+_ROW_TOP = 300
+_ROW_HEIGHT = 140
+
+
+@dataclass(frozen=True, slots=True)
+class Frame:
+    image: Image.Image
+    seconds: float
+    texts: tuple[str, ...]  # every text drawn, so tests can read the screen
+    receipt: Path | None = None  # the receipt shown beside the fields, if any
+
+
+@dataclass(frozen=True, slots=True)
+class Shot:
+    caption: str
+    frames: tuple[Frame, ...]
+
+    @property
+    def seconds(self) -> float:
+        return sum(frame.seconds for frame in self.frames)
+
+
+def caption_lines(caption: str) -> list[str]:
+    """The caption in one line, or two of balanced length, ending a sentence where it can.
+
+    A greedy wrap leaves a lone word on the second line ("sample."); a line
+    ending at a sentence or a clause reads as one thought.
+    """
+    if len(caption) <= CAPTION_LINE:
+        return [caption]
+    splits = [
+        (caption[:index], caption[index + 1 :])
+        for index, character in enumerate(caption)
+        if character == " "
+    ]
+    fitting = [split for split in splits if max(map(len, split)) <= CAPTION_LINE]
+    if not fitting:  # more than two lines: the caption is too long (tests/test_demo.py)
+        return [caption]
+
+    def unbalance(split: tuple[str, str]) -> int:
+        first, second = split
+        at_a_pause = first[-1] in ".?!,;:"
+        return abs(len(first) - len(second)) - (_PAUSE_BONUS if at_a_pause else 0)
+
+    return list(min(fitting, key=unbalance))
+
+
+def contrast(foreground: Colour, background: Colour) -> float:
+    """WCAG 2.2's contrast ratio, from 1 to 21."""
+    lighter, darker = sorted((_luminance(foreground), _luminance(background)), reverse=True)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def _luminance(colour: Colour) -> float:
+    # WCAG 2.2, "relative luminance" (Understanding SC 1.4.3).
+    def linear(channel: int) -> float:
+        value = channel / 255
+        return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+
+    red, green, blue = (linear(channel) for channel in colour)
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+
+@cache
+def _font(size: int) -> ImageFont.FreeTypeFont:
+    # Pillow's bundled font: the same on Windows and in the render's container.
+    font = ImageFont.load_default(size=size)
+    if not isinstance(font, ImageFont.FreeTypeFont):  # a Pillow built without FreeType
+        raise TypeError("Pillow has no FreeType: the demo cannot draw sized text")
+    return font
+
+
+@dataclass(slots=True)
+class _Canvas:
+    caption: str
+    image: Image.Image = field(init=False)
+    draw: ImageDraw.ImageDraw = field(init=False)
+    texts: list[str] = field(default_factory=list[str])
+    receipt: Path | None = None
+
+    def __post_init__(self) -> None:
+        self.image = Image.new("RGB", (WIDTH, HEIGHT), BACKGROUND)
+        self.draw = ImageDraw.Draw(self.image)
+        lines = caption_lines(self.caption)
+        middle = HEADLINE_BOTTOM / 2 + 5
+        for index, line in enumerate(lines):
+            y = middle + (index - (len(lines) - 1) / 2) * 66
+            self.text((WIDTH / 2, y), line, size=54, fill=TEXT, bold=True, anchor="mm")
+
+    def text(
+        self,
+        xy: tuple[float, float],
+        text: str,
+        *,
+        size: int,
+        fill: Colour,
+        bold: bool = False,
+        anchor: str = "la",
+    ) -> None:
+        self.draw.text(
+            xy,
+            text,
+            font=_font(size),
+            fill=fill,
+            anchor=anchor,
+            stroke_width=1 if bold else 0,
+            stroke_fill=fill,
+        )
+        self.texts.append(text)
+
+    def paper(self, image: Image.Image, xy: tuple[int, int]) -> None:
+        """Paste a receipt with a soft shadow under it, like paper on a desk."""
+        # The shadow takes the paper's shape (its alpha), not its bounding box:
+        # a tilted sheet's box is mostly empty corners.
+        shape = image.getchannel("A") if image.mode == "RGBA" else None
+        shadow = Image.new("RGBA", (image.width + 80, image.height + 80), (0, 0, 0, 0))
+        shadow.paste(Image.new("RGBA", image.size, (15, 23, 42, 50)), (40, 48), shape)
+        shadow = shadow.filter(ImageFilter.GaussianBlur(14))
+        self.image.paste(shadow, (xy[0] - 40, xy[1] - 40), shadow)
+        self.image.paste(image, xy, image if image.mode == "RGBA" else None)
+
+    def frame(self, seconds: float) -> Frame:
+        return Frame(self.image, seconds, tuple(self.texts), self.receipt)
+
+
+def _receipt_image(path: Path, height: int) -> Image.Image:
+    with Image.open(path) as receipt:
+        return ImageOps.contain(receipt.convert("RGB"), (WIDTH, height), Image.Resampling.LANCZOS)
+
+
+def _paste_receipt(canvas: _Canvas, evidence: Evidence, marked: Sequence[Box]) -> None:
+    """The receipt on the left, the words of the field shown marked like a highlighter."""
+    shown = _receipt_image(evidence.image, _RECEIPT_HEIGHT)
+    with Image.open(evidence.image) as original:
+        scale = shown.height / original.height
+    if marked:
+        # Multiplied, like a real highlighter: the paper turns yellow and the
+        # print stays as dark as it was (drawn over, it would wash the print out).
+        ink = Image.new("RGB", shown.size, (255, 255, 255))
+        pen = ImageDraw.Draw(ink)
+        for left, top, right, bottom in marked:
+            pen.rounded_rectangle(
+                (left * scale - 8, top * scale - 6, right * scale + 8, bottom * scale + 6),
+                radius=6,
+                fill=MARKER,
+            )
+        shown = ImageChops.multiply(shown, ink)
+    canvas.paper(shown, (_RECEIPT_LEFT, _RECEIPT_TOP))
+    canvas.receipt = evidence.image
+
+
+def _one_line(text: str) -> str:
+    return text.replace("\n", ", ")
+
+
+def _row(
+    canvas: _Canvas,
+    index: int,
+    name: str,
+    value: ExtractedField[str] | None,
+    *,
+    active: bool,
+    to_check: bool,
+) -> None:
+    """One field: its label, then its value and where it came from, or a blank to fill."""
+    top = _ROW_TOP + index * _ROW_HEIGHT
+    if active:
+        tint, bar = (CHECK_ACTIVE, CHECK) if to_check else (ACTIVE, ACCENT)
+        box = (_CARD[0] + 16, top - 8, _CARD[2] - 16, top + _ROW_HEIGHT - 16)
+        canvas.draw.rounded_rectangle(box, radius=14, fill=tint)
+        canvas.draw.rounded_rectangle((box[0], box[1], box[0] + 8, box[3]), radius=4, fill=bar)
+    canvas.text((_ROW_LEFT, top + 4), _LABELS[name], size=26, fill=MUTED)
+    if value is None:  # not filled in yet: a blank line to type on
+        canvas.draw.line((_ROW_LEFT, top + 86, _CARD[2] - 50, top + 86), fill=BORDER, width=3)
+        return
+    if value.value is None:
+        canvas.text((_ROW_LEFT, top + 38), "Not on the receipt", size=42, fill=TEXT, bold=True)
+        canvas.text((_ROW_LEFT, top + 90), value.reason or "", size=24, fill=MUTED)
+        return
+    if value.citation is None:  # a value always has one (ExtractedField)
+        return
+    canvas.text(
+        (_ROW_LEFT, top + 38),
+        _one_line(value.value),
+        size=42,
+        fill=CHECK if to_check else TEXT,
+        bold=True,
+    )
+    quote = _one_line(value.citation.quote)
+    if to_check:
+        # The printed form too ("10.00") of a value kept exact ("10", D15).
+        canvas.text((_ROW_LEFT, top + 90), f"From the faded print: “{quote}”", size=24, fill=MUTED)
+        badge = (_CARD[2] - 300, top + 36, _CARD[2] - 40, top + 84)
+        canvas.draw.rounded_rectangle(badge, radius=24, fill=CHECK)
+        canvas.text(
+            ((badge[0] + badge[2]) / 2, (badge[1] + badge[3]) / 2),
+            "A person checks",
+            size=26,
+            fill=CARD,
+            bold=True,
+            anchor="mm",
+        )
+    else:
+        canvas.text((_ROW_LEFT, top + 90), f"Read from: “{quote}”", size=24, fill=MUTED)
+
+
+def _form_frame(
+    caption: str,
+    evidence: Evidence,
+    *,
+    filled: Sequence[str],
+    active: str | None,
+    seconds: float,
+) -> Frame:
+    canvas = _Canvas(caption)
+    marked = evidence.boxes.get(active, []) if active is not None else []
+    _paste_receipt(canvas, evidence, marked)
+    canvas.draw.rounded_rectangle(_CARD, radius=24, fill=CARD, outline=BORDER, width=2)
+    canvas.text((_ROW_LEFT, _CARD[1] + 30), "Receipt data", size=34, fill=TEXT, bold=True)
+    for index, name in enumerate(_LABELS):
+        _row(
+            canvas,
+            index,
+            name,
+            evidence.result.fields[name] if name in filled else None,
+            active=name == active,
+            to_check=name in evidence.result.review,
+        )
+    return canvas.frame(seconds)
+
+
+# The pile of shot 2: more fictional receipts, drawn like the demo's own
+# (demo/make_receipt.py) but never read by the pipeline, so never recorded.
+_PILE = (
+    (
+        "CORNER HARDWARE",
+        "3 Sample Lane",
+        "",
+        "Date: 02/11/2026",
+        "",
+        "Screws x 40      6.80",
+        "TOTAL           6.80",
+    ),
+    (
+        "BLUE DOOR PRINTING",
+        "88 Example Ave",
+        "",
+        "Date: 05/11/2026",
+        "",
+        "Flyers x 500    74.00",
+        "TOTAL          74.00",
+    ),
+    (
+        "SAMPLE TOWN TAXI",
+        "Fare receipt",
+        "",
+        "Date: 09/11/2026",
+        "",
+        "Trip            18.50",
+        "TOTAL          18.50",
+    ),
+    (
+        "THE PLACEHOLDER DELI",
+        "41 Test Street",
+        "",
+        "Date: 11/11/2026",
+        "",
+        "Lunch x 3       31.20",
+        "TOTAL          31.20",
+    ),
+)
+
+
+def _pile_frame(caption: str, seconds: float) -> Frame:
+    canvas = _Canvas(caption)
+    # Narrow slips, sized to their few lines, so none reads as a blank sheet.
+    sheets = [
+        replace(make_receipt.RECEIPT, lines=lines, seed=101 + index, height=470, width=470)
+        for index, lines in enumerate(_PILE)
+    ]
+    sheets.append(make_receipt.RECEIPT)
+    # (tilt, centre x, top y); the last, on top, is the receipt the video follows.
+    placements = ((-14, 560, 330), (12, 1360, 320), (-5, 790, 250), (7, 1140, 240), (-2, 960, 220))
+    for sheet, (angle, x, y) in zip(sheets, placements, strict=True):
+        paper = make_receipt.draw_receipt(sheet).convert("RGB")
+        # One scale for every sheet, so their print is the same size.
+        paper = ImageOps.scale(paper, 0.8, Image.Resampling.LANCZOS).convert("RGBA")
+        tilted = paper.rotate(angle, resample=Image.Resampling.BICUBIC, expand=True)
+        canvas.paper(tilted, (x - tilted.width // 2, y))
+    return canvas.frame(seconds)
+
+
+def _closing_frame(caption: str, seconds: float) -> Frame:
+    canvas = _Canvas(caption)
+    for index, path in enumerate((make_receipt.RECEIPT.path, make_receipt.REVIEW.path)):
+        paper = _receipt_image(path, 420).convert("RGBA")
+        tilted = paper.rotate((-7, 6)[index], resample=Image.Resampling.BICUBIC, expand=True)
+        canvas.paper(tilted, ((720, 1200)[index] - tilted.width // 2, 300))  # centred pair
+    button = (WIDTH / 2 - 330, 820, WIDTH / 2 + 330, 930)
+    canvas.draw.rounded_rectangle(button, radius=55, fill=ACCENT)
+    canvas.text((WIDTH / 2, 875), "Send me a sample", size=52, fill=CARD, bold=True, anchor="mm")
+    return canvas.frame(seconds)
+
+
+def storyboard(receipt: Evidence, review: Evidence) -> list[Shot]:
+    """The six shots, in order (the script approved in #45, as a sales video)."""
+    names = list(_LABELS)
+    found = [name for name in names if receipt.result.fields[name].value is not None]
+
+    hook = "Still typing receipts by hand? There's a faster way."
+    pain = "Every week, someone retypes all of these."
+    values = "Vendor, date, total: filled in, each with the words it came from."
+    empty = "Not on the receipt? Left empty, never guessed."
+    person = "Too faint to be sure? Flagged for a person to check."
+    contact = "Your documents, your spreadsheet. Send me a sample."
+
+    return [
+        # The outcome first: the receipt already done, as the muted preview shows it.
+        Shot(hook, (_form_frame(hook, receipt, filled=names, active=None, seconds=5),)),
+        Shot(pain, (_pile_frame(pain, 5),)),
+        Shot(
+            values,
+            tuple(
+                _form_frame(
+                    values, receipt, filled=found[: index + 1], active=name, seconds=10 / len(found)
+                )
+                for index, name in enumerate(found)
+            ),
+        ),
+        Shot(empty, (_form_frame(empty, receipt, filled=names, active="currency", seconds=6),)),
+        Shot(person, (_form_frame(person, review, filled=names, active="total", seconds=8),)),
+        Shot(contact, (_closing_frame(contact, 6),)),
+    ]
