@@ -103,6 +103,26 @@ def test_json_number_total_has_no_binary_rounding_error() -> None:
 
 
 @pytest.mark.parametrize(
+    ("raw", "shown"),
+    [
+        # A JSON number has no trailing zeros to keep; Pydantic reads its short form.
+        pytest.param("23.40", '"23.4"', id="json-number-short-form"),
+        # A JSON string goes through the Decimal constructor, which keeps them.
+        pytest.param('"23.40"', '"23.40"', id="json-string-as-written"),
+    ],
+)
+def test_total_precision_is_not_normalized(raw: str, shown: str) -> None:
+    # D15: the value is the exact amount; the printed form lives in the quote.
+    placeholder = '"TOTAL_PLACEHOLDER"'
+    text = receipt_json(total=cited("TOTAL_PLACEHOLDER", "TOTAL 23.40")).replace(placeholder, raw)
+    receipt = Receipt.model_validate_json(text)
+    assert receipt.total.value == Decimal("23.40")
+    assert f'"value":{shown}' in receipt.model_dump_json()
+    assert receipt.total.citation is not None
+    assert receipt.total.citation.quote == "TOTAL 23.40"
+
+
+@pytest.mark.parametrize(
     "raw",
     [
         pytest.param("25/12/2018", id="day-first-as-printed"),

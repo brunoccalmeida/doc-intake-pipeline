@@ -109,7 +109,7 @@ O UAT usa Poetry. Aqui o uv ganhou por cobrir Python, lock e auditoria com uma f
 | Base `StrictModel`: `frozen=True, extra="forbid"` como **argumentos de classe**, repetidos em cada subclasse | `core/result.py` | Verificador de tipos só lê config passada como argumento de classe e não herda `frozen` (PEP 681); o pyright reprova subclasse que esquecer. Chave extra = produtor fora do schema | [Pydantic 2.14: Configuration](https://pydantic.dev/docs/validation/2.14/concepts/config/); [PEP 681](https://peps.python.org/pep-0681/) |
 | `IsoDate` aceita só texto `AAAA-MM-DD` | `core/result.py` | O Pydantic lê timestamp Unix como data (no modo lax e, como texto, até no `strict`): qualquer número do documento viraria data. Observado com sonda no 2.14.3 e travado por teste | sonda + `tests/test_receipt.py` |
 | Citação literal (`pattern=r"\S"`, sem `strip`) | `Citation.quote` | A #4 confere a citação contra o texto lido; alterá-la quebraria a conferência | D1 |
-| Dinheiro `Decimal` com `ge=0`; JSON número vira `Decimal` pela representação curta (`10.10` → `10.1`, sem `10.0999…`) | `packs/receipt` | Comportamento observado, não documentado (a doc diz só "valor aceito pelo construtor de `Decimal`"): o teste trava contra mudança de versão | [Pydantic 2.14: tipos da stdlib](https://pydantic.dev/docs/validation/2.14/api/pydantic/standard_library_types/) |
+| Dinheiro `Decimal` com `ge=0`; JSON número vira `Decimal` pela representação curta (`10.10` → `10.1`, sem `10.0999…`); a forma impressa fica na citação (D15) | `packs/receipt` | Comportamento observado, não documentado (a doc diz só "valor aceito pelo construtor de `Decimal`"): o teste trava contra mudança de versão | [Pydantic 2.14: tipos da stdlib](https://pydantic.dev/docs/validation/2.14/api/pydantic/standard_library_types/) |
 | Alias PEP 695 (`type Money = ...`) para tipos com restrição | packs | Gera nomes legíveis no `$defs` do JSON Schema (`ExtractedField[Money]`), que é o que o LLM lê | [Pydantic 2.14: Models (genéricos)](https://pydantic.dev/docs/validation/2.14/concepts/models/) |
 | JSON Schema de cada pack commitado com teste de snapshot; `uv run poe export-schemas` regrava | `packs/json_schema.py` | Mudar o schema muda o pedido ao LLM e pode mexer no eval: tem que aparecer no diff. Sem dependência nova (comparação de texto basta) | julgamento próprio (YAGNI) |
 
@@ -240,3 +240,22 @@ A D12 manda para revisão humana todo valor citado da imagem: 14 dos 20 recibos 
 3. Um corte por campo escolhido no ajuste, provado no teste, com auditoria por amostragem do que for aceito.
 
 **Julgamento próprio:** considerar 24 campos insuficientes para calibrar, já que o mercado não dá número mínimo, só exemplos na casa das centenas. Ler o *"could indicate"* da Anthropic como sinal de mão única. Pôr a ampliação do conjunto antes do contestador.
+
+### D15. Dinheiro guarda o valor, não a forma impressa (decidida na #33)
+
+O recibo do demo imprime `TOTAL 23.40` e o resultado diz `"23.4"`. O valor está certo (`Decimal("23.4") == Decimal("23.40")`), e a forma impressa está na citação (`"quote": "TOTAL 23.40"`). **Decisão: não normalizar.** O `Money` continua `Decimal` com `ge=0`, sem ajuste de casas. Formatar com as casas da moeda fica com quem apresenta o resultado, porque é quem conhece a moeda.
+
+**De onde vem o `23.4`** (sonda no Pydantic 2.14.3, travada por `test_total_precision_is_not_normalized` em `tests/test_receipt.py`): o modelo escreve o total como número JSON, e as 40 gravações do eval estão assim. Número JSON não guarda zero final. O Pydantic converte o float em texto antes do construtor de `Decimal` (D8), e `23.40` vira `23.4`. Texto JSON `"23.40"` mantém o zero. Na saída, o `Decimal` sai como texto nos dois casos.
+
+| Alternativa | Resultado | Fonte |
+| --- | --- | --- |
+| **Valor exato, com a forma impressa só na evidência** (escolhida) | É o que fazem os serviços de referência. O Azure Document Intelligence devolve `"amount": 110` ao lado de `"content": "$110.00"`. O Google Document AI devolve `moneyValue` (`google.type.Money`: `units` e `nanos`, sem noção de casas impressas) ao lado de `mentionText`. Aqui a evidência é a `citation.quote` (D1) | [Azure, analyze response](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/concept/analyze-document-response?view=doc-intel-4.0.0); [Document AI, Document](https://docs.cloud.google.com/document-ai/docs/reference/rest/v1/Document); [money.proto](https://github.com/googleapis/googleapis/blob/master/google/type/money.proto) |
+| Ajustar às casas da ISO 4217 (`quantize`) | **Descartada.** As casas variam por moeda (JPY 0, MYR 2, BHD 3), e o `currency` sai `null` quando o recibo não identifica a moeda (no conjunto-ouro, `$` sozinho). O resultado ficaria com duas casas em uns documentos e não em outros. Se um cliente precisar disso, o `quantize` com a trava `Inexact` recusa em vez de arredondar em silêncio | [Lista ISO 4217 (SIX)](https://www.six-group.com/dam/download/financial-information/data-center/iso-currrency/lists/list-one.xml); [Python 3.14 `decimal`](https://docs.python.org/3.14/library/decimal.html) |
+| Total como texto no schema, para o modelo copiar os dígitos impressos | **Descartada.** Muda o pedido ao LLM e exige regravar o eval e o demo, que são pagos. Também dá ao modelo mais uma coisa para copiar errado, e o eval não mede a forma, só o valor (D4) | [Pydantic 2.14, tipos da stdlib](https://pydantic.dev/docs/validation/2.14/api/pydantic/standard_library_types/) |
+
+O eval não muda: ele compara por valor (D4), e nenhuma gravação foi refeita.
+
+**Julgamento próprio:**
+
+- Tratar as casas da moeda como apresentação, não como domínio.
+- Considerar a variação de forma entre execuções um risco teórico. Nas 40 gravações o modelo sempre escreveu número. Ele escreve o zero final em umas e não em outras, mas número sai sempre na forma curta, então a saída não varia.
