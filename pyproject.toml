@@ -71,7 +71,7 @@ select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "PTH", "PT", "N", "S", "TI
 [tool.pyright]
 typeCheckingMode = "strict"
 pythonVersion = "3.14"
-include = ["core", "packs", "providers", "evals", "scripts", "tests", "typings"]
+include = ["core", "packs", "providers", "evals", "scripts", "demo", "tests", "typings"]
 # Local stubs for libraries that ship no usable types (pypdfium2, tesserocr):
 # pyright resolves stubPath before installed packages. Each stub holds only
 # the API the project calls; see the header of each file.
@@ -92,11 +92,15 @@ export-schemas = "python -m packs.json_schema"
 fetch-tessdata = "python -m scripts.fetch_tessdata"
 # Download the SROIE golden set (pinned, checksum-verified) and convert it locally.
 fetch-golden = "python -m scripts.fetch_golden"
-# Extract one receipt with the configured real provider: calls a paid API.
+# Extract one receipt with the configured real provider: a paid API call, except with --replay.
 extract = "python -m scripts.extract_document"
 # Score the golden set from recorded responses and gate on evals/baseline.json.
 # "--record" calls the real provider for unrecorded requests: a paid API call.
 eval = "python -m scripts.run_eval"
+# Render the demo video (demo/README.md) into .cache/demo, in Docker: replay only, no cost.
+demo-image = "docker build --file demo/Dockerfile --tag doc-intake-demo ."
+demo-render = "docker run --rm --volume ${POE_ROOT}:/vhs doc-intake-demo demo/demo.tape"
+demo.sequence = ["demo-image", "demo-render"]
 # The local gate, the same commands as CI's "check" job. Every step runs even
 # after a failure, so one run reports every problem; the exit is still non-zero.
 check.sequence = ["lint", "format-check", "types"]

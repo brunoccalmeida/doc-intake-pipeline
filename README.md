@@ -40,6 +40,7 @@ LLM extraction demos are easy; trusting them in production is not. This project 
 | Golden set (SROIE receipts)             | done    |
 | Per-field eval gating CI                | done    |
 | Run log and cost per document           | done    |
+| Demo video, recorded as code            | done    |
 
 ## Development
 
@@ -54,6 +55,7 @@ uv run pytest        # tests (no network, no API key)
 uv run poe export-schemas  # rewrite the committed JSON Schemas after a schema change
 uv run poe extract <file>  # extract one receipt with the configured provider (paid API call)
 uv run poe eval            # score the golden set from recorded responses, gate on the baseline
+uv run poe demo            # render the demo video in Docker (replay: no key, no cost)
 ```
 
 Both `extract` and `eval` write one JSON line per document to stderr: run and document ids, status and validation errors, calls, retries, tokens, latency and cost in exact USD, never document content. `extract` identifies the document by the SHA-256 of its bytes, not its file name. `DOC_INTAKE_LOG_LEVEL=WARNING` silences these lines. Example (from the eval replay, so latency is near zero):
