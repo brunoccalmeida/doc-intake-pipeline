@@ -37,7 +37,7 @@ The eval replays recorded LLM responses (`docs/ARCHITECTURE.md` D4). Each respon
 
 The key covers the OCR text and the JSON Schema, so a dependency update that changes either (Pillow, tesserocr, the `eng` model, Pydantic) also needs a re-recording, even in a Dependabot pull request: the eval job then fails with "no recording".
 
-To re-record after a prompt, schema, model or such dependency change: clone the private repository into `DOC_INTAKE_RECORDINGS_DIR` (default `.cache/recordings`), run `uv run poe eval --record` (paid API calls, only for requests not yet recorded), commit and push there, then update the pin, the baseline and the README's eval summary (`uv run poe eval --update-readme`) in the same pull request. The demo video replays recordings too (shots 2, 3 and 5, [`demo/README.md`](../demo/README.md)): the same change needs them recorded again, or the demo has nothing to replay; `tests/test_demo.py` catches shots 2 and 3, and only a render catches shot 5.
+To re-record after a prompt, schema, model or such dependency change: clone the private repository into `DOC_INTAKE_RECORDINGS_DIR` (default `.cache/recordings`), run `uv run poe eval --record` (paid API calls, only for requests not yet recorded), commit and push there, then update the pin, the baseline and the README's eval summary (`uv run poe eval --update-readme`) in the same pull request. The demo video replays recordings too (shots 2 to 5, [`demo/README.md`](../demo/README.md)): the same change needs them recorded again, or the demo has nothing to replay; `tests/test_demo.py` catches shots 2 to 4, and only a render catches shot 5.
 
 ### Why the mirror
 
@@ -97,6 +97,6 @@ Judged by eye, to know what the set covers:
 - **Small sample:** 20 receipts from one country and one period (2016-2018) detect regressions; they do not estimate accuracy on other documents.
 - **One draw per request:** the recordings hold one answer from a model that does not answer the same way twice. Replay makes the gate deterministic, but a re-recording can move a score by sampling alone, with no change to the pipeline. A drop seen right after a re-recording is checked against a second recording before it is blamed on the change.
 
-## Demo receipt (fictional)
+## Demo receipts (fictional)
 
-[`demo/receipt.png`](../demo/receipt.png) is drawn by [`demo/make_receipt.py`](../demo/make_receipt.py) with Pillow's bundled font (Aileron, [`ImageFont.load_default`](https://pillow.readthedocs.io/en/stable/reference/ImageFont.html#PIL.ImageFont.load_default)): the shop, address and amounts are invented. Being our own work, the image and the recorded answer about it ([`demo/recordings`](../demo/recordings)) are public, released with the code under this repository's licence. The demo video shows only this receipt and the eval report, which holds no SROIE value.
+[`demo/receipt.png`](../demo/receipt.png) and [`demo/receipt-review.png`](../demo/receipt-review.png) are drawn by [`demo/make_receipt.py`](../demo/make_receipt.py) with Pillow's bundled font (Aileron, [`ImageFont.load_default`](https://pillow.readthedocs.io/en/stable/reference/ImageFont.html#PIL.ImageFont.load_default)): the shops, addresses and amounts are invented. Being our own work, the images and the recorded answers about them ([`demo/recordings`](../demo/recordings)) are public, released with the code under this repository's licence. The demo video shows only these receipts and the eval's counts (values correct, wrong values accepted without review), which hold no SROIE value.

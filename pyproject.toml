@@ -67,6 +67,8 @@ select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "PTH", "PT", "N", "S", "TI
 "tests/**" = ["S101"]
 # The one package allowed to import vendor SDKs (see banned-api above).
 "providers/**" = ["TID251"]
+# N802: stubs copy the third-party library's own method names (tesserocr's CamelCase).
+"typings/**" = ["N802"]
 
 [tool.pyright]
 typeCheckingMode = "strict"
@@ -99,7 +101,7 @@ extract = "python -m scripts.extract_document"
 eval = "python -m scripts.run_eval"
 # Render the demo video (demo/README.md) into .cache/demo, in Docker: replay only, no cost.
 demo-image = "docker build --file demo/Dockerfile --tag doc-intake-demo ."
-demo-render = "docker run --rm --volume ${POE_ROOT}:/vhs --entrypoint uv doc-intake-demo run --locked python -m demo.render"
+demo-render = "docker run --rm --volume ${POE_ROOT}:/work doc-intake-demo uv run --locked python -m demo.render"
 demo.sequence = ["demo-image", "demo-render"]
 # The local gate, the same commands as CI's "check" job. Every step runs even
 # after a failure, so one run reports every problem; the exit is still non-zero.
