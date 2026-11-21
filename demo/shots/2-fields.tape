@@ -1,5 +1,5 @@
 # Shot 2: every field with its evidence (a recorded answer from Claude, replayed).
-# Caption: Out: every field, with the exact quote it was read from on the page.
+# Caption: Out: each value found, with the exact quote it was read from on the page.
 
 Source demo/setup.tape
 Show

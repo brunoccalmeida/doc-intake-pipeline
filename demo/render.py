@@ -113,15 +113,30 @@ def check_limits(seconds: float, size: int) -> None:
         raise ValueError(f"the video has {size} bytes, above the {MAX_BYTES} limit")
 
 
-def _run(*args: str) -> str:
-    # Fixed tools (vhs, ffmpeg, ffprobe) with paths from this repository.
-    return subprocess.run(args, check=True, capture_output=True, text=True).stdout  # noqa: S603
+def _run(*args: str) -> None:
+    # Fixed tools (vhs, ffmpeg) with paths from this repository. Their output is
+    # not captured: when a shot fails, VHS names the Wait and the screen it saw.
+    subprocess.run(args, check=True)  # noqa: S603
 
 
 def _seconds(video: Path) -> float:
-    shown = _run(
-        "ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(video)
-    )
+    # A fixed tool with a path from this repository; ffprobe comes from the
+    # image's PATH, next to the vhs and ffmpeg that _run starts.
+    shown = subprocess.run(  # noqa: S603
+        [  # noqa: S607
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "csv=p=0",
+            str(video),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
     return float(shown)
 
 
@@ -130,10 +145,11 @@ def main() -> None:
     captions = {tape: caption(tape) for tape in tapes}  # every caption checked before rendering
     parts = OUT / "shots"
     parts.mkdir(parents=True, exist_ok=True)
+    VIDEO.unlink(missing_ok=True)  # an earlier render no longer matches the tapes
 
     for tape in tapes:
         raw = parts / f"{tape.stem}.raw.mp4"
-        _run("vhs", "--quiet", "--output", str(raw), str(tape))
+        _run("vhs", "--output", str(raw), str(tape))
         subtitle = parts / f"{tape.stem}.ass"
         subtitle.write_text(ass_script(captions[tape]), encoding="utf-8")
         shown = image(tape)
@@ -149,13 +165,18 @@ def main() -> None:
 
     listing = parts / "shots.txt"
     listing.write_text("".join(f"file '{tape.stem}.mp4'\n" for tape in tapes), encoding="utf-8")
+    # Joined beside the video and moved into place only within the limits, so
+    # the path to publish never holds a refused video.
+    joined = parts / "joined.mp4"
     _run(
         "ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-i", str(listing),
-        "-c", "copy", "-movflags", "+faststart", str(VIDEO),
+        "-c", "copy", "-movflags", "+faststart", str(joined),
     )  # fmt: skip
-    seconds, size = _seconds(VIDEO), VIDEO.stat().st_size
-    print(f"{VIDEO}: {seconds:.1f} s, {size} bytes")
+    seconds, size = _seconds(joined), joined.stat().st_size
+    print(f"{seconds:.1f} s, {size} bytes")
     check_limits(seconds, size)
+    joined.replace(VIDEO)
+    print(f"written: {VIDEO}")
 
 
 if __name__ == "__main__":

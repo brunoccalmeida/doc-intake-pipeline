@@ -19,6 +19,6 @@ Show
 Sleep 1s
 Type "sed '/^## Accuracy/,$d' .cache/eval/report.md"
 Enter
-Wait+Screen /wrong values accepted without review/
+Wait+Screen /address: \d+ wrong values accepted without review/
 Wait /\$$/
 Sleep 9s
