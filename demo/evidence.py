@@ -1,32 +1,24 @@
 """What the video shows, taken from the pipeline itself: nothing on screen is typed in by hand.
 
 - each receipt's result, replayed from its recorded answer (``demo/recordings``);
-- where each quote sits on the receipt, from OCR's own word boxes;
-- the eval's score on the real receipts, with and without the regression
-  (``demo/regression.py``), replayed from the private recordings.
+- where each quote sits on the receipt, from OCR's own word boxes.
 
 A change to the prompt, schema, OCR or model leaves a recording missing, and
 the render then stops naming it, instead of filming an old answer.
 """
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import tesserocr
 from PIL import Image
-from pydantic import BaseModel
 
 from core.config import Settings
-from core.extract import Pack, extract
+from core.extract import extract
 from core.ingest import OCR_LANGUAGE, ingest
 from core.result import ExtractedField, Status, StrictModel
-from core.runlog import new_run_id
-from demo.regression import regressed
 from evals.recording import RecordingStore, ReplayProvider
-from evals.run import run_eval
-from evals.scoring import DocumentScore
-from evals.sroie import MANIFEST_PATH, load_manifest
 from packs.receipt import RECEIPT
 
 DEMO_RECORDINGS = Path("demo/recordings")
@@ -58,33 +50,6 @@ class Evidence:
     # Per field, one box per printed line its quote covers; a field read from
     # the image only (or empty) has none.
     boxes: dict[str, list[Box]]
-
-
-@dataclass(frozen=True, slots=True)
-class GateScore:
-    """One eval run, as a client would read it."""
-
-    correct: int
-    values: int
-    wrong_unchecked: int  # wrong values accepted without review: they reach the client
-
-    @classmethod
-    def of(cls, scores: Iterable[DocumentScore]) -> GateScore:
-        correct = values = wrong_unchecked = 0
-        for score in scores:
-            for name, outcome in score.fields.items():
-                values += 1
-                correct += outcome == "correct"
-                wrong = outcome in ("wrong", "unexpected")
-                wrong_unchecked += wrong and score.routes[name] == "accepted"
-        return cls(correct=correct, values=values, wrong_unchecked=wrong_unchecked)
-
-
-@dataclass(frozen=True, slots=True)
-class GateFacts:
-    current: GateScore
-    update: GateScore  # with the regression
-    documents: int
 
 
 def replayed(path: Path, settings: Settings) -> Shown:
@@ -156,28 +121,3 @@ def receipt_evidence(path: Path, settings: Settings) -> Evidence:
         if field.citation is not None and field.citation.source == "text"
     }
     return Evidence(image=path, result=result, boxes=boxes)
-
-
-def gate_facts(settings: Settings) -> GateFacts:
-    """The eval on the golden set, replayed with the current prompt and with the regression."""
-    ids = [entry.id for entry in load_manifest(MANIFEST_PATH).receipts]
-
-    def score[S: BaseModel](pack: Pack[S]) -> GateScore:
-        provider = ReplayProvider(
-            RecordingStore(settings.recordings_dir),
-            provider=settings.provider,
-            model=settings.model,
-        )
-        run = run_eval(
-            ids,
-            pack,
-            provider,
-            golden_dir=settings.sroie_dir,
-            tessdata_dir=settings.tessdata_dir,
-            run_id=new_run_id(),
-            provider_name=settings.provider,
-            max_retries=settings.max_retries,
-        )
-        return GateScore.of(run.scores)
-
-    return GateFacts(current=score(RECEIPT), update=score(regressed(RECEIPT)), documents=len(ids))

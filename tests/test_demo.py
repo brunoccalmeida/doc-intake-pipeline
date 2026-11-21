@@ -14,12 +14,9 @@ import pytest
 from PIL import Image
 
 from core.config import Settings
-from core.extract import Pack
 from core.ingest import ingest
 from core.result import Citation, ExtractedField
-from demo import evidence, make_receipt, regression, render, storyboard
-from evals.scoring import DocumentScore
-from packs.receipt import RECEIPT
+from demo import evidence, make_receipt, render, storyboard
 
 
 @pytest.fixture
@@ -102,45 +99,6 @@ def test_a_quote_read_only_from_the_image_has_no_box_on_the_page_text() -> None:
     assert evidence.quote_boxes(words, "TOTAL 10.00") == []
 
 
-def test_the_regression_adds_one_harmless_looking_line_to_the_prompt() -> None:
-    worse = regression.regressed(RECEIPT)
-
-    added = set(worse.instructions.splitlines()) - set(RECEIPT.instructions.splitlines())
-    assert added == {regression.LINE.rstrip("\n")}
-    assert worse.schema is RECEIPT.schema
-
-
-def test_a_regression_that_no_longer_fits_the_prompt_is_refused() -> None:
-    moved = Pack(
-        name=RECEIPT.name,
-        schema=RECEIPT.schema,
-        instructions="The document is a receipt.\n",
-        printed=RECEIPT.printed,
-    )
-
-    with pytest.raises(ValueError, match="the regression's anchor"):
-        regression.regressed(moved)
-
-
-def _score(outcome: str, route: str) -> DocumentScore:
-    return DocumentScore.model_validate(
-        {
-            "id": "x",
-            "status": "ok",
-            "fields": {"address": outcome, "total": "correct"},
-            "routes": {"address": route, "total": "accepted"},
-        }
-    )
-
-
-def test_the_gate_score_counts_correct_values_and_wrong_ones_passed_on_unchecked() -> None:
-    scores = [_score("correct", "accepted"), _score("wrong", "accepted"), _score("wrong", "review")]
-
-    assert evidence.GateScore.of(scores) == evidence.GateScore(
-        correct=4, values=6, wrong_unchecked=1
-    )
-
-
 # --- The storyboard, from fake evidence: the story holds whatever the values.
 
 
@@ -173,15 +131,9 @@ def _evidence(path: Path, *, review: bool) -> evidence.Evidence:
 
 @pytest.fixture
 def shots() -> list[storyboard.Shot]:
-    gate = evidence.GateFacts(
-        current=evidence.GateScore(correct=97, values=100, wrong_unchecked=0),
-        update=evidence.GateScore(correct=79, values=100, wrong_unchecked=14),
-        documents=20,
-    )
     return storyboard.storyboard(
         _evidence(make_receipt.RECEIPT.path, review=False),
         _evidence(make_receipt.REVIEW.path, review=True),
-        gate,
     )
 
 
@@ -191,6 +143,15 @@ def test_the_video_fits_where_it_is_published(shots: list[storyboard.Shot]) -> N
 
 def test_the_first_shot_states_the_problem(shots: list[storyboard.Shot]) -> None:
     assert "by hand" in shots[0].caption
+
+
+def test_the_first_frame_already_shows_the_outcome(shots: list[storyboard.Shot]) -> None:
+    # The muted preview plays the first seconds only: the receipt already done
+    # (Google's ABCD: front-load the story), not an empty form.
+    first = shots[0].frames[0]
+
+    assert first.receipt is not None
+    assert {"SHOP", "23.4"} <= set(first.texts)
 
 
 @pytest.mark.parametrize("index", range(6))
@@ -224,12 +185,12 @@ def test_nothing_on_screen_needs_a_developer_to_read_it(shots: list[storyboard.S
 
 
 def test_the_receipt_and_its_values_are_on_screen_together(shots: list[storyboard.Shot]) -> None:
-    # Shots 2 to 4: every frame shows the receipt beside the fields (spatial
-    # contiguity), so checking a value needs no memory of the image.
-    for shot in shots[1:4]:
+    # Every frame of the shots about values shows the receipt beside the fields
+    # (spatial contiguity), so checking a value needs no memory of the image.
+    for shot in (shots[0], *shots[2:5]):
         for frame in shot.frames:
             assert frame.receipt is not None
-            assert {"Company", "Total"} <= set(frame.texts)
+            assert {"Vendor", "Total"} <= set(frame.texts)
 
 
 def test_every_frame_fills_the_video(shots: list[storyboard.Shot]) -> None:
@@ -259,10 +220,34 @@ def test_a_long_caption_breaks_into_balanced_lines_at_a_sentence_if_it_can(
     assert storyboard.caption_lines(caption) == lines
 
 
-def test_the_gate_shot_shows_the_measured_numbers(shots: list[storyboard.Shot]) -> None:
-    texts = {text for frame in shots[4].frames for text in frame.texts}
+def test_the_crossfades_keep_the_video_as_long_as_its_frames() -> None:
+    ticks = render.timeline([1.0, 0.5], fps=10, fade=0.2)
 
-    assert {"97 of 100", "79 of 100", "0", "14"} <= texts
+    assert len(ticks) == 15
+    assert ticks[0] == (0, 0, 0.0)
+    assert ticks[8] == (0, 0, 0.0)  # 0.8 s: the fade starts after it
+    assert ticks[9] == (0, 1, pytest.approx(0.5))  # 0.9 s: halfway into the next frame
+    assert ticks[10] == (1, 1, 0.0)  # 1.0 s: the next frame, whole
+    assert all(shown == 1 and amount == 0 for shown, _, amount in ticks[10:])  # no fade out
+
+
+def test_between_shots_the_picture_dips_to_the_background_so_headlines_never_overlap() -> None:
+    # The background is off-centre (200), so no wrong formula lands on the expected value by chance.
+    black, white = Image.new("RGB", (2, 2), "black"), Image.new("RGB", (2, 2), "white")
+    grey = Image.new("RGB", (2, 2), (200, 200, 200))
+
+    halfway = render.dissolve(black, white, 0.5, via=grey)
+    assert halfway.tobytes() == grey.tobytes()  # only the background, no mix of the two
+    # A quarter in: halfway from the outgoing still (black) to the background
+    # (200); three quarters: halfway from the background to the incoming (white).
+    for amount, expected in ((0.25, 100), (0.75, 227.5)):
+        pixel = render.dissolve(black, white, amount, via=grey).getpixel((0, 0))
+        assert isinstance(pixel, tuple)
+        assert all(abs(channel - expected) <= 1 for channel in pixel), (amount, pixel)
+    # Within a shot (same headline) the frames dissolve straight into each other.
+    mixed = render.dissolve(black, white, 0.5).getpixel((0, 0))
+    assert isinstance(mixed, tuple)
+    assert all(abs(channel - 127.5) <= 1 for channel in mixed)  # half of each
 
 
 @pytest.mark.parametrize(("foreground", "background"), storyboard.TEXT_ON)

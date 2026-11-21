@@ -37,6 +37,7 @@ class Receipt:
     # Rows printed so faint that OCR drops them, while a person (and the model,
     # which sees the image) can still read them.
     faded: frozenset[int] = frozenset()
+    width: int = 760
 
 
 # Shots 1 to 3: every value is in the OCR text, so code checks every quote.
@@ -98,7 +99,7 @@ def draw_receipt(receipt: Receipt) -> Image.Image:
     """The receipt, deterministic for a given Pillow: same seed, same pixels."""
     rng = random.Random(receipt.seed)  # noqa: S311 - specks for a picture, not security
     font = ImageFont.load_default(size=30)
-    page = Image.new("L", (760, receipt.height), color=236)  # off-white thermal paper
+    page = Image.new("L", (receipt.width, receipt.height), color=236)  # off-white thermal paper
     draw = ImageDraw.Draw(page)
     for row, line in enumerate(receipt.lines):
         # Faded print: grey ink whose darkness drifts down the receipt. Drawn
