@@ -98,8 +98,10 @@ def main(argv: list[str] | None = None) -> int:
         if baseline is not None
         else [f"no baseline at {baseline_path}"]
     )
-    # A subset cannot match the README's whole-set numbers, so only a full run checks them.
-    if not args.ids:
+    # A subset cannot match the README's whole-set numbers, so only a full run checks
+    # them; and only a passing one: the fix for a worse score is the code, and
+    # writing the README then would publish the worse numbers.
+    if not args.ids and not found:
         readme = readme_path.read_text(encoding="utf-8")
         current = replace_summary(readme, render_summary(run))
         if args.update_readme:

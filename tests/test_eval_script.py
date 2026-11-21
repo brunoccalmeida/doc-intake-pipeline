@@ -266,6 +266,23 @@ def test_update_readme_writes_the_summary_and_the_next_run_passes(
     assert run_full(tmp_path) == 0
 
 
+@pytest.mark.usefixtures("one_receipt_set")
+def test_a_regression_does_not_advise_updating_the_readme(
+    recordings: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The fix for a worse score is the code, not the README: updating it would
+    # publish the worse numbers.
+    record(recordings, golden_answer(total="0.01"))
+    baseline(tmp_path)
+    readme(tmp_path, "old numbers")
+
+    code = run_full(tmp_path)
+
+    assert code == 1
+    assert "total: 0/1 correct" in capsys.readouterr().err
+    assert "update-readme" not in (tmp_path / "report.md").read_text(encoding="utf-8")
+
+
 def test_a_subset_leaves_the_readme_alone(recordings: Path, tmp_path: Path) -> None:
     # A subset cannot match the README's whole-set numbers; its gate fails anyway.
     record(recordings, golden_answer())
