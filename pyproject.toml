@@ -99,7 +99,7 @@ extract = "python -m scripts.extract_document"
 eval = "python -m scripts.run_eval"
 # Render the demo video (demo/README.md) into .cache/demo, in Docker: replay only, no cost.
 demo-image = "docker build --file demo/Dockerfile --tag doc-intake-demo ."
-demo-render = "docker run --rm --volume ${POE_ROOT}:/vhs doc-intake-demo demo/demo.tape"
+demo-render = "docker run --rm --volume ${POE_ROOT}:/vhs --entrypoint uv doc-intake-demo run --locked python -m demo.render"
 demo.sequence = ["demo-image", "demo-render"]
 # The local gate, the same commands as CI's "check" job. Every step runs even
 # after a failure, so one run reports every problem; the exit is still non-zero.

@@ -1,6 +1,7 @@
 # The demo's recording studio: VHS (terminal recorder) plus this project's
-# Python environment, so the tape runs the real commands. Built and run by
-# "uv run poe demo" (demo/README.md); the repository is mounted at /vhs.
+# Python environment, so the tapes run the real commands. Built and run by
+# "uv run poe demo" (demo/README.md), which runs demo/render.py from the
+# repository mounted at /vhs. VHS's ffmpeg (Debian's) burns the captions.
 
 # uv at the version pyproject.toml requires ([tool.uv] required-version).
 FROM ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d AS uv
@@ -8,10 +9,9 @@ FROM ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678
 # VHS's own image (Debian, with ttyd, ffmpeg and Chromium); its entrypoint is vhs.
 FROM ghcr.io/charmbracelet/vhs:v0.12.1@sha256:ea49a6a1c529be83153e88321892b5585964418f0b9055e8c1e0d732194234a3
 
-# git: the tape applies the regression patch. chafa: draws the receipt image
-# in the terminal for scene 1.
+# git: a shot applies the regression patch.
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends git chafa \
+    && apt-get install --yes --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=uv /uv /usr/local/bin/uv
