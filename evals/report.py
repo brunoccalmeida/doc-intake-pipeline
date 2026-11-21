@@ -5,7 +5,7 @@ names, outcomes and usage only; ``DocumentScore`` carries no document content
 by construction (AGENTS.md invariant 6, ``docs/DATA.md``).
 """
 
-from core.pricing import PRICES_CHECKED_ON, PRICES_SOURCE
+from core.pricing import PRICE_SOURCES
 from evals.baseline import Baseline
 from evals.run import EvalRun
 from evals.scoring import field_accuracy, status_counts
@@ -64,8 +64,9 @@ def render_report(run: EvalRun, baseline: Baseline | None, *, regressions: list[
     )
     lines += [
         "",
-        f"Tokens are those of the recorded calls; prices checked on {PRICES_CHECKED_ON} "
-        f"at {PRICES_SOURCE}.",
+        "Tokens are those of the recorded calls; prices from "
+        + "; ".join(f"{url} (checked on {date})" for url, date in PRICE_SOURCES.items())
+        + ".",
         "",
     ]
     return "\n".join(lines)

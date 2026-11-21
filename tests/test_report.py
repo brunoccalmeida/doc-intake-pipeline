@@ -6,6 +6,7 @@ outcomes only, never document content (AGENTS.md invariant 6, docs/DATA.md).
 
 from decimal import Decimal
 
+from core.pricing import PRICE_SOURCES
 from evals.baseline import Baseline
 from evals.report import render_report
 from evals.run import EvalRun, Usage
@@ -79,6 +80,13 @@ def test_usage_and_cost() -> None:
     assert "| Documents | Calls | Input tokens | Output tokens | Cost (USD) " in report
     assert "| Average per document (USD) | Models |" in report
     assert "| 3 | 3 | 4500 | 1200 | $0.042 | $0.014000 | claude-opus-5-5 |" in report
+
+
+def test_each_price_source_is_cited_with_the_date_it_was_checked() -> None:
+    report = render_report(RUN, BASELINE, regressions=[])
+
+    for url, checked_on in PRICE_SOURCES.items():
+        assert f"{url} (checked on {checked_on})" in report
 
 
 def test_no_baseline_yet_is_said_instead_of_a_column_of_blanks() -> None:
