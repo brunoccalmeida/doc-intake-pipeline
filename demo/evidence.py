@@ -58,7 +58,12 @@ def replayed(path: Path, settings: Settings) -> Shown:
         RecordingStore(DEMO_RECORDINGS),
         provider=settings.provider,
         model=settings.model,
-        record_command=f"uv run poe extract --record {DEMO_RECORDINGS} {path}",
+        # With the provider and model stated: a .env picking another model
+        # would record under another key, and the render would still fail.
+        record_command=(
+            f"DOC_INTAKE_PROVIDER={settings.provider} DOC_INTAKE_CLAUDE_MODEL={settings.model} "
+            f"uv run poe extract --record {DEMO_RECORDINGS} {path}"
+        ),
     )
     document = ingest(path, tessdata_dir=settings.tessdata_dir)
     result = extract(document, RECEIPT, provider, max_retries=settings.max_retries)

@@ -9,7 +9,7 @@ FROM ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678
 
 FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
 
-# ffmpeg: each still becomes a clip, and the clips are joined (demo/render.py).
+# ffmpeg: encodes the frames demo/render.py streams to it, in one pass.
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*

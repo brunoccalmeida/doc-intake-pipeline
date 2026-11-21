@@ -54,7 +54,7 @@ To change a receipt, edit [`make_receipt.py`](make_receipt.py), run `uv run pyth
 
 - The flagged value carries the label "A person checks", and no review screen is shown.
 - "Your spreadsheet" appears only in the call to action. Connecting the result to the client's own tools is part of the service.
-- No time saving is claimed, because none was measured.
+- The hook says only that there is a faster way than typing; no amount of time saved is claimed, because none was measured.
 - A total shows as the pipeline keeps it ("23.4"), with the printed form beside it (D15).
 
 **How it is told.** These choices follow the research for #45. Where the evidence is weak, it is marked.

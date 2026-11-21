@@ -40,7 +40,7 @@ class Receipt:
     width: int = 760
 
 
-# Shots 1 to 3: every value is in the OCR text, so code checks every quote.
+# Shots 1, 3, 4 and 6: every value is in the OCR text, so code checks every quote.
 RECEIPT = Receipt(
     path=DEMO / "receipt.png",
     lines=(
@@ -64,7 +64,7 @@ RECEIPT = Receipt(
     height=900,
 )
 
-# Shot 4: the total and the payment line are faded out of OCR's reach, so the
+# Shot 5: the total and the payment line are faded out of OCR's reach, so the
 # total can only be read from the image, and goes to a person (D14).
 REVIEW = Receipt(
     path=DEMO / "receipt-review.png",

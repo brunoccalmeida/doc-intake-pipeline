@@ -60,11 +60,15 @@ def test_each_committed_receipt_is_what_the_generator_draws(receipt: make_receip
     # The PNG is committed, not regenerated (its pixels key the recording); this
     # keeps the generator honest about what it made.
     with Image.open(receipt.path) as committed:
-        assert committed.tobytes() == make_receipt.draw_receipt(receipt).tobytes()
+        assert committed.tobytes() == make_receipt.draw_receipt(receipt).tobytes(), (
+            f"{receipt.path} is not what demo/make_receipt.py draws (another Pillow or "
+            "platform?): run 'uv run python -m demo.make_receipt' and record both "
+            "receipts again, about US$ 0.04 (demo/README.md)"
+        )
 
 
 def test_the_faded_total_of_the_review_receipt_is_not_in_the_ocr_text() -> None:
-    # Shot 4's premise: OCR loses the faded lines, so the model can read the
+    # Shot 5's premise: OCR loses the faded lines, so the model can read the
     # total only from the image, and an image quote goes to a person (D14).
     text = ingest(make_receipt.REVIEW.path, tessdata_dir=Settings().tessdata_dir).pages[0].text
 
@@ -97,6 +101,25 @@ def test_a_quote_read_only_from_the_image_has_no_box_on_the_page_text() -> None:
     words = evidence.ocr_words(make_receipt.REVIEW.path, Settings().tessdata_dir)
 
     assert evidence.quote_boxes(words, "TOTAL 10.00") == []
+
+
+def test_the_real_video_highlights_every_text_quote_and_speaks_plainly(
+    demo_settings: Settings,
+) -> None:
+    # The evidence the render uses (recorded answers, OCR word boxes), not fake
+    # values: a re-recorded quote OCR cannot find word for word ("TOTAL 23.4")
+    # would leave its field without a highlight, and a reason worded for a
+    # developer would reach the screen, both behind a green render.
+    receipt = evidence.receipt_evidence(make_receipt.RECEIPT.path, demo_settings)
+    review = evidence.receipt_evidence(make_receipt.REVIEW.path, demo_settings)
+
+    for shown in (receipt, review):
+        for name, field in shown.result.fields.items():
+            if field.citation is not None and field.citation.source == "text":
+                assert shown.boxes[name], f"{shown.image.name}: {name} has no highlight"
+    for shot in storyboard.storyboard(receipt, review):
+        for text in (shot.caption, *(text for frame in shot.frames for text in frame.texts)):
+            assert not _DEVELOPER_TERMS.search(text), text
 
 
 # --- The storyboard, from fake evidence: the story holds whatever the values.

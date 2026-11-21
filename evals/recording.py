@@ -10,7 +10,7 @@ extraction replays call by call.
 
 The eval's recordings hold document content (the model's answer quotes the
 SROIE receipt), so they live outside this public repository (``docs/DATA.md``).
-The demo's own recording answers a fictional receipt and is public (``demo/``).
+The demo's own recordings answer fictional receipts and are public (``demo/``).
 """
 
 import hashlib
