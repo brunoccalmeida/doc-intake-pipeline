@@ -283,6 +283,18 @@ def test_a_regression_does_not_advise_updating_the_readme(
     assert "update-readme" not in (tmp_path / "report.md").read_text(encoding="utf-8")
 
 
+@pytest.mark.usefixtures("one_receipt_set")
+def test_update_readme_below_the_baseline_leaves_the_readme_alone(
+    recordings: Path, tmp_path: Path
+) -> None:
+    record(recordings, golden_answer(total="0.01"))
+    baseline(tmp_path)
+    path = readme(tmp_path, "old numbers")
+
+    assert run_full(tmp_path, "--update-readme") == 1
+    assert "old numbers" in path.read_text(encoding="utf-8")
+
+
 def test_a_subset_leaves_the_readme_alone(recordings: Path, tmp_path: Path) -> None:
     # A subset cannot match the README's whole-set numbers; its gate fails anyway.
     record(recordings, golden_answer())
