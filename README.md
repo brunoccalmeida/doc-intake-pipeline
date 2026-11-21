@@ -2,6 +2,10 @@
 
 Reads receipts (scanned or photographed images, or PDFs) and returns their key fields as structured data, with every value pointing to where it was found, and anything it is unsure of flagged for a person instead of guessed.
 
+<!-- A bare attachment link is what GitHub renders as a video player (demo/README.md). -->
+<!-- markdownlint-disable-next-line MD034 -->
+https://github.com/user-attachments/assets/5a2a885b-c432-41f5-ae04-1bede3496aca
+
 ## What you get
 
 For each document, a JSON result with company, address, date, total and currency, where:
