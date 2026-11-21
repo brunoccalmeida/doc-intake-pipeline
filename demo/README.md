@@ -1,6 +1,6 @@
 # Demo video
 
-A 40-second sales video for the buyers of this service: business owners and finance or operations staff who type receipts in by hand. It is rendered as code. Every frame is drawn with Pillow from the pipeline's own output, replayed from recorded answers. Rendering needs no API key and costs nothing, and the video cannot show a value the pipeline did not produce. The headline on each shot carries the message, so the video works with the sound off.
+A 40-second sales video for the buyers of this service: business owners and office or operations staff who type receipts in by hand. It is rendered as code. Every frame is drawn with Pillow from the pipeline's own output, replayed from recorded answers. Rendering needs no API key and costs nothing, and the video cannot show a value the pipeline did not produce. The headline on each shot carries the message, so the video works with the sound off.
 
 | Shot | Seconds | On screen | Headline |
 | --- | --- | --- | --- |
