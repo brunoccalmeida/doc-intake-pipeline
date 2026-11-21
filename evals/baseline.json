@@ -6,5 +6,12 @@
     "date": 19,
     "total": 20,
     "currency": 20
+  },
+  "wrong_accepted": {
+    "company": 0,
+    "address": 0,
+    "date": 0,
+    "total": 0,
+    "currency": 0
   }
 }

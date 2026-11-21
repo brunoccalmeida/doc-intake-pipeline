@@ -8,7 +8,7 @@ by construction (AGENTS.md invariant 6, ``docs/DATA.md``).
 from core.pricing import PRICE_SOURCES
 from evals.baseline import Baseline
 from evals.run import EvalRun
-from evals.scoring import field_accuracy, status_counts
+from evals.scoring import ReviewLoad, field_accuracy, review_load, status_counts
 
 
 def render_report(run: EvalRun, baseline: Baseline | None, *, regressions: list[str]) -> str:
@@ -16,7 +16,10 @@ def render_report(run: EvalRun, baseline: Baseline | None, *, regressions: list[
     if regressions:
         lines += ["**Gate: failed.**", "", *(f"- {problem}" for problem in regressions)]
     else:
-        lines.append("**Gate: passed.** No field scored below the baseline.")
+        lines.append(
+            "**Gate: passed.** No field scored below the baseline "
+            "or accepted more wrong values than it."
+        )
 
     lines += ["", "## Accuracy per field", "", "| Field | Correct | Accuracy | Baseline |"]
     lines.append("| --- | --- | --- | --- |")
@@ -27,6 +30,32 @@ def render_report(run: EvalRun, baseline: Baseline | None, *, regressions: list[
             else "none"
         )
         lines.append(f"| {name} | {correct}/{total} | {correct / total:.1%} | {expected} |")
+
+    lines += ["", "## Review load per field", ""]
+    lines += [
+        "Accepted values reach the client unchecked; values sent to review wait for a "
+        "person, and so does every field of a failed document. Wrong means a value that "
+        "differs from the golden record or should be empty. The gate holds wrong accepted "
+        "values at or below the baseline.",
+        "",
+        "| Field | Accepted | Wrong accepted | Baseline | Sent to review "
+        "| Wrong in review | Empty |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    loads = review_load(run.scores)
+    for name, load in loads.items():
+        limit = (
+            str(baseline.wrong_accepted[name])
+            if baseline is not None and name in baseline.wrong_accepted
+            else "none"
+        )
+        lines.append(_load_row(name, load, limit))
+    limit = (
+        str(sum(baseline.wrong_accepted.values()))
+        if baseline is not None and set(loads) <= set(baseline.wrong_accepted)
+        else "none"
+    )
+    lines.append(_load_row("**All fields**", ReviewLoad.total(loads.values()), limit))
 
     counts = status_counts(run.scores)
     lines += ["", "## Documents by status", ""]
@@ -70,3 +99,10 @@ def render_report(run: EvalRun, baseline: Baseline | None, *, regressions: list[
         "",
     ]
     return "\n".join(lines)
+
+
+def _load_row(name: str, load: ReviewLoad, limit: str) -> str:
+    return (
+        f"| {name} | {load.accepted} | {load.wrong_accepted} | {limit} | {load.review} "
+        f"| {load.wrong_review} | {load.empty} |"
+    )

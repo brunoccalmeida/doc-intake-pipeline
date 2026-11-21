@@ -5,6 +5,8 @@ schema itself refuses a value without evidence and an empty field without a
 reason, so no caller can forget to check.
 """
 
+from typing import Literal
+
 import pytest
 from pydantic import BaseModel, ValidationError
 
@@ -136,7 +138,7 @@ def test_failed_result_with_fields_is_rejected() -> None:
 def test_needs_review_without_errors_is_rejected() -> None:
     fields = Pair(name=ExtractedField[str](value="ACME SDN BHD", citation=CITED, reason=None))
     with pytest.raises(ValidationError, match="must say why"):
-        ExtractionResult[Pair](status="needs_review", fields=fields)
+        ExtractionResult[Pair](status="needs_review", fields=fields, review=["name"])
 
 
 def test_ok_result_without_fields_is_rejected() -> None:
@@ -148,6 +150,49 @@ def test_ok_result_with_errors_is_rejected() -> None:
     fields = Pair(name=ExtractedField[str](value="ACME SDN BHD", citation=CITED, reason=None))
     with pytest.raises(ValidationError, match="ok result carries no errors"):
         ExtractionResult[Pair](status="ok", fields=fields, errors=["quote not found"])
+
+
+NAMED = Pair(name=ExtractedField[str](value="ACME SDN BHD", citation=CITED, reason=None))
+
+
+def test_needs_review_names_the_fields_to_check() -> None:
+    # The fields a person must check, by name: a client routes them without
+    # parsing the error text, and the eval counts them (#38).
+    result = ExtractionResult[Pair](
+        status="needs_review", fields=NAMED, errors=["name: quote not found"], review=["name"]
+    )
+    assert result.review == ["name"]
+
+
+def test_needs_review_without_a_field_to_check_is_rejected() -> None:
+    # Otherwise every field would look accepted while the document is held.
+    with pytest.raises(ValidationError, match="must name the fields to check"):
+        ExtractionResult[Pair](status="needs_review", fields=NAMED, errors=["quote not found"])
+
+
+def test_review_of_a_field_the_schema_lacks_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="review names fields not in the schema: seller"):
+        ExtractionResult[Pair](
+            status="needs_review", fields=NAMED, errors=["seller: x"], review=["seller"]
+        )
+
+
+def test_review_names_each_field_once() -> None:
+    with pytest.raises(ValidationError, match="review names a field twice"):
+        ExtractionResult[Pair](
+            status="needs_review", fields=NAMED, errors=["name: x"], review=["name", "name"]
+        )
+
+
+@pytest.mark.parametrize("status", ["ok", "failed"])
+def test_only_needs_review_names_fields_to_check(status: Literal["ok", "failed"]) -> None:
+    with pytest.raises(ValidationError, match="only a needs_review result names fields"):
+        ExtractionResult[Pair](
+            status=status,
+            fields=NAMED if status == "ok" else None,
+            errors=[] if status == "ok" else ["timeout"],
+            review=["name"],
+        )
 
 
 def test_results_are_immutable() -> None:

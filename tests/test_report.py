@@ -22,27 +22,55 @@ USAGE = Usage(
 )
 RUN = EvalRun(
     scores=[
-        DocumentScore(id="X1", status="ok", fields={"company": "correct", "total": "correct"}),
         DocumentScore(
-            id="X2", status="needs_review", fields={"company": "wrong", "total": "missing"}
+            id="X1",
+            status="ok",
+            fields={"company": "correct", "total": "correct"},
+            routes={"company": "accepted", "total": "accepted"},
+        ),
+        DocumentScore(
+            id="X2",
+            status="needs_review",
+            fields={"company": "wrong", "total": "missing"},
+            routes={"company": "review", "total": "empty"},
         ),
         DocumentScore(
             id="X3",
             status="failed",
             fields={"company": "document_failed", "total": "document_failed"},
+            routes={"company": "review", "total": "review"},
             error="EmptyDocumentError",
         ),
     ],
     usage=USAGE,
 )
-BASELINE = Baseline(documents=3, fields={"company": 1, "total": 1})
+BASELINE = Baseline(
+    documents=3, fields={"company": 1, "total": 1}, wrong_accepted={"company": 0, "total": 0}
+)
 
 
 def test_passed_gate_is_stated_first() -> None:
     report = render_report(RUN, BASELINE, regressions=[])
 
     assert report.splitlines()[0].startswith("# Eval report")
-    assert "**Gate: passed.** No field scored below the baseline." in report
+    assert (
+        "**Gate: passed.** No field scored below the baseline "
+        "or accepted more wrong values than it." in report
+    )
+
+
+def test_review_load_per_field_and_in_total() -> None:
+    # What a client asks: how many values arrive checked by nobody, how many
+    # wait for a person, and how many wrong ones land in each group (#38).
+    report = render_report(RUN, BASELINE, regressions=[])
+
+    assert (
+        "| Field | Accepted | Wrong accepted | Baseline | Sent to review "
+        "| Wrong in review | Empty |" in report
+    )
+    assert "| company | 1 | 0 | 0 | 2 | 1 | 0 |" in report
+    assert "| total | 1 | 0 | 0 | 1 | 0 | 1 |" in report
+    assert "| **All fields** | 2 | 0 | 0 | 3 | 1 | 1 |" in report
 
 
 def test_failed_gate_lists_each_regression() -> None:
@@ -93,3 +121,5 @@ def test_no_baseline_yet_is_said_instead_of_a_column_of_blanks() -> None:
     report = render_report(RUN, None, regressions=[])
 
     assert "| company | 1/3 | 33.3% | none |" in report
+    assert "| company | 1 | 0 | none | 2 | 1 | 0 |" in report
+    assert "| **All fields** | 2 | 0 | none | 3 | 1 | 1 |" in report

@@ -93,7 +93,12 @@ def extract[S: BaseModel](
             continue
         problems = _citation_problems(fields, document, pack.printed)
         if problems:
-            return ExtractionResult[S](status="needs_review", fields=fields, errors=problems)
+            return ExtractionResult[S](
+                status="needs_review",
+                fields=fields,
+                errors=[f"{name}: {problem}" for name, problem in problems.items()],
+                review=list(problems),
+            )
         return ExtractionResult[S](status="ok", fields=fields)
     return ExtractionResult[S](status="failed", errors=errors)
 
@@ -160,8 +165,10 @@ def _describe(error: ValidationError) -> list[str]:
     return described
 
 
-def _citation_problems(fields: BaseModel, document: Document, printed: frozenset[str]) -> list[str]:
-    """What a person must check in each cited field; at most one problem per field.
+def _citation_problems(
+    fields: BaseModel, document: Document, printed: frozenset[str]
+) -> dict[str, str]:
+    """What a person must check, by field name in schema order; one problem per field.
 
     - a "text" quote must appear on the page it names;
     - an "image" quote cannot be checked by code, so it always goes to review
@@ -173,7 +180,7 @@ def _citation_problems(fields: BaseModel, document: Document, printed: frozenset
     OCR errors must match, so a paraphrase is caught.
     """
     pages = {page.number: page for page in document.pages}
-    problems: list[str] = []
+    problems: dict[str, str] = {}
     for name in type(fields).model_fields:
         field = getattr(fields, name)
         if not _is_field(field) or field.citation is None:
@@ -181,7 +188,7 @@ def _citation_problems(fields: BaseModel, document: Document, printed: frozenset
         text = field.value if name in printed and isinstance(field.value, str) else None
         problem = _citation_problem(text, field.citation, pages)
         if problem is not None:
-            problems.append(f"{name}: {problem}")
+            problems[name] = problem
     return problems
 
 
