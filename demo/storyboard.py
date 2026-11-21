@@ -296,7 +296,7 @@ def _gate_frame(caption: str, gate: GateFacts, *, stamped: bool, seconds: float)
     canvas = _Canvas(caption)
     canvas.text(
         (WIDTH / 2, 110),
-        "An update that looked harmless",
+        "A change that looked harmless",
         size=56,
         fill=TEXT,
         bold=True,
@@ -304,15 +304,15 @@ def _gate_frame(caption: str, gate: GateFacts, *, stamped: bool, seconds: float)
     )
     canvas.text(
         (WIDTH / 2, 185),
-        f"Tested on {gate.documents} real receipts before it can ship",
+        f"Tested on {gate.documents} real receipts before it reaches you",
         size=34,
         fill=MUTED,
         anchor="mm",
     )
-    columns = ((1010, "Today", gate.current), (1500, "With the update", gate.update))
+    columns = ((1130, "Now", gate.current), (1530, "After the change", gate.update))
     for x, title, _ in columns:
         canvas.text((x, 300), title, size=36, fill=MUTED, anchor="mm")
-    rows = ("Values read correctly", "Wrong values passed on unchecked")
+    rows = ("Values read correctly", "Wrong values reaching you unchecked")
     for index, label in enumerate(rows):
         y = 430 + index * 180
         canvas.draw.rounded_rectangle((180, y - 70, 1740, y + 70), radius=18, fill=CARD)
@@ -323,13 +323,13 @@ def _gate_frame(caption: str, gate: GateFacts, *, stamped: bool, seconds: float)
             )
             canvas.text((x, y), shown, size=56, fill=TEXT, bold=True, anchor="mm")
     if stamped:
-        # Below the table, under the update's column: the numbers stay readable.
-        _stamp(canvas, "NOT SHIPPED", center=(1500, 775))
+        # Below the table, under the change's column: the numbers stay readable.
+        _stamp(canvas, "BLOCKED", center=(1530, 775))
     return canvas.frame(seconds)
 
 
 def _stamp(canvas: _Canvas, text: str, *, center: tuple[int, int]) -> None:
-    """A rubber stamp, tilted, over the update's column."""
+    """A rubber stamp, tilted, under the change's column."""
     font = _font(72)
     left, top, right, bottom = (round(edge) for edge in font.getbbox(text, stroke_width=2))
     pad = 30
@@ -379,9 +379,8 @@ def storyboard(receipt: Evidence, review: Evidence, gate: GateFacts) -> list[Sho
     values = "Each value comes with the exact words it was read from."
     empty = "No currency on the receipt, so the field stays empty, with the reason."
     person = "Too faint to confirm? A person checks it before it's used."
-    tested = (
-        f"Every update is re-tested on {gate.documents} real receipts. Worse results never ship."
-    )
+    # Not "update" or "ship": software words; the first cut was not understood.
+    tested = "Changes are tested before they reach you. This one was worse, so it was blocked."
     contact = "Have documents like these? Send me a sample."
 
     return [

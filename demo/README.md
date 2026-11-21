@@ -8,7 +8,7 @@ A 48-second video of the pipeline for prospective clients, rendered as code. Eve
 | 2 | 10 | The form fills in field by field; each value's words light up on the receipt | Every value comes with the words it was read from |
 | 3 | 6 | Currency: "Not on the receipt", with the reason | An empty field, never a guess |
 | 4 | 10 | A second receipt with a faded total: that value is marked for a person ([`receipt-review.png`](receipt-review.png)) | What can't be confirmed goes to a person |
-| 5 | 10 | Today against a harmless-looking update ([`regression.py`](regression.py)), then "Not shipped" | Every update is re-tested; a worse one never ships |
+| 5 | 10 | Now against a harmless-looking change ([`regression.py`](regression.py)), then "Blocked" | Every change is tested before it reaches the client; a worse one is blocked |
 | 6 | 6 | Closing line | Send a sample |
 
 [`storyboard.py`](storyboard.py) holds the shots and their captions. [`evidence.py`](evidence.py) gathers what they show. [`render.py`](render.py) turns them into the video.

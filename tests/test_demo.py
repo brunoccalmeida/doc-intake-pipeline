@@ -208,10 +208,11 @@ def test_every_caption_is_short_enough_to_read_while_watching(
     assert len(shot.caption) / shot.seconds <= 15, shot.caption
 
 
-# Words a client would have to be a developer to read (#45).
+# Words a client would have to be a developer to read (#45). "Ship" and
+# "update" read as software jargon: the first cut's shot 5 was not understood.
 _DEVELOPER_TERMS = re.compile(
     r"\b(null|none|json|eval|ci|prompt|ocr|llm|api|schema|baseline|pull request|"
-    r"sroie|status|needs_review|regression|patch|diff|git|uv|poe)\b",
+    r"sroie|status|needs_review|regression|patch|diff|git|uv|poe|ship\w*|update)\b",
     re.IGNORECASE,
 )
 
