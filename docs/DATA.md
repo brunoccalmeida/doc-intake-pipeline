@@ -37,7 +37,7 @@ The eval replays recorded LLM responses (`docs/ARCHITECTURE.md` D4). Each respon
 
 The key covers the OCR text and the JSON Schema, so a dependency update that changes either (Pillow, tesserocr, the `eng` model, Pydantic) also needs a re-recording, even in a Dependabot pull request: the eval job then fails with "no recording".
 
-To re-record after a prompt, schema, model or such dependency change: clone the private repository into `DOC_INTAKE_RECORDINGS_DIR` (default `.cache/recordings`), run `uv run poe eval --record` (paid API calls, only for requests not yet recorded), commit and push there, then update the pin and the baseline in the same pull request. The demo video replays recordings too (shots 2, 3 and 5, [`demo/README.md`](../demo/README.md)): the same change needs them recorded again, or the demo has nothing to replay; `tests/test_demo.py` catches shots 2 and 3, and only a render catches shot 5.
+To re-record after a prompt, schema, model or such dependency change: clone the private repository into `DOC_INTAKE_RECORDINGS_DIR` (default `.cache/recordings`), run `uv run poe eval --record` (paid API calls, only for requests not yet recorded), commit and push there, then update the pin, the baseline and the README's eval summary (`uv run poe eval --update-readme`) in the same pull request. The demo video replays recordings too (shots 2, 3 and 5, [`demo/README.md`](../demo/README.md)): the same change needs them recorded again, or the demo has nothing to replay; `tests/test_demo.py` catches shots 2 and 3, and only a render catches shot 5.
 
 ### Why the mirror
 

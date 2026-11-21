@@ -3,6 +3,10 @@
     uv run poe eval                    # replay the recordings: no key, no cost (what CI runs)
     uv run poe eval --record           # call the provider for unrecorded requests: COSTS MONEY
     uv run poe eval --update-baseline  # make the current scores the new baseline (commit it)
+    uv run poe eval --update-readme    # rewrite the README's eval summary (commit it)
+
+A full run (no ``--ids``) also fails when the README's eval summary differs
+from the run, so the numbers shown to clients never go stale (#40).
 
 The recordings directory (``DOC_INTAKE_RECORDINGS_DIR``) is a clone of the
 private recordings repository (``docs/DATA.md``). Writes the Markdown report
@@ -20,6 +24,7 @@ from core.llm import LLMProvider
 from core.pricing import price_of
 from core.runlog import new_run_id
 from evals.baseline import BASELINE_PATH, load_baseline, regressions, save_baseline
+from evals.readme import render_summary, replace_summary
 from evals.recording import MissingRecordingError, RecordingProvider, RecordingStore, ReplayProvider
 from evals.report import render_report
 from evals.run import run_eval
@@ -30,6 +35,7 @@ from providers import make_provider
 from scripts.logs import configure_run_log
 
 REPORT_PATH = Path(".cache/eval/report.md")
+README_PATH = Path("README.md")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -40,9 +46,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ids", nargs="+", help="score only these receipts (the gate then fails)")
     parser.add_argument("--baseline", type=Path, default=BASELINE_PATH)
     parser.add_argument("--report", type=Path, default=REPORT_PATH)
+    parser.add_argument(
+        "--update-readme", action="store_true", help="rewrite the README's eval summary"
+    )
+    parser.add_argument("--readme", type=Path, default=README_PATH)
     args = parser.parse_args(argv)
+    if args.update_readme and args.ids:
+        parser.error("--update-readme needs the whole set: the README quotes it, not a subset")
     baseline_path: Path = args.baseline
     report_path: Path = args.report
+    readme_path: Path = args.readme
 
     settings = Settings()
     configure_run_log(settings.log_level)
@@ -85,6 +98,19 @@ def main(argv: list[str] | None = None) -> int:
         if baseline is not None
         else [f"no baseline at {baseline_path}"]
     )
+    # A subset cannot match the README's whole-set numbers, so only a full run checks
+    # them; and only a passing one: the fix for a worse score is the code, and
+    # writing the README then would publish the worse numbers.
+    if not args.ids and not found:
+        readme = readme_path.read_text(encoding="utf-8")
+        current = replace_summary(readme, render_summary(run))
+        if args.update_readme:
+            readme_path.write_text(current, encoding="utf-8", newline="\n")
+        elif current != readme:
+            found.append(
+                f"{readme_path}: the eval summary is out of date; "
+                "run `uv run poe eval --update-readme` and commit it"
+            )
 
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(render_report(run, baseline, regressions=found), encoding="utf-8")
