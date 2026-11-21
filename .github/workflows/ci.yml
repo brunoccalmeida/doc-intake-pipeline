@@ -160,8 +160,9 @@ jobs:
   # version and SHA-256 from the release's checksums file; Dependabot does not
   # track it, so bump both by hand.
   #
-  # False positive: a "gitleaks:allow" comment on the line. A real secret is
-  # rotated first, then removed. --redact keeps a found secret out of this
+  # False positive: a "gitleaks:allow" comment on the line; in a file that
+  # takes no comments (JSON), a narrow allowlist in .gitleaks.toml (one rule,
+  # one path, one value shape). A real secret is rotated first, then removed. --redact keeps a found secret out of this
   # public run's log.
   secret-scan:
     runs-on: ubuntu-latest
