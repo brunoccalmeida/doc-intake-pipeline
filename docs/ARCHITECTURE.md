@@ -277,3 +277,16 @@ A acurácia por campo (D4) não vê para onde vai o valor. Um valor errado que s
 **Portão provado:** com a revisão de valores lidos da imagem desligada em `core/extract.py` (piora proposital), a acurácia ficou idêntica (19, 19, 19, 20 e 20 de 20) e o `uv run poe eval` saiu com 1: `company: 1 wrong values accepted without review, above the baseline of 0`, e o mesmo para address e date.
 
 **Limitação:** 0 errados em 70 aceitos não prova taxa de erro baixa em outros documentos. Com 0 em 70, o limite superior unilateral de 95% (Clopper-Pearson) da taxa de erro é cerca de 4,2%, num conjunto que não foi escolhido para isso. Calibrar continua com a [#35](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/35).
+
+### D17. README para clientes, com o resumo do eval escrito pelo próprio eval (decidida na #40)
+
+O README falava com desenvolvedores (SROIE, OCR, golden set e CI na primeira tela; cerca de 60% era setup). A orientação do GitHub é que o README diga o que o projeto faz e que setup longo vá para um arquivo separado ([GitHub blog](https://github.blog/enterprise-software/collaboration/a-checklist-and-guide-to-get-your-repository-collaboration-ready/)).
+
+| Ponto | Decisão | Por quê |
+| --- | --- | --- |
+| Público | README para cliente (problema, vídeo, resultado, o que ainda não faz); setup, eval, configuração e dados em [`DEVELOPMENT.md`](DEVELOPMENT.md) | `DEVELOPMENT.md`, não `CONTRIBUTING.md`: o projeto não busca contribuição externa |
+| Números do README | Bloco entre marcadores `eval-summary`, escrito por `uv run poe eval --update-readme` ([`evals/readme.py`](../evals/readme.py)) | Número digitado à mão fica velho em silêncio numa regravação ou mudança de preço; é o mesmo padrão do snapshot do schema (D8) |
+| Portão | Rodada completa do eval reprova quando o bloco difere da rodada, nomeando o `--update-readme`; com `--ids` o README não é lido, e `--update-readme` com `--ids` é recusado | As gravações só existem no job `eval`, então a conferência roda ali; um subconjunto nunca casa com os números do conjunto inteiro |
+| Custo abaixo de um centavo | Sai "under $0.01", não "$0.00" | Um modelo mais barato (cerca de US$ 0,0005 por recibo) apareceria como grátis |
+
+**Portão provado:** com o README novo e o bloco vazio, `uv run poe eval` saiu com 1: `README.md: the eval summary is out of date; run uv run poe eval --update-readme and commit it`; depois do `--update-readme`, saiu com 0.

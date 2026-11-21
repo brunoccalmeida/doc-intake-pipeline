@@ -15,6 +15,7 @@ from core.config import Settings
 from core.ingest import ingest
 from core.llm import LLMRequest, LLMResponse
 from core.pricing import UnknownModelPriceError
+from evals.readme import END, START
 from evals.recording import RecordingProvider, RecordingStore
 from evals.run import run_eval
 from evals.sroie import MANIFEST_PATH, load_manifest
@@ -209,3 +210,76 @@ def test_record_without_an_api_key_fails_before_reading_anything(
 ) -> None:
     with pytest.raises(MissingCredentialError, match="DOC_INTAKE_ANTHROPIC_API_KEY"):
         run(tmp_path, "--record")
+
+
+@pytest.fixture
+def one_receipt_set(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The whole set is the first receipt: a full run (no ``--ids``) at test size."""
+    manifest = load_manifest(MANIFEST_PATH)
+    path = tmp_path / "manifest.json"
+    one = manifest.model_copy(update={"receipts": manifest.receipts[:1], "size": 1})
+    path.write_text(one.model_dump_json(), encoding="utf-8")
+    monkeypatch.setattr("scripts.run_eval.MANIFEST_PATH", path)
+
+
+def readme(tmp_path: Path, block: str) -> Path:
+    path = tmp_path / "README.md"
+    path.write_text(f"# Title\n\n{START}\n{block}\n{END}\n\nAfter.\n", encoding="utf-8")
+    return path
+
+
+def run_full(tmp_path: Path, *extra: str) -> int:
+    args = ["--baseline", str(tmp_path / "baseline.json"), "--readme", str(tmp_path / "README.md")]
+    return main([*args, "--report", str(tmp_path / "report.md"), *extra])
+
+
+@pytest.mark.usefixtures("one_receipt_set")
+def test_a_stale_readme_summary_fails_the_full_run_naming_the_fix(
+    recordings: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    record(recordings, golden_answer())
+    baseline(tmp_path)
+    readme(tmp_path, "old numbers")
+
+    code = run_full(tmp_path)
+
+    assert code == 1
+    assert "poe eval --update-readme" in (tmp_path / "report.md").read_text(encoding="utf-8")
+    assert "poe eval --update-readme" in capsys.readouterr().err
+
+
+@pytest.mark.usefixtures("one_receipt_set")
+def test_update_readme_writes_the_summary_and_the_next_run_passes(
+    recordings: Path, tmp_path: Path
+) -> None:
+    record(recordings, golden_answer())
+    baseline(tmp_path)
+    path = readme(tmp_path, "old numbers")
+
+    assert run_full(tmp_path, "--update-readme") == 0
+
+    written = path.read_bytes().decode("utf-8")
+    assert "Measured on 1 public scanned receipts, 5 values in all" in written
+    assert written.startswith("# Title\n\n")
+    assert written.endswith(f"{END}\n\nAfter.\n")
+    assert "\r\n" not in written  # the repository stores LF (.gitattributes)
+    assert run_full(tmp_path) == 0
+
+
+def test_a_subset_leaves_the_readme_alone(recordings: Path, tmp_path: Path) -> None:
+    # A subset cannot match the README's whole-set numbers; its gate fails anyway.
+    record(recordings, golden_answer())
+    baseline(tmp_path)
+    path = readme(tmp_path, "old numbers")
+
+    code, _ = run(tmp_path, "--readme", str(path))
+
+    assert code == 0
+    assert "old numbers" in path.read_text(encoding="utf-8")
+
+
+def test_update_readme_refuses_a_subset(recordings: Path, tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as raised:
+        run(tmp_path, "--update-readme")
+
+    assert raised.value.code == 2
