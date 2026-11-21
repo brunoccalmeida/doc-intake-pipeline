@@ -1,6 +1,8 @@
-"""Extract one receipt with the configured real provider. Costs money: run on purpose.
+"""Extract one receipt with the configured provider: a paid call, unless replayed.
 
     uv run poe extract path/to/receipt.pdf
+    uv run poe extract --record DIR path/to/receipt.pdf  # paid once, answer stored in DIR
+    uv run poe extract --replay DIR path/to/receipt.pdf  # the stored answer: no key, no cost
 
 Prints the validated result as JSON on stdout (it holds document content, so
 it is never logged). On stderr, one run-log line (``core.runlog``): status,
@@ -11,6 +13,10 @@ which can be a client's: whoever has the file finds its line by hashing it.
 
 Configuration is checked before the file is read (fail fast): an unpriced
 model or a missing key stops the run before anything is paid for.
+
+``--record`` and ``--replay`` use the eval's recordings (``evals.recording``),
+keyed by the request, provider and model: the demo (``demo/``) replays a
+committed answer, so it renders without a key and shows a real model output.
 """
 
 import argparse
@@ -20,8 +26,10 @@ from pathlib import Path
 
 from core.config import Settings
 from core.ingest import IngestError, OcrDataMissingError, ingest
+from core.llm import LLMProvider
 from core.pricing import price_of
 from core.runlog import extract_logged, log_unreadable, new_run_id
+from evals.recording import MissingRecordingError, RecordingProvider, RecordingStore, ReplayProvider
 from packs.receipt import RECEIPT
 from providers import make_provider
 from scripts.logs import configure_run_log
@@ -29,14 +37,35 @@ from scripts.logs import configure_run_log
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--record", type=Path, metavar="DIR", help="store the answer (paid)")
+    mode.add_argument("--replay", type=Path, metavar="DIR", help="replay a stored answer")
     parser.add_argument("path", type=Path, help="PDF, PNG or JPEG of one receipt")
     args = parser.parse_args(argv)
     path: Path = args.path
+    record: Path | None = args.record
+    replay: Path | None = args.replay
 
     settings = Settings()
     configure_run_log(settings.log_level)
     price_of(settings.model)
-    provider = make_provider(settings)
+    provider: LLMProvider
+    if replay is not None:
+        provider = ReplayProvider(
+            RecordingStore(replay),
+            provider=settings.provider,
+            model=settings.model,
+            record_command=f"uv run poe extract --record {replay} {path}",
+        )
+    elif record is not None:
+        provider = RecordingProvider(
+            make_provider(settings),
+            RecordingStore(record),
+            provider=settings.provider,
+            model=settings.model,
+        )
+    else:
+        provider = make_provider(settings)
     run_id = new_run_id()
 
     try:
@@ -61,15 +90,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
 
-    result, _ = extract_logged(
-        document,
-        RECEIPT,
-        provider,
-        document_id=document_id,
-        run_id=run_id,
-        provider_name=settings.provider,
-        max_retries=settings.max_retries,
-    )
+    try:
+        result, _ = extract_logged(
+            document,
+            RECEIPT,
+            provider,
+            document_id=document_id,
+            run_id=run_id,
+            provider_name=settings.provider,
+            max_retries=settings.max_retries,
+        )
+    except MissingRecordingError as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        return 1
     print(result.model_dump_json(indent=2))
     return 0 if result.status == "ok" else 1
 
