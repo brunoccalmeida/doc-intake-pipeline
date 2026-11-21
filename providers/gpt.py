@@ -24,8 +24,8 @@ from core.llm import LLMRequest, LLMResponse
 MAX_OUTPUT_TOKENS = 16_000
 # "For tasks that require fine visual detail ... such as optical character
 # recognition (OCR) ... use "detail": "original" when supported" (OpenAI docs,
-# "Images and vision"). The page does not list gpt-6.2-astra; an unsupported
-# value is a 400, seen on the first live run (#13), not a silent downgrade.
+# "Images and vision"). The page does not list gpt-6.2-astra or gpt-6-luna;
+# one live call to each accepted it (#13).
 IMAGE_DETAIL = "original"
 
 
