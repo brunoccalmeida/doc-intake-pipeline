@@ -2,10 +2,6 @@
 
 Reads receipts (scanned or photographed images, or PDFs) and returns their key fields as structured data, with every value pointing to where it was found, and anything it is unsure of flagged for a person instead of guessed.
 
-## See it work
-
-In under a minute: a faded receipt goes in, each value comes out with the text it was read from, a missing currency comes out empty with the reason, and a harmless-looking change that makes the answers worse is blocked before it can ship.
-
 ## What you get
 
 For each document, a JSON result with company, address, date, total and currency, where:
