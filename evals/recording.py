@@ -8,8 +8,9 @@ instead of scoring an answer to a question nobody asks anymore. A retry is a
 request like any other (its prompt holds the rejected answer), so a whole
 extraction replays call by call.
 
-The recordings hold document content (the model's answer quotes the receipt),
-so they live outside this public repository (``docs/DATA.md``).
+The eval's recordings hold document content (the model's answer quotes the
+SROIE receipt), so they live outside this public repository (``docs/DATA.md``).
+The demo's own recording answers a fictional receipt and is public (``demo/``).
 """
 
 import hashlib
@@ -119,10 +120,19 @@ class RecordingStore:
 class ReplayProvider:
     """An ``LLMProvider`` that only answers from recordings; it never calls the network."""
 
-    def __init__(self, store: RecordingStore, *, provider: str, model: str) -> None:
+    def __init__(
+        self,
+        store: RecordingStore,
+        *,
+        provider: str,
+        model: str,
+        record_command: str = RECORD_COMMAND,
+    ) -> None:
+        """``record_command`` is what a missing recording names as the fix: the caller's own."""
         self._store = store
         self._provider = provider
         self._model = model
+        self._record_command = record_command
 
     def complete(self, request: LLMRequest) -> LLMResponse:
         key = request_key(request, provider=self._provider, model=self._model)
@@ -131,7 +141,7 @@ class ReplayProvider:
             raise MissingRecordingError(
                 f"no recording {key} for provider {self._provider!r}, model {self._model!r}: "
                 f"the prompt, schema or model changed; record locally with a real key "
-                f"('{RECORD_COMMAND}', costs money) and publish the recordings"
+                f"('{self._record_command}', costs money) and publish the recordings"
             )
         return response
 

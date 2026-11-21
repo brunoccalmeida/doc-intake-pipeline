@@ -6,12 +6,17 @@ The happy path needs a real provider and costs money, so it is a manual run
 
 import hashlib
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+from PIL import Image, ImageDraw, ImageFont
 
+from core.config import Settings
+from core.llm import LLMProvider, LLMRequest, LLMResponse
 from core.pricing import UnknownModelPriceError
 from providers import MissingCredentialError
+from scripts import extract_document
 from scripts.extract_document import main
 
 
@@ -57,3 +62,87 @@ def test_a_missing_key_fails_before_reading_the_file(
     monkeypatch.setenv("DOC_INTAKE_CLAUDE_MODEL", "claude-opus-5-5")
     with pytest.raises(MissingCredentialError, match="DOC_INTAKE_ANTHROPIC_API_KEY"):
         main([str(tmp_path / "missing.pdf")])
+
+
+ALL_NULL = json.dumps(
+    {
+        name: {"value": None, "citation": None, "reason": "not printed"}
+        for name in ("company", "address", "date", "total", "currency")
+    }
+)
+
+
+@dataclass
+class CountingProvider:
+    """Answers every request with an all-null receipt and counts the calls."""
+
+    calls: int = 0
+
+    def complete(self, request: LLMRequest) -> LLMResponse:
+        self.calls += 1
+        return LLMResponse(
+            text=ALL_NULL, input_tokens=100, output_tokens=50, model="claude-opus-5-5"
+        )
+
+
+def printed_page(tmp_path: Path) -> Path:
+    path = tmp_path / "page.png"
+    image = Image.new("L", (900, 200), color=255)
+    ImageDraw.Draw(image).text((40, 60), "TOTAL 9.90", fill=0, font=ImageFont.load_default(size=64))
+    image.save(path)
+    return path
+
+
+def test_a_recorded_extraction_replays_with_no_key_and_no_call(
+    no_doc_intake_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("DOC_INTAKE_PROVIDER", "claude")
+    monkeypatch.setenv("DOC_INTAKE_CLAUDE_MODEL", "claude-opus-5-5")
+    page = printed_page(tmp_path)
+    recordings = tmp_path / "recordings"
+    provider = CountingProvider()
+
+    def counted(settings: Settings) -> LLMProvider:
+        return provider
+
+    monkeypatch.setattr(extract_document, "make_provider", counted)
+
+    recorded = main(["--record", str(recordings), str(page)])
+    recorded_out = capsys.readouterr().out
+    # Replay must not reach any provider: one that is built would fail the test.
+    monkeypatch.setattr(extract_document, "make_provider", unreachable_provider)
+    replayed = main(["--replay", str(recordings), str(page)])
+
+    assert provider.calls == 1
+    assert len(list(recordings.glob("*.json"))) == 1  # stored where asked, nowhere else
+    assert recorded == replayed
+    assert capsys.readouterr().out == recorded_out
+    assert json.loads(recorded_out)["fields"]["currency"]["reason"] == "not printed"
+
+
+def test_replay_without_a_recording_fails_naming_the_fix(
+    no_doc_intake_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("DOC_INTAKE_PROVIDER", "claude")
+    monkeypatch.setenv("DOC_INTAKE_CLAUDE_MODEL", "claude-opus-5-5")
+
+    code = main(["--replay", str(tmp_path / "empty"), str(printed_page(tmp_path))])
+
+    assert code == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "no recording" in captured.err
+    # This command's own fix: "poe eval --record" would not record this file,
+    # and would pay for every SROIE request not recorded yet.
+    assert "poe extract --record" in captured.err
+    assert "poe eval" not in captured.err
+
+
+def unreachable_provider(settings: object) -> LLMProvider:
+    raise AssertionError("replay built a real provider")
