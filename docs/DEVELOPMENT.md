@@ -85,7 +85,7 @@ The core is an installable package, `doc-intake-pipeline`, imported as `doc_inta
 uv add git+https://github.com/brunoccalmeida/doc-intake-pipeline --tag v0.1.0
 ```
 
-This writes `doc-intake-pipeline = { git = "https://github.com/brunoccalmeida/doc-intake-pipeline", tag = "v0.1.0" }` under `[tool.uv.sources]`, and `uv.lock` records the commit the tag resolved to ([uv: Git dependencies](https://docs.astral.sh/uv/concepts/projects/dependencies/#git)). To upgrade, change the tag and run `uv lock`. The consumer needs Python 3.14 or later. The OCR model is not in the package: set `DOC_INTAKE_TESSDATA_DIR` to a directory holding `eng.traineddata`. The evals, scripts and demo stay in this repository and do not ship.
+This writes `doc-intake-pipeline = { git = "https://github.com/brunoccalmeida/doc-intake-pipeline", tag = "v0.1.0" }` under `[tool.uv.sources]`, and `uv.lock` records the commit the tag resolved to ([uv: Git dependencies](https://docs.astral.sh/uv/concepts/projects/dependencies/#git)). To upgrade, change the tag and run `uv lock`. The consumer needs Python 3.14 or later. The OCR model is not in the package: set `DOC_INTAKE_TESSDATA_DIR` to a directory holding the `eng.traineddata` of `tessdata_fast` at the commit and SHA-256 pinned in [`scripts/fetch_tessdata.py`](../scripts/fetch_tessdata.py). Another model reads different text, so citations and eval results stop being comparable. The per-document run-log line (ids, status, tokens, cost) goes to the `doc_intake.core.runlog` logger at INFO; Python drops it unless the consumer configures a handler for that logger. The evals, scripts and demo stay in this repository and do not ship.
 
 ## Eval
 
