@@ -6,7 +6,7 @@ Verificações específicas deste projeto para o revisor (`mission:reviewer` e o
 
 ## Sempre verificar
 
-- **Invariantes do AGENTS.md:** campo sem evidência sai `null` com motivo; toda saída passa pelo schema; o núcleo (`core/`) não importa SDK de provedor; dinheiro em `Decimal`.
+- **Invariantes do AGENTS.md:** campo sem evidência sai `null` com motivo; toda saída passa pelo schema; o núcleo (`doc_intake.core`) não importa SDK de provedor; dinheiro em `Decimal`.
 - **Citação real:** a citação de cada campo aponta para texto que existe no documento lido (página e trecho); teste que afirma a citação compara com a entrada, não com outra saída do LLM.
 - **Testes sem rede:** nenhum teste unitário ou de integração chama provedor real nem depende de chave. Chamada real só no eval, rodado de propósito.
 - **Eval honesto:** o gabarito não foi ajustado para a saída do modelo; mudança no conjunto-ouro vem com o motivo (erro no gabarito original, com evidência) e nunca no mesmo PR que muda prompt ou modelo.

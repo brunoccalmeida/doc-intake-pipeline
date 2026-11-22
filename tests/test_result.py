@@ -10,7 +10,7 @@ from typing import Literal
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from core.result import Citation, ExtractedField, ExtractionResult
+from doc_intake.core.result import Citation, ExtractedField, ExtractionResult
 
 
 class Pair(BaseModel, frozen=True):

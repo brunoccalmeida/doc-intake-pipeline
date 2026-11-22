@@ -6,7 +6,7 @@ outcomes only, never document content (AGENTS.md invariant 6, docs/DATA.md).
 
 from decimal import Decimal
 
-from core.pricing import PRICE_SOURCES
+from doc_intake.core.pricing import PRICE_SOURCES
 from evals.baseline import Baseline
 from evals.report import render_report
 from evals.run import EvalRun, Usage

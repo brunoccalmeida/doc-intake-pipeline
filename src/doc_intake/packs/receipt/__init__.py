@@ -10,8 +10,8 @@ from typing import Annotated
 
 from pydantic import Field, StringConstraints
 
-from core.extract import Pack
-from core.result import ExtractedField, IsoDate, StrictModel
+from doc_intake.core.extract import Pack
+from doc_intake.core.result import ExtractedField, IsoDate, StrictModel
 
 # Decimal, never float: money must keep its exact digits (project invariant 5).
 # Pydantic's default already rejects NaN and infinities for Decimal.

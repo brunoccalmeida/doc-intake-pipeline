@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from core.ingest import EmptyDocumentError
-from core.runlog import log_unreadable
+from doc_intake.core.ingest import EmptyDocumentError
+from doc_intake.core.runlog import log_unreadable
 from scripts.logs import configure_run_log
 
 

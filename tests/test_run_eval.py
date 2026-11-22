@@ -15,14 +15,14 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from core.config import Settings
-from core.ingest import OcrDataMissingError
-from core.llm import LLMRequest, LLMResponse
-from core.result import Citation, ExtractedField
-from core.runlog import RUN_LOGGER, RunLogEntry
+from doc_intake.core.config import Settings
+from doc_intake.core.ingest import OcrDataMissingError
+from doc_intake.core.llm import LLMRequest, LLMResponse
+from doc_intake.core.result import Citation, ExtractedField
+from doc_intake.core.runlog import RUN_LOGGER, RunLogEntry
+from doc_intake.packs.receipt import RECEIPT, Receipt
 from evals.run import Usage, run_eval
 from evals.sroie import MANIFEST_PATH, load_manifest
-from packs.receipt import RECEIPT, Receipt
 
 SETTINGS = Settings()
 FIRST_ID = load_manifest(MANIFEST_PATH).receipts[0].id

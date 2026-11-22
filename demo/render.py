@@ -15,8 +15,8 @@ from pathlib import Path
 
 from PIL import Image
 
-from core.config import Settings
 from demo import evidence, make_receipt, storyboard
+from doc_intake.core.config import Settings
 
 OUT = Path(".cache/demo")
 VIDEO = OUT / "doc-intake-demo.mp4"

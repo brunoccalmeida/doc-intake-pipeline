@@ -2,7 +2,7 @@
 
 Clients ask "how much per document?" and "what happened with this one?"
 (``docs/ARCHITECTURE.md`` D5). Each extraction emits one ``RunLogEntry`` as a
-JSON line on the ``core.runlog`` logger, at INFO:
+JSON line on the ``doc_intake.core.runlog`` logger, at INFO:
 
 - ids (run, document), pack, provider, the models that answered;
 - outcome: status and the validation or citation errors, which name fields
@@ -27,11 +27,11 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-from core.extract import Pack, extract
-from core.ingest import Document
-from core.llm import LLMProvider, LLMResponse, Metered
-from core.pricing import cost_usd
-from core.result import ExtractionResult, Status, StrictModel
+from doc_intake.core.extract import Pack, extract
+from doc_intake.core.ingest import Document
+from doc_intake.core.llm import LLMProvider, LLMResponse, Metered
+from doc_intake.core.pricing import cost_usd
+from doc_intake.core.result import ExtractionResult, Status, StrictModel
 
 RUN_LOGGER = __name__
 

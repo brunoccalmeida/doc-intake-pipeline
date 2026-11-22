@@ -10,7 +10,7 @@ from decimal import Decimal
 
 import pytest
 
-from core.result import Citation, ExtractedField
+from doc_intake.core.result import Citation, ExtractedField
 from evals.sroie import (
     MANIFEST_PATH,
     TEST_IDS_PATH,

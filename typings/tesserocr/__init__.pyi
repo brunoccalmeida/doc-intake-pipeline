@@ -1,4 +1,4 @@
-# Minimal stub: only the API this project uses (core/ingest.py, and the word
+# Minimal stub: only the API this project uses (doc_intake/core/ingest.py, and the word
 # boxes demo/evidence.py highlights). tesserocr 2.13 ships its own
 # __init__.pyi, but it annotates images as "PIL.Image" (the module, not the
 # class) without importing PIL, and leaves iterate_level untyped, so pyright

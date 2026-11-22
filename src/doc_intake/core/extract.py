@@ -19,9 +19,9 @@ from typing import TypeIs
 
 from pydantic import BaseModel, ValidationError
 
-from core.ingest import Document, PageText
-from core.llm import ImageInput, LLMProvider, LLMRequest
-from core.result import Citation, ExtractedField, ExtractionResult
+from doc_intake.core.ingest import Document, PageText
+from doc_intake.core.llm import ImageInput, LLMProvider, LLMRequest
+from doc_intake.core.result import Citation, ExtractedField, ExtractionResult
 
 ENGINE_INSTRUCTIONS = """\
 You extract fields from one document. Its text is given page by page, as read \

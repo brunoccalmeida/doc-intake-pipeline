@@ -13,7 +13,8 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from core.result import Citation, ExtractedField, ExtractionResult
+from doc_intake.core.result import Citation, ExtractedField, ExtractionResult
+from doc_intake.packs.receipt import Receipt
 from evals.scoring import (
     DocumentScore,
     ReviewLoad,
@@ -23,7 +24,6 @@ from evals.scoring import (
     score_document,
     status_counts,
 )
-from packs.receipt import Receipt
 
 
 def cited[T](value: T) -> ExtractedField[T]:

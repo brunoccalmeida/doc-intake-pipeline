@@ -65,7 +65,7 @@ Both `extract` and `eval` write one JSON line per document to stderr: run and do
 
 A document that fails is logged the same way, with `"status":"failed"` and the error class in `errors` (for example `EmptyDocumentError` when no page yields text).
 
-Each pack's JSON Schema (what the LLM is asked to fill, e.g. [`packs/receipt/receipt.schema.json`](../packs/receipt/receipt.schema.json)) is committed; a snapshot test fails when a model change alters it, so every schema change is a visible diff in review.
+Each pack's JSON Schema (what the LLM is asked to fill, e.g. [`receipt.schema.json`](../src/doc_intake/packs/receipt/receipt.schema.json)) is committed; a snapshot test fails when a model change alters it, so every schema change is a visible diff in review.
 
 OCR runs on Tesseract bundled in the `tesserocr` wheel, so nothing is installed system-wide; only the English model is fetched (into `.cache/tessdata`, outside Git).
 
@@ -73,9 +73,19 @@ Configuration comes from `DOC_INTAKE_*` environment variables, validated at star
 
 For Claude, local runs can sign in through the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) instead of storing an API key: run `ant auth login` and set `DOC_INTAKE_ANTHROPIC_PROFILE=default` (or the profile you named). The client then uses that profile's OAuth sign-in only, ignoring any `ANTHROPIC_API_KEY` in the shell; a missing profile fails before the first call. Setting both a key and a profile is rejected at startup. On Windows, `ant` ships as `ant_<version>_windows_amd64.zip` on the [releases page](https://github.com/anthropics/anthropic-cli/releases).
 
-Extraction runs on Claude or OpenAI, chosen by `DOC_INTAKE_PROVIDER`, with each provider's native structured output. The engine (`core/`) only knows the `LLMProvider` interface; vendor SDKs are imported in `providers/` alone, and a lint rule rejects them anywhere else. An answer that fails schema validation is retried with the errors (`DOC_INTAKE_MAX_RETRIES`, default 2) and then reported as `failed`, never partial; a citation whose quote is not on the page it names turns the result into `needs_review`. Each scanned page is sent with its image; a citation says whether its quote came from the page text or the page image, and a value read from the image, which code cannot check, also turns the result into `needs_review`. A `needs_review` result names those fields in `review`, so a caller routes them without parsing `errors`; every other value was accepted. Fields read as printed (company, address) must sit inside their quote. Money is an exact decimal written as a JSON string, not reformatted to the currency's minor units: a printed `TOTAL 23.40` may come out as `"23.4"`, with the printed form kept in its quote ([D15](ARCHITECTURE.md#d15-dinheiro-guarda-o-valor-não-a-forma-impressa-decidida-na-33)).
+Extraction runs on Claude or OpenAI, chosen by `DOC_INTAKE_PROVIDER`, with each provider's native structured output. The engine (`doc_intake.core`) only knows the `LLMProvider` interface; vendor SDKs are imported in `doc_intake.providers` alone, and a lint rule rejects them anywhere else. An answer that fails schema validation is retried with the errors (`DOC_INTAKE_MAX_RETRIES`, default 2) and then reported as `failed`, never partial; a citation whose quote is not on the page it names turns the result into `needs_review`. Each scanned page is sent with its image; a citation says whether its quote came from the page text or the page image, and a value read from the image, which code cannot check, also turns the result into `needs_review`. A `needs_review` result names those fields in `review`, so a caller routes them without parsing `errors`; every other value was accepted. Fields read as printed (company, address) must sit inside their quote. Money is an exact decimal written as a JSON string, not reformatted to the currency's minor units: a printed `TOTAL 23.40` may come out as `"23.4"`, with the printed form kept in its quote ([D15](ARCHITECTURE.md#d15-dinheiro-guarda-o-valor-não-a-forma-impressa-decidida-na-33)).
 
-Every pull request must pass the `ci-passed` gate: lint, types, tests, the eval, secret scan, workflow audit and dependency audit.
+Every pull request must pass the `ci-passed` gate: lint, types, tests, the eval, the wheel check, secret scan, workflow audit and dependency audit.
+
+### Using the core from another project
+
+The core is an installable package, `doc-intake-pipeline`, imported as `doc_intake` (`doc_intake.core`, `doc_intake.packs`, `doc_intake.providers`). It is not on PyPI: another uv project depends on it through a git tag, so an upgrade is a deliberate change to that tag ([D18](ARCHITECTURE.md#d18-fronteira-entre-núcleo-kit-de-entrega-e-código-do-cliente-decidida-na-52)).
+
+```bash
+uv add git+https://github.com/brunoccalmeida/doc-intake-pipeline --tag v0.1.0
+```
+
+This writes `doc-intake-pipeline = { git = "https://github.com/brunoccalmeida/doc-intake-pipeline", tag = "v0.1.0" }` under `[tool.uv.sources]`, and `uv.lock` records the commit the tag resolved to ([uv: Git dependencies](https://docs.astral.sh/uv/concepts/projects/dependencies/#git)). To upgrade, change the tag and run `uv lock`. The consumer needs Python 3.14 or later. The OCR model is not in the package: set `DOC_INTAKE_TESSDATA_DIR` to a directory holding the `eng.traineddata` of `tessdata_fast` at the commit and SHA-256 pinned in [`scripts/fetch_tessdata.py`](../scripts/fetch_tessdata.py). Another model reads different text, so citations and eval results stop being comparable. The per-document run-log line (ids, status, tokens, cost) goes to the `doc_intake.core.runlog` logger at INFO; Python drops it unless the consumer configures a handler for that logger. The evals, scripts and demo stay in this repository and do not ship.
 
 ## Eval
 

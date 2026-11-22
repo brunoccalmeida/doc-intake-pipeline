@@ -5,7 +5,7 @@
     uv run poe extract --replay DIR path/to/receipt.pdf  # the stored answer: no key, no cost
 
 Prints the validated result as JSON on stdout (it holds document content, so
-it is never logged). On stderr, one run-log line (``core.runlog``): status,
+it is never logged). On stderr, one run-log line (``doc_intake.core.runlog``): status,
 errors, calls, retries, tokens, latency and cost, with no content.
 
 The document is logged by the SHA-256 of its bytes, never by its file name,
@@ -24,14 +24,14 @@ import hashlib
 import sys
 from pathlib import Path
 
-from core.config import Settings
-from core.ingest import IngestError, OcrDataMissingError, ingest
-from core.llm import LLMProvider
-from core.pricing import price_of
-from core.runlog import extract_logged, log_unreadable, new_run_id
+from doc_intake.core.config import Settings
+from doc_intake.core.ingest import IngestError, OcrDataMissingError, ingest
+from doc_intake.core.llm import LLMProvider
+from doc_intake.core.pricing import price_of
+from doc_intake.core.runlog import extract_logged, log_unreadable, new_run_id
+from doc_intake.packs.receipt import RECEIPT
+from doc_intake.providers import make_provider
 from evals.recording import MissingRecordingError, RecordingProvider, RecordingStore, ReplayProvider
-from packs.receipt import RECEIPT
-from providers import make_provider
 from scripts.logs import configure_run_log
 
 

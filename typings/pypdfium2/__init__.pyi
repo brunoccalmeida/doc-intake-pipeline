@@ -1,4 +1,4 @@
-# Minimal stub: only the API core/ingest.py uses. pypdfium2 5.15 ships no
+# Minimal stub: only the API doc_intake/core/ingest.py uses. pypdfium2 5.15 ships no
 # type information (no py.typed), so pyright strict reports every call as
 # Unknown. Signatures copied from the installed source's docstrings; the
 # ingest tests exercise each one, so a drifted stub fails a test, not runtime.

@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from core.config import Settings
-from providers import MissingCredentialError, make_provider
+from doc_intake.core.config import Settings
+from doc_intake.providers import MissingCredentialError, make_provider
 
 
 @pytest.mark.parametrize("provider", ["claude", "openai"])

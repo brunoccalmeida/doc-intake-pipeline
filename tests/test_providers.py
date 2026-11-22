@@ -13,12 +13,12 @@ from typing import Any, cast
 import pytest
 from pydantic import SecretStr
 
-from core.config import Settings
-from core.llm import ImageInput, LLMRequest
-from packs.receipt import Receipt
-from providers import MissingCredentialError, make_provider
-from providers.claude import ClaudeProvider, claude_content, claude_output_format
-from providers.gpt import OpenAIProvider, openai_input, openai_text_format
+from doc_intake.core.config import Settings
+from doc_intake.core.llm import ImageInput, LLMRequest
+from doc_intake.packs.receipt import Receipt
+from doc_intake.providers import MissingCredentialError, make_provider
+from doc_intake.providers.claude import ClaudeProvider, claude_content, claude_output_format
+from doc_intake.providers.gpt import OpenAIProvider, openai_input, openai_text_format
 
 # The shell's DOC_INTAKE_* variables are cleared for every test here.
 pytestmark = pytest.mark.usefixtures("no_doc_intake_env")

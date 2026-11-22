@@ -19,7 +19,7 @@ from typing import Annotated
 
 from pydantic import Field
 
-from core.result import StrictModel
+from doc_intake.core.result import StrictModel
 from evals.scoring import ReviewLoad
 
 BASELINE_PATH = Path(__file__).parent / "baseline.json"

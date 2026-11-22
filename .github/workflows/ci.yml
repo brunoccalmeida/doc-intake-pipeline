@@ -152,6 +152,33 @@ jobs:
           path: .cache/eval/report.md
           if-no-files-found: warn
 
+  # The delivery kit and client repositories install the core's wheel from a
+  # git tag (docs/ARCHITECTURE.md D18), not the repository: build it and check
+  # it in an environment that has only the wheel, outside the project, so
+  # src/ cannot mask a missing file (scripts/check_wheel.py).
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: Build the wheel
+        run: uv build --wheel --out-dir "$RUNNER_TEMP/dist"
+
+      - name: Check the wheel and import it
+        run: |
+          wheel=$(ls "$RUNNER_TEMP"/dist/*.whl)
+          uv run --isolated --no-project --with "$wheel" python -m scripts.check_wheel "$wheel"
+
   # Secret scanning with gitleaks over the history of the tested commit (on a
   # PR, the merge commit: what main would become). A key pushed to a public
   # repository is leaked even if a later commit deletes it, so every commit is
@@ -231,7 +258,7 @@ jobs:
   ci-passed:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [check, test, eval, secret-scan, workflow-audit, dependency-audit]
+    needs: [check, test, eval, package, secret-scan, workflow-audit, dependency-audit]
     if: ${{ always() }}
 
     steps:

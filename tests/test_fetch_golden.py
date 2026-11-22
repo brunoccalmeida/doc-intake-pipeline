@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from core.result import ExtractedField
+from doc_intake.core.result import ExtractedField
+from doc_intake.packs.receipt import Receipt
 from evals.sroie import GoldenEntry, Manifest
-from packs.receipt import Receipt
 from scripts.download import ChecksumMismatchError
 from scripts.fetch_golden import install
 

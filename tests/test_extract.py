@@ -13,10 +13,10 @@ from typing import Any
 import pytest
 from pydantic import Field
 
-from core.extract import Pack, extract
-from core.ingest import Document, PageImage, PageText
-from core.llm import ImageInput, LLMRequest, LLMResponse
-from core.result import ExtractedField, StrictModel
+from doc_intake.core.extract import Pack, extract
+from doc_intake.core.ingest import Document, PageImage, PageText
+from doc_intake.core.llm import ImageInput, LLMRequest, LLMResponse
+from doc_intake.core.result import ExtractedField, StrictModel
 
 PAGE_1 = "ACME TRADING SDN BHD\nNO. 12, JALAN MAJU\nTOTAL   RM 9.00"
 PAGE_2 = "THANK YOU\nPLEASE COME AGAIN"
