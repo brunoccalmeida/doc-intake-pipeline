@@ -3,7 +3,7 @@
 import csv
 import json
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -11,9 +11,10 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw, ImageFont
 
+from doc_intake import batch
 from doc_intake.batch import RunReport, ready_documents, run_inbox, spreadsheet_safe
 from doc_intake.core.config import Settings
-from doc_intake.core.ingest import OcrDataMissingError
+from doc_intake.core.ingest import Document, OcrDataMissingError, PageText
 from doc_intake.core.llm import LLMRequest, LLMResponse
 from doc_intake.packs.receipt import RECEIPT
 
@@ -102,15 +103,28 @@ class ScriptedProvider:
     answers: Sequence[Mapping[str, object] | Exception]
     calls: int = 0
     seen: list[LLMRequest] = field(default_factory=list[LLMRequest])
+    # The model each answer reports, by call number; the default is priced.
+    models: Mapping[int, str] = field(default_factory=dict[int, str])
+    # Run before answering a call, by call number: e.g. a sync client
+    # replacing a file while the run is still going.
+    before: Mapping[int, Callable[[], object]] = field(
+        default_factory=dict[int, Callable[[], object]]
+    )
 
     def complete(self, request: LLMRequest) -> LLMResponse:
-        answer = self.answers[self.calls]
+        call = self.calls
+        answer = self.answers[call]
         self.calls += 1
         self.seen.append(request)
+        if call in self.before:
+            self.before[call]()
         if isinstance(answer, Exception):
             raise answer
         return LLMResponse(
-            text=json.dumps(answer), input_tokens=100, output_tokens=50, model="claude-opus-5-5"
+            text=json.dumps(answer),
+            input_tokens=100,
+            output_tokens=50,
+            model=self.models.get(call, "claude-opus-5-5"),
         )
 
 
@@ -273,4 +287,100 @@ def test_a_configuration_error_stops_the_run_and_leaves_no_run_folder(tmp_path: 
     with pytest.raises(OcrDataMissingError):
         run(tmp_path, ScriptedProvider([ALL_NULL]), tmp_path / "no-tessdata")
     assert [p.name for p in (tmp_path / "inbox").iterdir()] == ["a.png"]
-    assert list((tmp_path / "runs").iterdir()) == []
+    assert not (tmp_path / "runs").exists()
+
+
+def test_a_file_that_cannot_be_read_is_left_and_the_rest_of_the_run_is_kept(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, tessdata_dir: Path
+) -> None:
+    printed_page(tmp_path / "inbox", "a.png", "TOTAL 1.00")
+    printed_page(tmp_path / "inbox", "b-locked.png", "TOTAL 2.00")
+    read_bytes = Path.read_bytes
+
+    def locked(self: Path) -> bytes:
+        if self.name == "b-locked.png":
+            raise PermissionError(13, "Permission denied", str(self))
+        return read_bytes(self)
+
+    monkeypatch.setattr(Path, "read_bytes", locked)
+
+    inbox, _, report = run(tmp_path, ScriptedProvider([ALL_NULL]), tessdata_dir)
+
+    assert [p.name for p in inbox.iterdir()] == ["b-locked.png"]
+    assert [p.name for p in (folder_of(report) / "documents").iterdir()] == ["a.png"]
+    locked_row = rows_of(folder_of(report) / "results.csv")[-1]
+    assert (locked_row["file"], locked_row["document_status"]) == ("b-locked.png", "failed")
+    assert locked_row["note"] == "PermissionError; left in the inbox for the next run"
+
+
+def test_missing_ocr_data_stops_the_run_before_any_call(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # A PDF with a text layer needs no OCR, so ingest alone would not notice.
+    def text_layer(path: Path, *, tessdata_dir: Path) -> Document:
+        page = PageText(number=1, text="TOTAL 1.00", source="text_layer", image=None)
+        return Document(pages=(page,))
+
+    monkeypatch.setattr(batch, "ingest", text_layer)
+    place(tmp_path / "inbox", "a.pdf", age=timedelta(minutes=5))
+    provider = ScriptedProvider([ALL_NULL])
+
+    with pytest.raises(OcrDataMissingError, match="DOC_INTAKE_TESSDATA_DIR"):
+        run(tmp_path, provider, tmp_path / "no-tessdata")
+    assert provider.calls == 0
+
+
+def test_an_unpriced_model_stops_the_run_and_keeps_what_was_done(
+    tmp_path: Path, tessdata_dir: Path
+) -> None:
+    for name in ("a.png", "b.png", "c.png"):
+        printed_page(tmp_path / "inbox", name, "TOTAL 1.00")
+    # A fallback model with no price row: paid, but its cost cannot be logged.
+    provider = ScriptedProvider([ALL_NULL, ALL_NULL, ALL_NULL], models={1: "model-x"})
+
+    inbox, _, report = run(tmp_path, provider, tessdata_dir)
+
+    assert provider.calls == 2  # c.png is not paid for while the price is missing
+    assert [p.name for p in inbox.iterdir()] == ["b.png", "c.png"]
+    assert [p.name for p in (folder_of(report) / "documents").iterdir()] == ["a.png"]
+    stopped = rows_of(folder_of(report) / "results.csv")[-1]
+    assert (stopped["file"], stopped["document_status"]) == ("b.png", "failed")
+    assert stopped["note"] == (
+        "UnknownModelPriceError; run stopped: add the model's price, then run again"
+    )
+    assert (report.documents, report.failed) == (2, 1)
+
+
+def test_a_file_replaced_during_the_run_is_left_for_the_next_one(
+    tmp_path: Path, tessdata_dir: Path
+) -> None:
+    first = printed_page(tmp_path / "inbox", "a.png", "TOTAL 1.00")
+    printed_page(tmp_path / "inbox", "b.png", "TOTAL 2.00")
+
+    def sync_replaces_a() -> None:
+        printed_page(tmp_path / "inbox", "a.png", "TOTAL 3.00")
+
+    provider = ScriptedProvider([ALL_NULL, ALL_NULL], before={1: sync_replaces_a})
+
+    inbox, _, report = run(tmp_path, provider, tessdata_dir)
+
+    assert [p.name for p in inbox.iterdir()] == ["a.png"]
+    assert first.read_bytes() != b""  # the new version, still there to process
+    replaced = rows_of(folder_of(report) / "results.csv")[0]
+    assert (replaced["file"], replaced["document_status"]) == ("a.png", "failed")
+    assert replaced["note"] == "changed during the run; left in the inbox for the next run"
+
+
+def test_every_cell_is_quoted_so_a_semicolon_cannot_split_one(
+    tmp_path: Path, tessdata_dir: Path
+) -> None:
+    # Excel with ";" as list separator (pt-BR, de-DE) splits an unquoted cell
+    # there, and "=..." would start a new cell (OWASP, "CSV Injection").
+    printed_page(tmp_path / "inbox", "a.png", "TOTAL 1.00")
+    semicolon = {**ALL_NULL, "company": image_field("x;=1+1", "x;=1+1")}
+
+    _, _, report = run(tmp_path, ScriptedProvider([semicolon]), tessdata_dir)
+
+    text = (folder_of(report) / "results.csv").read_text(encoding="utf-8-sig")
+    assert '"x;=1+1"' in text
+    assert all(line.startswith('"') for line in text.splitlines())

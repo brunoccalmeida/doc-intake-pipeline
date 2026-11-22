@@ -15,9 +15,16 @@ A scheduler (``deploy/``) starts one run at a time; each run:
 
 If a run stops before step 5, the files are still in the inbox and the next
 run processes them again: a document may be paid for twice, never lost
-(at-least-once). A provider error on one document (network, rate limit)
-leaves that file in the inbox for the next run; a file that cannot be read
-moves with the run as ``failed``, since reading it again cannot change.
+(at-least-once).
+
+A problem with one document becomes its ``failed`` row; it never discards
+the others. A file that is not a readable document moves with the run, since
+reading it again cannot change. A file the run cannot open, a provider error
+(network, rate limit, a rejected request) and a file replaced during the run
+stay in the inbox and are tried again by every run until they succeed. A
+model with no price stops the run after keeping what is done: every further
+call would be paid without a logged cost. Missing OCR data stops it before
+the first call.
 """
 
 import csv
@@ -39,8 +46,10 @@ from doc_intake.core.ingest import (
     IngestError,
     OcrDataMissingError,
     ingest,
+    require_ocr_data,
 )
 from doc_intake.core.llm import LLMProvider
+from doc_intake.core.pricing import UnknownModelPriceError
 from doc_intake.core.result import ExtractionResult, is_field
 from doc_intake.core.runlog import extract_logged, log_unreadable, new_run_id
 
@@ -84,7 +93,7 @@ def spreadsheet_safe(text: str) -> str:
 
     A plain number (``-12.50``) is kept, so it stays a number in the sheet: it
     has no function or reference to run. The ``'`` prefix is OWASP's
-    recommendation; Excel shows it as text and hides the quote.
+    recommendation. It is part of the cell's text, so a reader may see it.
     """
     if text.startswith(_FORMULA_START) and not _PLAIN_NUMBER.fullmatch(text):
         return "'" + text
@@ -117,11 +126,23 @@ class RunReport:
     failed: int
 
 
+LEFT_FOR_NEXT_RUN = "left in the inbox for the next run"
+
+
 @dataclass(frozen=True, slots=True)
 class _Outcome[S: BaseModel]:
     path: Path
     result: ExtractionResult[S]
+    # Moved with the run; otherwise left in the inbox for the next one.
     move: bool
+    # SHA-256 of the bytes that were extracted, to notice a file replaced
+    # before it is moved; None when the file was not read.
+    digest: str | None = None
+
+
+def _left[S: BaseModel](pack: Pack[S], path: Path, note: str) -> _Outcome[S]:
+    """A failed row for ``path``, which stays in the inbox; ``pack`` fixes the type."""
+    return _Outcome(path, ExtractionResult[S](status="failed", errors=[note]), move=False)
 
 
 def run_inbox[S: BaseModel](
@@ -138,27 +159,34 @@ def run_inbox[S: BaseModel](
 ) -> RunReport:
     """Process the documents ready in ``inbox`` into a new folder under ``runs``.
 
-    Raises ``OcrDataMissingError`` (configuration, not the document) before
-    anything is written or moved, and ``FileExistsError`` if this run's folder
-    already exists.
+    Raises ``OcrDataMissingError`` (configuration, not the document) and
+    ``FileExistsError`` (this run's folder already exists) before any call.
     """
     documents = ready_documents(inbox, settle=settle, now=now)
     if not documents:
         return RunReport(folder=None, documents=0, needs_review=0, failed=0)
+    require_ocr_data(tessdata_dir)
 
     folder = runs / now.astimezone(UTC).strftime("%Y-%m-%dT%H-%M-%SZ")
     runs.mkdir(parents=True, exist_ok=True)
     folder.mkdir()
+    run_id = new_run_id()
+    outcomes: list[_Outcome[S]] = []
     try:
-        run_id = new_run_id()
-        outcomes = [
-            _process(path, pack, provider, tessdata_dir, provider_name, max_retries, run_id)
-            for path in documents
-        ]
+        for path in documents:
+            outcome, stop = _process(
+                path, pack, provider, tessdata_dir, provider_name, max_retries, run_id
+            )
+            outcomes.append(outcome)
+            if stop:
+                break
     except BaseException:
-        folder.rmdir()  # still empty: nothing was written
+        # An interrupt (Ctrl+C, systemctl stop): nothing written or moved, so
+        # the next run starts from the same inbox.
+        folder.rmdir()
         raise
 
+    outcomes = [_unless_replaced(pack, outcome) for outcome in outcomes]
     _write_csv(folder / RESULTS_NAME, outcomes)
     moved = folder / DOCUMENTS_NAME
     moved.mkdir()
@@ -181,12 +209,22 @@ def _process[S: BaseModel](
     provider_name: str,
     max_retries: int,
     run_id: str,
-) -> _Outcome[S]:
-    document_id = hashlib.sha256(path.read_bytes()).hexdigest()
+) -> tuple[_Outcome[S], bool]:
+    """One document's outcome, and whether the run must stop after it.
+
+    A problem with one document never discards the documents already paid
+    for: it becomes that document's ``failed`` row. Notes name only the
+    error's class; its message may quote the document or name its path.
+    """
+    try:
+        content = path.read_bytes()
+    except OSError as error:  # permissions, a file removed meanwhile
+        return _left(pack, path, f"{type(error).__name__}; {LEFT_FOR_NEXT_RUN}"), False
+    document_id = hashlib.sha256(content).hexdigest()
     try:
         document = ingest(path, tessdata_dir=tessdata_dir)
     except OcrDataMissingError:
-        raise
+        raise  # configuration, checked before the first call
     except IngestError as error:
         log_unreadable(
             error,
@@ -195,8 +233,10 @@ def _process[S: BaseModel](
             run_id=run_id,
             provider_name=provider_name,
         )
+        # Reading it again cannot change: it moves with the run. Its name is
+        # in the message, and this CSV is the owner's, not a log.
         failed = ExtractionResult[S](status="failed", errors=[str(error)])
-        return _Outcome(path, failed, move=True)
+        return _Outcome(path, failed, move=True, digest=document_id), False
     try:
         result, _ = extract_logged(
             document,
@@ -207,12 +247,34 @@ def _process[S: BaseModel](
             provider_name=provider_name,
             max_retries=max_retries,
         )
+    except UnknownModelPriceError as error:
+        # Paid, but its cost cannot be logged: every further call would be
+        # too. Configuration, so the run stops; what is done is kept.
+        note = f"{type(error).__name__}; run stopped: add the model's price, then run again"
+        return _left(pack, path, note), True
     except Exception as error:
-        # Logged by extract_logged with the calls already paid. Only the
-        # class: the message of a provider error may quote the document.
-        note = f"{type(error).__name__}; left in the inbox for the next run"
-        return _Outcome(path, ExtractionResult[S](status="failed", errors=[note]), move=False)
-    return _Outcome(path, result, move=True)
+        # Provider errors (network, rate limit, a rejected request), logged by
+        # extract_logged with the calls already paid. Retried by every run
+        # until it succeeds; exit 1 on each run tells someone to look.
+        return _left(pack, path, f"{type(error).__name__}; {LEFT_FOR_NEXT_RUN}"), False
+    return _Outcome(path, result, move=True, digest=document_id), False
+
+
+def _unless_replaced[S: BaseModel](pack: Pack[S], outcome: _Outcome[S]) -> _Outcome[S]:
+    """Leave a file whose bytes changed since they were extracted.
+
+    A sync client can write a new version under the same name while the run
+    works on other files; moving it would file a version nobody extracted.
+    """
+    if not outcome.move or outcome.digest is None:
+        return outcome
+    try:
+        unchanged = hashlib.sha256(outcome.path.read_bytes()).hexdigest() == outcome.digest
+    except OSError:
+        unchanged = False
+    if unchanged:
+        return outcome
+    return _left(pack, outcome.path, f"changed during the run; {LEFT_FOR_NEXT_RUN}")
 
 
 def _rows[S: BaseModel](outcome: _Outcome[S]) -> Iterator[dict[str, str]]:
@@ -241,7 +303,10 @@ def _rows[S: BaseModel](outcome: _Outcome[S]) -> Iterator[dict[str, str]]:
 
 def _write_csv[S: BaseModel](path: Path, outcomes: list[_Outcome[S]]) -> None:
     buffer = io.StringIO(newline="")
-    writer = csv.DictWriter(buffer, fieldnames=COLUMNS, restval="")
+    # Every cell quoted: OWASP's other half of the defence. A spreadsheet that
+    # splits on ";" (Excel in pt-BR or de-DE) would otherwise start a new cell
+    # inside "x;=HYPERLINK(...)", past the guard on the first character.
+    writer = csv.DictWriter(buffer, fieldnames=COLUMNS, restval="", quoting=csv.QUOTE_ALL)
     writer.writeheader()
     for outcome in outcomes:
         for row in _rows(outcome):

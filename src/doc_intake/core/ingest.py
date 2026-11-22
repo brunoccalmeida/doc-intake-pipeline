@@ -183,13 +183,22 @@ def _png(image: Image.Image) -> PageImage:
     return PageImage(media_type="image/png", data=buffer.getvalue())
 
 
-def _ocr(image: Image.Image, tessdata_dir: Path) -> str:
+def require_ocr_data(tessdata_dir: Path) -> None:
+    """Raise ``OcrDataMissingError`` unless OCR's language data is in ``tessdata_dir``.
+
+    ``ingest`` checks only when a page needs OCR; a caller about to process
+    many files checks first, before paying for the ones that need none.
+    """
     if not (tessdata_dir / f"{OCR_LANGUAGE}.traineddata").is_file():
         raise OcrDataMissingError(
             f"no {OCR_LANGUAGE}.traineddata in {tessdata_dir}: point DOC_INTAKE_TESSDATA_DIR "
             "at the tessdata_fast model (in the doc-intake-pipeline repository, "
             "'uv run poe fetch-tessdata' downloads it)"
         )
+
+
+def _ocr(image: Image.Image, tessdata_dir: Path) -> str:
+    require_ocr_data(tessdata_dir)
     image = _whiten_dark_borders(image)
     return _normalize(tesserocr.image_to_text(image, lang=OCR_LANGUAGE, path=str(tessdata_dir)))
 
