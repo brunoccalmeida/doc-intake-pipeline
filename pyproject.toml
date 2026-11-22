@@ -113,6 +113,10 @@ extract = "python -m scripts.extract_document"
 # Score the golden set from recorded responses and gate on evals/baseline.json.
 # "--record" calls the real provider for unrecorded requests: a paid API call.
 eval = "python -m scripts.run_eval"
+# One scheduled run over an inbox folder (deploy/): paid, except with --replay.
+inbox = "python -m scripts.run_inbox"
+# The delivered flow on the demo receipts, into .cache/inbox-demo: replay only, no cost.
+inbox-demo = "python -m scripts.inbox_demo"
 # Render the demo video (demo/README.md) into .cache/demo, in Docker: replay only, no cost.
 demo-image = "docker build --file demo/Dockerfile --tag doc-intake-demo ."
 demo-render = "docker run --rm --volume ${POE_ROOT}:/work doc-intake-demo uv run --locked python -m demo.render"

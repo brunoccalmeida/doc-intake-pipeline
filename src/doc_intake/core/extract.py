@@ -15,13 +15,12 @@ reports the document instead of skipping it.
 """
 
 from dataclasses import dataclass
-from typing import TypeIs
 
 from pydantic import BaseModel, ValidationError
 
 from doc_intake.core.ingest import Document, PageText
 from doc_intake.core.llm import ImageInput, LLMProvider, LLMRequest
-from doc_intake.core.result import Citation, ExtractedField, ExtractionResult
+from doc_intake.core.result import Citation, ExtractionResult, is_field
 
 ENGINE_INSTRUCTIONS = """\
 You extract fields from one document. Its text is given page by page, as read \
@@ -183,7 +182,7 @@ def _citation_problems(
     problems: dict[str, str] = {}
     for name in type(fields).model_fields:
         field = getattr(fields, name)
-        if not _is_field(field) or field.citation is None:
+        if not is_field(field) or field.citation is None:
             continue
         text = field.value if name in printed and isinstance(field.value, str) else None
         problem = _citation_problem(text, field.citation, pages)
@@ -213,9 +212,3 @@ def _citation_problem(
 
 def _squash(text: str) -> str:
     return " ".join(text.split())
-
-
-def _is_field(value: object) -> TypeIs[ExtractedField[object]]:
-    # getattr loses the field's type parameter; isinstance alone would leave it
-    # Unknown, which strict pyright rejects (PEP 742).
-    return isinstance(value, ExtractedField)

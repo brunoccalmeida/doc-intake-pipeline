@@ -12,7 +12,7 @@ is held to them by construction:
 
 import re
 from datetime import date, datetime
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal, Self, TypeIs
 
 from pydantic import (
     BaseModel,
@@ -103,6 +103,15 @@ class ExtractedField[T](StrictModel, frozen=True):
             if self.citation is not None:
                 raise ValueError("a citation needs a value to cite")
         return self
+
+
+def is_field(value: object) -> TypeIs[ExtractedField[object]]:
+    """Whether ``value`` is an ``ExtractedField``, keeping a type checker informed.
+
+    ``getattr`` on a schema loses the field's type parameter; ``isinstance``
+    alone would leave it Unknown, which strict pyright rejects (PEP 742).
+    """
+    return isinstance(value, ExtractedField)
 
 
 type Status = Literal["ok", "needs_review", "failed"]

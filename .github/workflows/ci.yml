@@ -48,6 +48,16 @@ jobs:
       - name: Lint, format and types
         run: uv run poe check
 
+      # The example units in deploy/. verify reports unknown sections and keys
+      # and an ExecStart binary missing on this machine, so uv goes where the
+      # units expect it (deploy/README.md). Without --recursive-errors it
+      # exits 0 even when it prints warnings (systemd-analyze(1)).
+      - name: Verify the systemd units
+        run: |
+          sudo ln -sf "$(command -v uv)" /usr/local/bin/uv
+          systemd-analyze verify --recursive-errors=yes --man=no \
+            deploy/doc-intake-inbox.service deploy/doc-intake-inbox.timer
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 5

@@ -1,0 +1,13 @@
+# Starts doc-intake-inbox.service (same name) every 15 minutes.
+
+[Unit]
+Description=doc-intake: check the inbox folder every 15 minutes
+Documentation=https://github.com/brunoccalmeida/doc-intake-pipeline/blob/main/deploy/README.md
+
+[Timer]
+OnCalendar=*:0/15
+# A run missed while the machine was off starts at the next boot.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
