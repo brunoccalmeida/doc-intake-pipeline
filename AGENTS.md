@@ -6,7 +6,7 @@ Regras que valem em todo chat e todo agente (o `CLAUDE.md` importa este arquivo)
 
 ## O que é este projeto
 
-Pipeline que lê documentos (PDF e imagem, inclusive escaneados), extrai campos com um LLM e devolve um resultado **validado e com citação da origem** de cada campo. A qualidade é medida por **evals** contra um conjunto-ouro, e o CI barra qualquer piora. É peça de portfólio para clientes: cada decisão precisa ser defensável numa entrevista.
+Pipeline que lê documentos (PDF e imagem, inclusive escaneados), extrai campos com um LLM e devolve um resultado **validado e com citação da origem** de cada campo. A qualidade é medida por **evals** contra um conjunto-ouro, e o CI barra qualquer piora. É peça de portfólio para clientes: cada decisão precisa ser defensável numa entrevista. Este repositório é o **núcleo** genérico e público; conectores e materiais de entrega a clientes ficam fora dele. O que o cliente compra e a fronteira entre núcleo, kit de entrega e código do cliente estão em [docs/PRODUCT.md](docs/PRODUCT.md): leia-o ao criar issues ou mudar a prioridade delas e quando a missão tocar em entrega, conectores ou material para clientes.
 
 Invariantes (valem em todo PR):
 
