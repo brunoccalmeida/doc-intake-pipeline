@@ -44,3 +44,8 @@ jobs:
 
       - name: Audit dependencies
         run: uv audit --locked --preview-features audit-command
+
+      # The demo's voice-over script has its own lock (demo/voice.py.lock,
+      # PEP 723), which Dependabot does not read: this is its only audit.
+      - name: Audit the voice-over script's dependencies
+        run: uv audit --script demo/voice.py --locked --preview-features audit-command
