@@ -97,6 +97,21 @@ Judged by eye, to know what the set covers:
 - **Small sample:** 20 receipts from one country and one period (2016-2018) detect regressions; they do not estimate accuracy on other documents.
 - **One draw per request:** the recordings hold one answer from a model that does not answer the same way twice. Replay makes the gate deterministic, but a re-recording can move a score by sampling alone, with no change to the pipeline. A drop seen right after a re-recording is checked against a second recording before it is blamed on the change.
 
+## Datasets checked for calibrating auto-acceptance (#35, not used)
+
+Issue #35 looked for a public labeled receipt set of a few hundred documents to calibrate per-field auto-acceptance (`docs/ARCHITECTURE.md` D14). None qualifies, so **no file was added** and none of these is fetched. Checked on 2026-11-22; a licence counts only when the dataset owner states it at the source, since aggregator licences are often wrong ([Longpre et al., 2023](https://arxiv.org/abs/2310.16787)).
+
+| Dataset | Licence at the source | Fields of our schema labeled | Verdict |
+| --- | --- | --- | --- |
+| [CORD v2](https://github.com/clovaai/cord) (Clova AI) | **CC BY 4.0**: `LICENSE-CC-BY` in the owner's repository, and `license: cc-by-4.0` on the owner's [Hugging Face card](https://huggingface.co/datasets/naver-clova-ix/cord-v2) (not gated) | `total` only: the owner removed `store_info`, `payment_info` and `etc` from the 1,000 published receipts (800 train, 100 dev, 100 test) "due to Indonesian legal issues" | Licence fine, but no `company`, `address`, `date` or `currency`. Indonesian receipts in rupiah |
+| [WildReceipt](https://github.com/open-mmlab/mmocr/blob/main/docs/en/user_guides/data_prepare/kie.md) (OpenMMLab) | None: the docs and the [paper](https://arxiv.org/abs/2103.14470) state no data licence, and the official `wildreceipt.tar` holds images, labels and class lists but no licence file. MMOCR's Apache-2.0 covers its code; the Apache-2.0 on a Hugging Face re-upload is the uploader's | Store name, address, date, total | Same position as SROIE |
+| [Find it again!](https://l3i-share.univ-lr.fr/2023Finditagain/index.html) (L3i) | None on the page | Fraud regions; the receipts come from SROIE | Inherits SROIE's missing licence |
+| [ExpressExpense](https://expressexpense.com/blog/free-receipt-images-ocr-machine-learning-dataset/) | MIT, stated by the owner | No label files described: 200 images only | Too small for a fit/held-out split, would need hand labeling, possibly generated receipts |
+| [CORU](https://huggingface.co/datasets/abdoelsayed/CORU) | Contradictory: card metadata says CC BY 4.0, card text says MIT, the GitHub README states none | Merchant, date, total; no address | Unclear licence, mostly Arabic |
+| [XFUND](https://github.com/doc-analysis/XFUND) | CC BY-NC-SA 4.0 | Key-value pairs of forms | Non-commercial, and not receipts |
+
+Even a qualifying public set would only test the calibration code: thresholds calibrated on one document population are "not a portable guarantee across other documents, analyzers, or model versions" ([Microsoft Foundry blog](https://devblogs.microsoft.com/foundry/content-understanding-confidence-grounding-hitl/), whose own lab uses CORD v2). Calibration therefore moves to each client's reviewed documents (D14).
+
 ## Demo receipts (fictional)
 
 [`demo/receipt.png`](../demo/receipt.png) and [`demo/receipt-review.png`](../demo/receipt-review.png) are drawn by [`demo/make_receipt.py`](../demo/make_receipt.py) with Pillow's bundled font (Aileron, [`ImageFont.load_default`](https://pillow.readthedocs.io/en/stable/reference/ImageFont.html#PIL.ImageFont.load_default)): the shops, addresses and amounts are invented. Being our own work, the images and the recorded answers about them ([`demo/recordings`](../demo/recordings)) are public, released with the code under this repository's licence. The demo video shows only these receipts and a pile of more fictional ones drawn the same way; it shows no SROIE receipt or value.
