@@ -186,7 +186,9 @@ def _png(image: Image.Image) -> PageImage:
 def _ocr(image: Image.Image, tessdata_dir: Path) -> str:
     if not (tessdata_dir / f"{OCR_LANGUAGE}.traineddata").is_file():
         raise OcrDataMissingError(
-            f"no {OCR_LANGUAGE}.traineddata in {tessdata_dir}: run 'uv run poe fetch-tessdata'"
+            f"no {OCR_LANGUAGE}.traineddata in {tessdata_dir}: point DOC_INTAKE_TESSDATA_DIR "
+            "at the tessdata_fast model (in the doc-intake-pipeline repository, "
+            "'uv run poe fetch-tessdata' downloads it)"
         )
     image = _whiten_dark_borders(image)
     return _normalize(tesserocr.image_to_text(image, lang=OCR_LANGUAGE, path=str(tessdata_dir)))

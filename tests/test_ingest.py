@@ -316,7 +316,7 @@ def test_ocr_without_language_data_names_the_fix(tmp_path: Path) -> None:
     image = tmp_path / "receipt.png"
     draw_text("TOTAL").save(image)
 
-    with pytest.raises(OcrDataMissingError, match="fetch-tessdata"):
+    with pytest.raises(OcrDataMissingError, match=r"DOC_INTAKE_TESSDATA_DIR.*fetch-tessdata"):
         ingest(image, tessdata_dir=tmp_path / "no-tessdata")
 
 
