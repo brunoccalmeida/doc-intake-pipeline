@@ -27,7 +27,7 @@ arquivo (PDF/imagem)
 | `packs/`     | Um pack por tipo de documento (recibo/nota fiscal agora; contrato na semana 3): schema, instruções de extração e normalização dos campos. |
 | `providers/` | Implementações de `LLMProvider` (Claude, OpenAI) e a fábrica `make_provider`. Único lugar que importa SDK de provedor (D10).             |
 | `evals/`     | Conjuntos-ouro por pack, pontuação por campo, relatório em Markdown e a linha de base que o CI compara.                                    |
-| `workflows/` | Workflows do n8n exportados (JSON) que chamam o pipeline. Entra quando for usado (YAGNI); a semana 1 não tem n8n.                          |
+| `workflows/` | **A remover** na [#56](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/56) (D18): previa workflows do n8n sem motivo registrado, e nenhuma missão os usou.                  |
 | `tests/`     | Testes unitários e de integração, sempre com provedor falso.                                                                              |
 
 ## Decisões
@@ -89,7 +89,7 @@ Começar pelo SROIE (recibos com gabarito de empresa, endereço, data e total). 
 | --- | --- | --- | --- |
 | Ambiente e lockfile | `uv` 0.13.9, fixado em `[tool.uv] required-version` | Um binário só para Python, venv, lock e auditoria. O `setup-uv` lê a mesma versão do `pyproject.toml`, então local e CI não divergem | [uv: GitHub Actions](https://docs.astral.sh/uv/guides/integration/github/); `action.yml` do `astral-sh/setup-uv` v10.3.3 |
 | Python | 3.14 (`.python-version`) | A 3.15 já saiu (3.15.2), mas a #3 traz bibliotecas de PDF/OCR com extensões nativas; a 3.14 tem um ano de wheels publicados. **Julgamento próprio**; revisto na #3 (D9): falta wheel cp315 do PyYAML, troca na [#11](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/11) | [python.org: downloads](https://www.python.org/downloads/); [ciclo de vida das versões](https://devguide.python.org/versions/) |
-| Projeto | `package = false` | É aplicação, não biblioteca: nada é construído nem publicado. Os pacotes são importados da raiz (`pythonpath = ["."]` no pytest) | [uv: projetos](https://docs.astral.sh/uv/concepts/projects/config/) |
+| Projeto | `package = false` | É aplicação, não biblioteca: nada é construído nem publicado. Os pacotes são importados da raiz (`pythonpath = ["."]` no pytest). **Revista na D18:** o kit e o cliente precisam instalar o núcleo, que vira pacote | [uv: projetos](https://docs.astral.sh/uv/concepts/projects/config/) |
 | Lint e formatação | `ruff` 0.17 | Substitui flake8/isort/black num binário; famílias de regra escolhidas e comentadas no `pyproject.toml` | [ruff: regras](https://docs.astral.sh/ruff/rules/) |
 | Tipos | `pyright[nodejs]` 1.1.414, `strict` | O `ty` (Astral) ainda é 0.0.x e não tem modo estrito. O extra `nodejs` é o que o README do pacote recomenda, porque traz o Node como wheel em vez de baixá-lo em tempo de execução | [pyright: instalação](https://github.com/microsoft/pyright/blob/main/docs/installation.md); [pyright-python](https://github.com/RobertCraigie/pyright-python) |
 | Testes | `pytest` 9, config nativa `[tool.pytest]` com `strict = true` | `strict` liga `strict_config`, `strict_markers`, `strict_xfail` e `strict_parametrization_ids` (fail fast em config errada) | [pytest: customize](https://docs.pytest.org/en/9.0.x/reference/customize.html); [referência `strict`](https://docs.pytest.org/en/stable/reference/reference.html#confval-strict) |
@@ -290,3 +290,42 @@ O README falava com desenvolvedores (SROIE, OCR, golden set e CI na primeira tel
 | Custo abaixo de um centavo | Sai "under $0.01", não "$0.00" | Um modelo mais barato (cerca de US$ 0,0005 por recibo) apareceria como grátis |
 
 **Portão provado:** com o README novo e o bloco vazio, `uv run poe eval` saiu com 1: `README.md: the eval summary is out of date; run uv run poe eval --update-readme and commit it`; depois do `--update-readme`, saiu com 0.
+
+### D18. Fronteira entre núcleo, kit de entrega e código do cliente (decidida na #52)
+
+O [PRODUCT.md](PRODUCT.md) separa três camadas: o núcleo (este repositório, público, MIT), o kit de entrega (repositório privado do autor) e o código do cliente (repositório do cliente). Esta decisão diz o que cabe em cada uma antes de qualquer conector, para que cola de cliente não entre no núcleo público.
+
+**Achado que muda o plano:** hoje o núcleo **não pode ser consumido** por nenhum outro repositório. Sonda: num projeto descartável, `uv add "doc-intake-pipeline @ git+file:///…@3a4eab1"` falhou com `Multiple top-level packages discovered in a flat-layout: ['core', 'demo', 'evals', 'packs', 'typings', 'providers', 'workflows']`. Sem `[build-system]`, o uv recorre ao setuptools legado, que tenta descobrir os pacotes sozinho e recusa o layout plano com vários pacotes ([uv: config](https://docs.astral.sh/uv/concepts/projects/config/)). O `package = false` da D7 valia enquanto o projeto não tinha consumidor; esta decisão o revê.
+
+| Pergunta | Decisão | Por quê | Fonte |
+| --- | --- | --- | --- |
+| O que da demo de ponta a ponta ([#53](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/53)) é público | **Público:** entrada por pasta local, execução agendada de exemplo e saída em planilha (CSV) com fila de revisão, uma linha por campo com status, valor, citação e motivo. **Kit:** conectores por API de sistemas de cliente (Gmail, Drive, Dropbox, QuickBooks, NetSuite), gerador do relatório do piloto, modelos de documentação de entrega e receitas de publicação na conta do cliente | Pasta e CSV são E/S genérica, sem SDK de terceiro, testáveis com provedor falso: cabem na regra "o núcleo é genérico". Uma pasta sincronizada pelo cliente do Drive ou do Dropbox já é uma fonte real sem conector. A planilha atende a linha "Saída" do PRODUCT.md, e a fila mostra a revisão dirigida (D14, D16) | PRODUCT.md; julgamento próprio |
+| `workflows/` | **Remover**, na [#56](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/56) (esta missão não move código) | A previsão de n8n entrou no plano inicial (commit `319afad`) sem decisão nem fonte, e nenhuma missão a usou. O n8n não serve ao núcleo: o [Information Extractor](https://docs.n8n.io/integrations/builtin/cluster-nodes/root-nodes/n8n-nodes-langchain.information-extractor/) não documenta citação, nova tentativa nem OCR. Chamar o pipeline em Python também tem custo: na Cloud, só por HTTP, porque o [Code node](https://docs.n8n.io/code/code-node/) não importa bibliotecas lá e o [Execute Command](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.executecommand/) não existe. No n8n hospedado pelo cliente, o Execute Command pode ser religado (vem desligado desde o 2.0) e o Code node importa módulos que a imagem de runners inclua e libere, mas os dois rodam no contêiner do n8n, que teria de levar o OCR e as dependências do pipeline | ver células |
+| Como o kit e o cliente consomem o núcleo | **Dependência git fixada em tag** (`[tool.uv.sources]` com `git` e `tag`). Antes, a [#56](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/56) torna o núcleo um pacote: `src/doc_intake/`, backend `uv_build`, um nome de import único | A tag diz a intenção e o `uv.lock` grava o commit, preferido nas resoluções seguintes ([uv: sync](https://docs.astral.sh/uv/concepts/projects/sync/)). O commit muda quando um PR troca a tag em `[tool.uv.sources]` (ou com `--upgrade-package`, se a tag tiver sido movida). Atualizar o núcleo num cliente vira um PR deliberado, que roda o eval do cliente, no mesmo espírito da D4. O núcleo é público, então nem o kit nem o cliente precisam de credencial para instalá-lo. `src/` porque, no layout plano, o diretório atual mascara erro de empacotamento ([PyPA](https://packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/)); nome único porque `core` e `providers` ocupariam o espaço de import do cliente, e nomes de import não são únicos entre distribuições ([PyPA](https://packaging.python.org/en/latest/discussions/distribution-package-vs-import-package/)) | ver células |
+| Peças do kit no repositório do cliente | **Copiadas** na entrega, com licença não exclusiva | O cliente não tem acesso ao repositório privado, e o código entregue precisa rodar e ser mantido sem o autor. A cópia é a exceção consciente ao "não vendorizar" | PRODUCT.md |
+
+**Alternativas descartadas para o consumo:**
+
+- **PyPI**, mesmo com [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) dispensando token: publica um contrato de biblioteca para o mundo (versão, compatibilidade, suporte) quando os únicos consumidores são o autor e os clientes dele (YAGNI). Revisitar se o núcleo ganhar usuários externos.
+- **Cópia vendorizada do núcleo:** as cópias divergem e cada correção de segurança tem de ser replicada à mão ([pip, vendoring policy](https://pip.pypa.io/en/stable/development/vendoring-policy/)).
+
+**Invariantes do AGENTS.md que também valem para o kit** (e para o código entregue ao cliente):
+
+1. **Nada inventado:** conector e planilha levam o `null` e o motivo como vieram. Nenhuma saída preenche campo vazio com valor padrão.
+2. **Toda saída passa pelo schema:** o kit escreve a partir do `ExtractionResult` validado. `failed` e `needs_review` chegam ao destino como tais, nunca como linha "ok" parcial.
+3. **Provedor atrás da interface:** o kit não importa SDK de LLM, só o núcleo.
+4. **Testes sem rede:** conectores são testados com dublês. Chamada real a Gmail, Drive ou ERP só num teste de integração rodado de propósito.
+5. **`Decimal` e ISO 8601:** `Decimal` até a borda. No destino, texto decimal exato quando ele aceitar; quando só aceitar número de ponto flutuante (célula numérica, número JSON de algumas APIs), a perda de precisão é declarada na documentação da entrega, não escondida.
+6. **Log sem conteúdo do documento.**
+
+Também valem as regras de segurança: nenhum documento de cliente em repositório do autor, e credenciais só em variável de ambiente ou no cofre de segredos da conta do cliente. A MIT exige manter o aviso de copyright do núcleo em toda cópia ([MIT](https://opensource.org/license/mit)). Na dependência git, o que se instala é a wheel construída, não o repositório: a #56 declara `license-files` no `pyproject.toml` e confere o `LICENSE` dentro da wheel.
+
+**O n8n fica como opção do kit** para cliente que já o usa: os gatilhos de Gmail e Drive e as saídas para Sheets e QuickBooks já existem nele. A licença permite construir e entregar workflows para um cliente que hospeda o próprio n8n, desde que o autor não o hospede para ele ([FAQ da licença](https://docs.n8n.io/n8n-community-license/community-license/license-faq.md)), o que já está fora do produto. **Custo:** o núcleo precisaria de um ponto de entrada HTTP, ou o n8n do cliente teria de levar o pipeline inteiro na imagem (célula `workflows/` acima). Os dois são decisões separadas, tomadas quando houver o pedido.
+
+**Julgamento próprio:**
+
+- Pasta mais CSV bastam para a demo pública, sem conector real.
+- Copiar o kit para o cliente, e não dar acesso ao repositório privado.
+- Não conferi se as vagas do PRODUCT.md pediam n8n: a tabela não traz esse dado.
+
+**Não verificado:** se o Dependabot (ecossistema `uv`) atualiza tags de fontes git. A documentação lida não responde. Sem isso, a atualização do núcleo no kit e no cliente é manual, o que combina com o PR deliberado acima.
