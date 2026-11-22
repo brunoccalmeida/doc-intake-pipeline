@@ -39,6 +39,7 @@ LLM extraction demos are easy; trusting them in production is not. This project 
 | Per-field eval gating CI                | done    |
 | Run log and cost per document           | done    |
 | Demo video, recorded as code            | done    |
+| Scheduled inbox run, CSV review queue   | done    |
 
 ## Setup and commands
 
@@ -55,6 +56,8 @@ uv run poe extract <file>  # extract one receipt with the configured provider (p
 uv run poe eval            # score the golden set from recorded responses, gate on the baseline
 uv run poe eval --update-readme  # rewrite the README's eval summary after the numbers change
 uv run poe demo            # render the demo video in Docker (replay: no key, no cost)
+uv run poe inbox <inbox> <runs>  # one run over an inbox folder (paid API calls; --replay DIR for none)
+uv run poe inbox-demo      # that run on the two demo receipts, into .cache/inbox-demo (no key, no cost)
 ```
 
 Both `extract` and `eval` write one JSON line per document to stderr: run and document ids, status and validation errors, calls, retries, tokens, latency and cost in exact USD, never document content. `extract` identifies the document by the SHA-256 of its bytes, not its file name. `DOC_INTAKE_LOG_LEVEL=WARNING` silences these lines. Example (from the eval replay, so latency is near zero):

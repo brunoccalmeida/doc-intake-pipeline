@@ -28,6 +28,8 @@ O pacote distribuído é `src/doc_intake/` (import `doc_intake`, D18). Nas decis
 | `src/doc_intake/core/` | Motor genérico: ingest, interface `LLMProvider`, extração com nova tentativa, validação, log e custo. Não conhece tipo de documento. |
 | `src/doc_intake/packs/` | Um pack por tipo de documento (recibo/nota fiscal agora; contrato na semana 3): schema, instruções de extração e normalização dos campos. |
 | `src/doc_intake/providers/` | Implementações de `LLMProvider` (Claude, OpenAI) e a fábrica `make_provider`. Único lugar que importa SDK de provedor (D10). |
+| `src/doc_intake/batch.py` | Execução sobre uma pasta de entrada: pasta por execução, CSV com a fila de revisão, originais movidos (D19). |
+| `deploy/` | Exemplo de agendamento (timer do systemd) e instruções de instalação. Fora do pacote. |
 | `evals/` | Conjuntos-ouro por pack, pontuação por campo, relatório em Markdown e a linha de base que o CI compara. Fora do pacote. |
 | `scripts/`, `demo/` | Tarefas do `poe` (baixar dados, extrair, eval, conferir o wheel) e o vídeo de demonstração. Fora do pacote. |
 | `tests/` | Testes unitários e de integração, sempre com provedor falso. |
@@ -331,3 +333,26 @@ Também valem as regras de segurança: nenhum documento de cliente em repositór
 - Não conferi se as vagas do PRODUCT.md pediam n8n: a tabela não traz esse dado.
 
 **Não verificado:** se o Dependabot (ecossistema `uv`) atualiza tags de fontes git. A documentação lida não responde. Sem isso, a atualização do núcleo no kit e no cliente é manual, o que combina com o PR deliberado acima.
+
+### D19. Execução agendada sobre uma pasta de entrada (decidida na #53)
+
+A D18 pôs no núcleo a entrada por pasta, a execução agendada de exemplo e a saída em CSV com fila de revisão. Esta decisão diz como uma execução funciona. O código está em `batch.py` (no pacote, porque o kit vai reaproveitá-lo: um conector baixa os arquivos na pasta e chama o mesmo lote), o comando em `scripts/run_inbox.py` e o agendamento de exemplo em `deploy/`.
+
+| Pergunta | Decisão | Por quê | Fonte |
+| --- | --- | --- | --- |
+| Formato da saída | **Uma pasta por execução**, `runs/<hora UTC>/`, com `results.csv` e os originais em `documents/`. A pasta já existente faz a execução falhar antes de qualquer chamada paga | O CSV nunca é reescrito: o lote não disputa o arquivo com uma planilha aberta, e cada original fica ao lado das linhas dele. O CSV é gravado num temporário e trocado por `os.replace`, atômico no mesmo sistema de arquivos. Alternativa descartada, com o usuário: uma planilha acumulada | [`os.replace`](https://docs.python.org/3.14/library/os.html#os.replace); julgamento próprio |
+| Ordem | Extrai tudo, grava o CSV e **só então** move os originais | Uma queda no meio deixa os arquivos na entrada e a próxima execução refaz o trabalho: o documento pode ser pago duas vezes, mas nunca se perde (*at-least-once*) | julgamento próprio |
+| Arquivo ainda sendo gravado | Só entram PDF, PNG e JPEG não ocultos e **sem modificação há 60 s** (`--settle`) | Nem o Dropbox nem o Google Drive para desktop documentam como gravam um arquivo sincronizado, então não dá para presumir que ele aparece inteiro. Arquivo temporário do sincronizador não tem extensão aceita e fica onde está | [Dropbox](https://help.dropbox.com/delete-restore/cache-folder); [Drive](https://support.google.com/drive/answer/16631477); o prazo é julgamento próprio |
+| Falhas | Arquivo ilegível: linha `failed`, movido com a execução (ler de novo não muda nada). Erro do provedor (rede, limite): linha `failed`, **fica na entrada** para a próxima execução. Falta do modelo de OCR: a execução para antes de gravar ou mover qualquer coisa | Erro de configuração não é problema do documento (fail fast). Erro transitório não deve condenar o documento | julgamento próprio |
+| Fila de revisão | Uma linha por campo: `field_status` é `needs_review` (o campo está em `review`) ou `accepted`; `note` traz o motivo da revisão ou do vazio | A fila é um filtro da planilha. A cor ou a tela de revisão fica para quando houver pedido (YAGNI) | D14, D16 |
+| CSV seguro | `utf-8-sig` (com BOM) e `newline=''`. Célula que começa com `= + - @`, tab, CR, LF ou as formas de largura total ganha `'` na frente, exceto número puro (`-12.50`) | O Excel só abre UTF-8 direto com BOM. O texto vem de documento de terceiro: `=HYPERLINK(...)` impresso num recibo viraria fórmula ativa. Número puro não executa nada e continua número | [Microsoft: CSV UTF-8](https://support.microsoft.com/en-us/office/opening-csv-utf-8-files-correctly-in-excel-8a935af5-3416-4edd-ba7e-3dfd2bc4a032); [Python `csv`](https://docs.python.org/3.14/library/csv.html); [OWASP: CSV Injection](https://community.owasp.org/attacks/CSV_Injection); a exceção do número é julgamento próprio |
+| Código de saída | 1 quando algum documento falhou; `needs_review` sai com 0 | O agendador marca a execução como falha e alguém olha. Campo a revisar é a fila funcionando | julgamento próprio |
+| Agendamento | Timer do systemd com serviço `Type=oneshot`, `Persistent=true`. No CI, `systemd-analyze verify --recursive-errors=yes` | O timer não reinicia um serviço ainda ativo, então duas execuções nunca se sobrepõem, sem trava no código. Sem `--recursive-errors`, o `verify` sai com 0 mesmo com avisos. O `verify` confere o binário do `ExecStart` na máquina, por isso o CI põe o `uv` em `/usr/local/bin`; não confere `User=` nem `WorkingDirectory=` | [systemd.timer](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html); [systemd-analyze](https://www.freedesktop.org/software/systemd/man/latest/systemd-analyze.html) |
+
+**Alternativas descartadas para agendar:**
+
+- **cron:** não impede sobreposição sozinho; precisa de [`flock -n`](https://man7.org/linux/man-pages/man1/flock.1.html). Fica documentado em `deploy/README.md` como opção, com o Agendador de Tarefas do Windows ([`IgnoreNew`](https://learn.microsoft.com/en-us/windows/win32/taskschd/taskschedulerschema-multipleinstancespolicy-settingstype-element)).
+- **Agendador dentro do processo** (laço com `sleep`, APScheduler): o processo precisa ficar de pé, e reiniciar depois de uma queda vira problema do código. O sistema já resolve isso.
+- **Trava no código** (arquivo de lock): duplicaria o que o timer garante e deixaria lock velho depois de uma queda (YAGNI).
+
+**Não verificado:** a instalação de `deploy/README.md` não foi executada numa máquina real; o CI só valida os arquivos de unidade. Em particular, o `uv` como usuário de sistema com pasta pessoal própria segue a documentação do `useradd` e o comportamento padrão do `uv`, sem prova de ponta a ponta.

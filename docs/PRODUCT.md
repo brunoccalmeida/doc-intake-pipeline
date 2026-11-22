@@ -36,11 +36,11 @@ Base: 15 vagas de extração de documentos no Upwork, com pagamento verificado, 
 
 | Necessidade | O que as vagas pediam | Situação no núcleo |
 | --- | --- | --- |
-| Entrada | Caixa de e-mail compartilhada; pasta do Google Drive ou Dropbox; upload; foto tirada no celular | Lê arquivo PDF ou imagem; entrada real ainda não demonstrada |
-| Saída | Planilha; sistemas como QuickBooks, NetSuite, Exact, ADP | JSON por documento; nenhuma saída integrada demonstrada |
+| Entrada | Caixa de e-mail compartilhada; pasta do Google Drive ou Dropbox; upload; foto tirada no celular | Pasta de entrada lida por execução agendada (exemplo de timer do systemd), servindo também pasta sincronizada pelo Drive ou Dropbox; arquivo ainda sendo gravado espera a próxima execução ([#53](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/53)). E-mail e upload: kit |
+| Saída | Planilha; sistemas como QuickBooks, NetSuite, Exact, ADP | Planilha CSV por execução, uma linha por campo, pronta para Excel e Sheets (#53); JSON por documento no `extract`. Sistemas de negócio: kit |
 | Tipos de documento | Faturas, pedidos de compra, confirmações de pedido, romaneios, tickets de campo, timesheets, cheques | Um pack: recibo |
 | Volume | Até 150 a 300 documentos por dia, em dezenas de formatos | Medido em 20 recibos |
-| Revisão humana | Fila para campos de baixa confiança, com acesso ao original e jeito de corrigir | Status `needs_review` com campos e citação; sem fila nem correção |
+| Revisão humana | Fila para campos de baixa confiança, com acesso ao original e jeito de corrigir | Fila na planilha: filtro `field_status = needs_review`, com valor, citação, motivo e o original movido para a mesma pasta da execução (#53). Sem tela de revisão; correção feita na planilha não volta ao pipeline |
 | Prova de qualidade | Acurácia por campo medida em documentos reais, piloto com 10 a 20 documentos antes do projeto | Eval por campo com gate no CI (D4, D16) |
 | Entrega | Código na hospedagem ou no repositório do cliente, documentação, instruções de configuração, 30 dias de correção de bugs | Fora do núcleo (kit) |
 
