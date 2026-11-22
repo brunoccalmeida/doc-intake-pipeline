@@ -18,14 +18,16 @@ O cliente paga pelo trabalho de construir e integrar um pipeline de extração p
 | Camada | O que contém | Onde fica | Licença |
 | --- | --- | --- | --- |
 | Núcleo | Leitura (OCR), extração com LLM, schema com citação da origem, campo vazio com motivo, revisão humana do duvidoso, eval contra conjunto-ouro no CI, custo por documento | Este repositório (público, portfólio) | MIT |
-| Kit de entrega | Conectores de entrada e saída para os sistemas do cliente, gerador do relatório do piloto, modelos de documentação de entrega, forma de publicar na conta do cliente | Repositório privado do autor (ainda não criado) | Não exclusiva, combinada a cada contrato |
+| Kit de entrega | Conectores de entrada e saída para os sistemas do cliente, gerador do relatório do piloto, modelos de documentação de entrega, forma de publicar na conta do cliente | Repositório privado do autor (ainda não criado; consome o núcleo por dependência git, D18) | Não exclusiva, combinada a cada contrato |
 | Específico do cliente | Campos, regras, ligações com os sistemas dele, conjunto-ouro com os documentos dele, configuração | Repositório do cliente | Do cliente |
 
 ### Regra de fronteira para as missões
 
 - **O núcleo é genérico:** não conhece cliente, não depende de conector de sistema de cliente (Gmail, Drive, QuickBooks, NetSuite etc.) e continua testável só com provedor falso. Isso estende o que a tabela de pastas já diz de `core/` e o invariante 3 do AGENTS.md.
 - **O que só acelera entregas** (conector, relatório do piloto, modelo de documentação) **é do kit**, não deste repositório.
-- **Exceção: o que mostra ao cliente como a entrega funciona pode ser público,** desde que genérico e sem dado de cliente (ex.: um demo de ponta a ponta). Onde fica cada peça desse demo está em aberto (ver issue de fronteira).
+- **Exceção: o que mostra ao cliente como a entrega funciona pode ser público,** desde que genérico e sem dado de cliente. Na demo de ponta a ponta, a entrada por pasta, a execução agendada e a planilha com fila de revisão são públicas; conectores por API são do kit ([D18](ARCHITECTURE.md#d18-fronteira-entre-núcleo-kit-de-entrega-e-código-do-cliente-decidida-na-52)).
+- **O kit e o cliente consomem o núcleo como dependência git fixada em tag;** as peças do kit são copiadas para o repositório do cliente na entrega (D18).
+- **Os invariantes do AGENTS.md valem também para o kit** e para o código entregue (lista na D18).
 - **Documento de cliente nunca entra em nenhum repositório do autor** que não seja o do próprio cliente (Segurança, AGENTS.md).
 
 ## O que o mercado pediu
