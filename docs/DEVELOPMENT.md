@@ -56,6 +56,7 @@ uv run poe extract <file>  # extract one receipt with the configured provider (p
 uv run poe eval            # score the golden set from recorded responses, gate on the baseline
 uv run poe eval --update-readme  # rewrite the README's eval summary after the numbers change
 uv run poe demo            # render the demo video in Docker (replay: no key, no cost)
+uv run poe demo-voice      # speak the demo's new voice-over lines, locally on CPU (no key, no cost)
 uv run poe inbox <inbox> <runs>  # one run over an inbox folder (paid API calls; --replay DIR for none)
 uv run poe inbox-demo      # that run on the two demo receipts, into .cache/inbox-demo (no key, no cost)
 ```
