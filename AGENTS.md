@@ -6,7 +6,7 @@ Regras que valem em todo chat e todo agente (o `CLAUDE.md` importa este arquivo)
 
 ## O que é este projeto
 
-Pipeline que lê documentos (PDF e imagem, inclusive escaneados), extrai campos com um LLM e devolve um resultado **validado e com citação da origem** de cada campo. A qualidade é medida por **evals** contra um conjunto-ouro, e o CI barra qualquer piora. É peça de portfólio para clientes: cada decisão precisa ser defensável numa entrevista.
+Pipeline que lê documentos (PDF e imagem, inclusive escaneados), extrai campos com um LLM e devolve um resultado **validado e com citação da origem** de cada campo. A qualidade é medida por **evals** contra um conjunto-ouro, e o CI barra qualquer piora. É peça de portfólio para clientes: cada decisão precisa ser defensável numa entrevista. Este repositório é o **núcleo** genérico e público; conectores e materiais de entrega a clientes ficam fora dele ([docs/PRODUCT.md](docs/PRODUCT.md)).
 
 Invariantes (valem em todo PR):
 
@@ -38,7 +38,7 @@ Contexto longo degrada a qualidade; cada chat cuida de **uma missão** (uma GitH
 
 **Início de cada chat** (automático, e quando o usuário disser "próxima missão"):
 
-1. Ler `docs/PROJECT_SESSION_SUMMARY.md`.
+1. Ler `docs/PROJECT_SESSION_SUMMARY.md` e `docs/PRODUCT.md` (o que o cliente compra e a fronteira entre núcleo, kit de entrega e código do cliente).
 2. Listar issues e PRs abertos (`gh issue list`, `gh pr list`).
 3. Propor a missão de maior prioridade e confirmar com o usuário. Prioridade: bloqueio → segurança → visibilidade → dívida técnica (labels `priority: P0/P1/P2`). No empate, a issue de menor número, porque cada missão se apoia nas anteriores.
 
