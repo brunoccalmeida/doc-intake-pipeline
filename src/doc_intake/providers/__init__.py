@@ -7,11 +7,11 @@ stays vendor-neutral and switching providers is a setting.
 
 from pydantic import SecretStr
 
-from core.config import Settings
-from core.llm import LLMProvider
-from providers.claude import ClaudeProvider
-from providers.credentials import MissingCredentialError
-from providers.gpt import OpenAIProvider
+from doc_intake.core.config import Settings
+from doc_intake.core.llm import LLMProvider
+from doc_intake.providers.claude import ClaudeProvider
+from doc_intake.providers.credentials import MissingCredentialError
+from doc_intake.providers.gpt import OpenAIProvider
 
 __all__ = ["MissingCredentialError", "make_provider"]
 

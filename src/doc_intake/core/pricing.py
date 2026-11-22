@@ -47,7 +47,7 @@ def price_of(model: str) -> Price:
         return PRICES[model]
     except KeyError:
         raise UnknownModelPriceError(
-            f"no price for model {model!r}; add it to core/pricing.py from the vendor's "
+            f"no price for model {model!r}; add it to doc_intake/core/pricing.py from the vendor's "
             f"pricing page ({', '.join(PRICE_SOURCES)})"
         ) from None
 

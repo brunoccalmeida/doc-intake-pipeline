@@ -14,12 +14,12 @@ from pathlib import Path
 import tesserocr
 from PIL import Image
 
-from core.config import Settings
-from core.extract import extract
-from core.ingest import OCR_LANGUAGE, ingest
-from core.result import ExtractedField, Status, StrictModel
+from doc_intake.core.config import Settings
+from doc_intake.core.extract import extract
+from doc_intake.core.ingest import OCR_LANGUAGE, ingest
+from doc_intake.core.result import ExtractedField, Status, StrictModel
+from doc_intake.packs.receipt import RECEIPT
 from evals.recording import RecordingStore, ReplayProvider
-from packs.receipt import RECEIPT
 
 DEMO_RECORDINGS = Path("demo/recordings")
 

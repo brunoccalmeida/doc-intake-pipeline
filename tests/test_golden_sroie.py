@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from core.config import Settings
+from doc_intake.core.config import Settings
+from doc_intake.packs.receipt import Receipt
 from evals.sroie import MANIFEST_PATH, GoldenEntry, load_manifest
-from packs.receipt import Receipt
 
 ENTRIES = load_manifest(MANIFEST_PATH).receipts
 

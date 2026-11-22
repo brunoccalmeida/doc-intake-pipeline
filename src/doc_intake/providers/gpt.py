@@ -19,7 +19,7 @@ from openai.types.responses import (
 )
 from pydantic import BaseModel
 
-from core.llm import LLMRequest, LLMResponse
+from doc_intake.core.llm import LLMRequest, LLMResponse
 
 MAX_OUTPUT_TOKENS = 16_000
 # "For tasks that require fine visual detail ... such as optical character

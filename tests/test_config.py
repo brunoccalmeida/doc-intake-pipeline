@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from core.config import Settings
+from doc_intake.core.config import Settings
 
 
 @pytest.fixture(autouse=True)

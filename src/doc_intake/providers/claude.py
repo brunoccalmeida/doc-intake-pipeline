@@ -16,8 +16,8 @@ from anthropic.types.beta import (
 )
 from pydantic import BaseModel
 
-from core.llm import LLMRequest, LLMResponse
-from providers.credentials import MissingCredentialError
+from doc_intake.core.llm import LLMRequest, LLMResponse
+from doc_intake.providers.credentials import MissingCredentialError
 
 # Room for the JSON and the model's thinking; a non-streaming call stays well
 # under the SDK's request timeout at this size (Anthropic SDK guidance).

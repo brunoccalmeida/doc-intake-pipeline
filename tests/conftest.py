@@ -6,9 +6,9 @@ from collections.abc import Iterator
 
 import pytest
 
-from core.runlog import RUN_LOGGER
+from doc_intake.core.runlog import RUN_LOGGER
 
-# Every credential variable the settings read (core/config.py): the API keys
+# Every credential variable the settings read (doc_intake/core/config.py): the API keys
 # and the ant CLI profile, which signs in just as well (D13).
 CREDENTIAL_VARIABLES = (
     "DOC_INTAKE_ANTHROPIC_API_KEY",

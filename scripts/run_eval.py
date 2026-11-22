@@ -12,17 +12,19 @@ The recordings directory (``DOC_INTAKE_RECORDINGS_DIR``) is a clone of the
 private recordings repository (``docs/DATA.md``). Writes the Markdown report
 and exits 1 when the gate fails or a recording is missing; the report holds
 ids, field names and outcomes only, so CI can publish it. Each document is
-also logged on stderr as a JSON line (``core.runlog``), with no content either.
+also logged on stderr as a JSON line (``doc_intake.core.runlog``), with no content either.
 """
 
 import argparse
 import sys
 from pathlib import Path
 
-from core.config import Settings
-from core.llm import LLMProvider
-from core.pricing import price_of
-from core.runlog import new_run_id
+from doc_intake.core.config import Settings
+from doc_intake.core.llm import LLMProvider
+from doc_intake.core.pricing import price_of
+from doc_intake.core.runlog import new_run_id
+from doc_intake.packs.receipt import RECEIPT
+from doc_intake.providers import make_provider
 from evals.baseline import BASELINE_PATH, load_baseline, regressions, save_baseline
 from evals.readme import render_summary, replace_summary
 from evals.recording import MissingRecordingError, RecordingProvider, RecordingStore, ReplayProvider
@@ -30,8 +32,6 @@ from evals.report import render_report
 from evals.run import run_eval
 from evals.scoring import field_accuracy, review_load
 from evals.sroie import MANIFEST_PATH, load_manifest
-from packs.receipt import RECEIPT
-from providers import make_provider
 from scripts.logs import configure_run_log
 
 REPORT_PATH = Path(".cache/eval/report.md")

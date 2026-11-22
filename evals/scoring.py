@@ -38,7 +38,7 @@ from typing import Literal, Self, get_args
 
 from pydantic import BaseModel, model_validator
 
-from core.result import ExtractedField, ExtractionResult, Status, StrictModel
+from doc_intake.core.result import ExtractedField, ExtractionResult, Status, StrictModel
 
 type FieldOutcome = Literal["correct", "wrong", "missing", "unexpected", "document_failed"]
 type FieldRoute = Literal["accepted", "review", "empty"]

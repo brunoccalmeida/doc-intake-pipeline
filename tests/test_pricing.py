@@ -4,7 +4,7 @@ from decimal import Decimal
 
 import pytest
 
-from core.pricing import PRICES, UnknownModelPriceError, cost_usd, price_of
+from doc_intake.core.pricing import PRICES, UnknownModelPriceError, cost_usd, price_of
 
 
 def test_cost_is_tokens_times_the_price_per_million_exactly() -> None:

@@ -13,12 +13,18 @@ from typing import Any
 
 import pytest
 
-from core.extract import Pack
-from core.ingest import Document, EmptyDocumentError, PageImage, PageText
-from core.llm import LLMRequest, LLMResponse
-from core.pricing import UnknownModelPriceError
-from core.result import ExtractedField, ExtractionResult, StrictModel
-from core.runlog import RUN_LOGGER, RunLogEntry, extract_logged, log_unreadable, new_run_id
+from doc_intake.core.extract import Pack
+from doc_intake.core.ingest import Document, EmptyDocumentError, PageImage, PageText
+from doc_intake.core.llm import LLMRequest, LLMResponse
+from doc_intake.core.pricing import UnknownModelPriceError
+from doc_intake.core.result import ExtractedField, ExtractionResult, StrictModel
+from doc_intake.core.runlog import (
+    RUN_LOGGER,
+    RunLogEntry,
+    extract_logged,
+    log_unreadable,
+    new_run_id,
+)
 
 PAGE_TEXT = "ZEPHYR QUILL TRADING\nLOT 77, JALAN SEROJA\nTOTAL RM 31.40"
 DOCUMENT = Document(

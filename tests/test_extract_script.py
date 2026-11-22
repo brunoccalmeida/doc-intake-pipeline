@@ -12,10 +12,10 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw, ImageFont
 
-from core.config import Settings
-from core.llm import LLMProvider, LLMRequest, LLMResponse
-from core.pricing import UnknownModelPriceError
-from providers import MissingCredentialError
+from doc_intake.core.config import Settings
+from doc_intake.core.llm import LLMProvider, LLMRequest, LLMResponse
+from doc_intake.core.pricing import UnknownModelPriceError
+from doc_intake.providers import MissingCredentialError
 from scripts import extract_document
 from scripts.extract_document import main
 

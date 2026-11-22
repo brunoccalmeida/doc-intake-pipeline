@@ -21,8 +21,8 @@ from typing import Annotated
 
 from pydantic import Field
 
-from core.llm import LLMProvider, LLMRequest, LLMResponse
-from core.result import StrictModel
+from doc_intake.core.llm import LLMProvider, LLMRequest, LLMResponse
+from doc_intake.core.result import StrictModel
 
 RECORD_COMMAND = "uv run poe eval --record"
 # Which commit of the private recordings repository CI replays: pinned like an

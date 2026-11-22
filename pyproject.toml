@@ -4,6 +4,10 @@ version = "0.1.0"
 description = "LLM document intake pipeline with source citations, schema validation and per-field evals gating CI"
 readme = "README.md"
 license = "MIT"
+# Consumers install the built wheel, not the repository, and MIT requires the
+# notice in every copy (docs/ARCHITECTURE.md D18): the wheel carries it in
+# .dist-info/licenses/ (PEP 639).
+license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = [
     "anthropic>=2.10.0",
@@ -25,19 +29,29 @@ dev = [
     "types-pyyaml>=6.0.12.20261113",
 ]
 
+[build-system]
+# The delivery kit and client repositories install the core as a git
+# dependency pinned to a tag (docs/ARCHITECTURE.md D18). The upper bound keeps
+# a future backend release from changing how a tagged version builds.
+requires = ["uv_build>=0.13.9,<0.14"]
+build-backend = "uv_build"
+
 [tool.uv]
 # One uv version for every machine: setup-uv in CI reads this same field
 # (its "version" input defaults to the version in pyproject.toml).
 required-version = "==0.13.9"
-# An application, not a library: nothing is built or published, so uv installs
-# only the dependencies and the packages are imported from the project root.
-package = false
+
+[tool.uv.build-backend]
+# The import name differs from the distribution name (doc-intake-pipeline would
+# default to doc_intake_pipeline). The module lives in src/ (the default
+# module-root), so only what is meant to ship is importable from the install.
+module-name = "doc_intake"
 
 [tool.pytest]
 # pytest 9 reads native TOML here (no ini_options table needed).
 testpaths = ["tests"]
-# The project is not installed (package = false): put its root on sys.path so
-# tests import core, packs and evals exactly as the application does.
+# doc_intake is installed (editable) by uv sync. The development tooling that
+# does not ship (evals, scripts, demo) is imported from the project root.
 pythonpath = ["."]
 # Unknown markers and config keys are errors, not warnings (fail fast).
 strict = true
@@ -58,22 +72,22 @@ select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "PTH", "PT", "N", "S", "TI
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # The engine depends on core.llm.LLMProvider, never on a vendor SDK
 # (docs/ARCHITECTURE.md D2): only the providers package may import one.
-"anthropic".msg = "import vendor SDKs only in providers/ (docs/ARCHITECTURE.md D2)"
-"openai".msg = "import vendor SDKs only in providers/ (docs/ARCHITECTURE.md D2)"
+"anthropic".msg = "import vendor SDKs only in doc_intake/providers/ (docs/ARCHITECTURE.md D2)"
+"openai".msg = "import vendor SDKs only in doc_intake/providers/ (docs/ARCHITECTURE.md D2)"
 
 [tool.ruff.lint.per-file-ignores]
 # S101: pytest's assertion rewriting is how tests assert; outside tests a bare
 # assert is stripped by "python -O" and must not guard anything.
 "tests/**" = ["S101"]
 # The one package allowed to import vendor SDKs (see banned-api above).
-"providers/**" = ["TID251"]
+"src/doc_intake/providers/**" = ["TID251"]
 # N802: stubs copy the third-party library's own method names (tesserocr's CamelCase).
 "typings/**" = ["N802"]
 
 [tool.pyright]
 typeCheckingMode = "strict"
 pythonVersion = "3.14"
-include = ["core", "packs", "providers", "evals", "scripts", "demo", "tests", "typings"]
+include = ["src", "evals", "scripts", "demo", "tests", "typings"]
 # Local stubs for libraries that ship no usable types (pypdfium2, tesserocr):
 # pyright resolves stubPath before installed packages. Each stub holds only
 # the API the project calls; see the header of each file.
@@ -89,7 +103,7 @@ format-check = "ruff format --check ."
 types = "pyright"
 format = "ruff format ."
 # Rewrite each pack's committed JSON Schema; a snapshot test fails until you do.
-export-schemas = "python -m packs.json_schema"
+export-schemas = "python -m doc_intake.packs.json_schema"
 # Download Tesseract's English model (pinned, checksum-verified) for OCR.
 fetch-tessdata = "python -m scripts.fetch_tessdata"
 # Download the SROIE golden set (pinned, checksum-verified) and convert it locally.

@@ -12,8 +12,8 @@ import pytest
 from PIL import Image, ImageDraw, ImageFont
 from pydantic import ValidationError
 
-from core.config import Settings
-from core.ingest import (
+from doc_intake.core.config import Settings
+from doc_intake.core.ingest import (
     EmptyDocumentError,
     OcrDataMissingError,
     PageImage,
@@ -161,7 +161,7 @@ def test_dark_borders_are_whitened_keeping_the_page_size(
         seen.append(image)
         return "TOTAL"
 
-    monkeypatch.setattr("core.ingest.tesserocr.image_to_text", fake_image_to_text)
+    monkeypatch.setattr("doc_intake.core.ingest.tesserocr.image_to_text", fake_image_to_text)
     page = faded_receipt_with_scanner_borders()
     path = tmp_path / "receipt.png"
     page.save(path)
@@ -203,7 +203,7 @@ def test_page_without_dark_borders_reaches_ocr_unchanged(
         seen.append(image)
         return "TOTAL"
 
-    monkeypatch.setattr("core.ingest.tesserocr.image_to_text", fake_image_to_text)
+    monkeypatch.setattr("doc_intake.core.ingest.tesserocr.image_to_text", fake_image_to_text)
     path = tmp_path / "receipt.png"
     page.save(path)
 

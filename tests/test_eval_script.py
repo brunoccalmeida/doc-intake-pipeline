@@ -11,16 +11,16 @@ from pathlib import Path
 
 import pytest
 
-from core.config import Settings
-from core.ingest import ingest
-from core.llm import LLMRequest, LLMResponse
-from core.pricing import UnknownModelPriceError
+from doc_intake.core.config import Settings
+from doc_intake.core.ingest import ingest
+from doc_intake.core.llm import LLMRequest, LLMResponse
+from doc_intake.core.pricing import UnknownModelPriceError
+from doc_intake.packs.receipt import RECEIPT
+from doc_intake.providers import MissingCredentialError
 from evals.readme import END, START
 from evals.recording import RecordingProvider, RecordingStore
 from evals.run import run_eval
 from evals.sroie import MANIFEST_PATH, load_manifest
-from packs.receipt import RECEIPT
-from providers import MissingCredentialError
 from scripts.run_eval import main
 
 GOLDEN = Settings().sroie_dir

@@ -12,11 +12,11 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from core.extract import extract
-from core.ingest import Document, PageText
-from core.llm import LLMRequest, LLMResponse
-from core.result import ExtractionResult
-from packs.receipt import RECEIPT, Receipt
+from doc_intake.core.extract import extract
+from doc_intake.core.ingest import Document, PageText
+from doc_intake.core.llm import LLMRequest, LLMResponse
+from doc_intake.core.result import ExtractionResult
+from doc_intake.packs.receipt import RECEIPT, Receipt
 
 
 def cited(value: object, quote: str) -> dict[str, Any]:

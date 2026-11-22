@@ -24,6 +24,9 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
 
 WORKDIR /opt/app
 COPY pyproject.toml uv.lock .python-version ./
-RUN UV_COMPILE_BYTECODE=1 uv sync --locked
+# Dependencies only: the project itself (src/doc_intake) is not copied into the
+# image. "uv run" installs it, editable, from the repository mounted at /work.
+# https://docs.astral.sh/uv/guides/integration/docker/#intermediate-layers
+RUN UV_COMPILE_BYTECODE=1 uv sync --locked --no-install-project
 
 WORKDIR /work

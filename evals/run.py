@@ -1,7 +1,7 @@
 """Run the pipeline over golden documents and score each one, logging every document.
 
 Each document goes through the same path as production (``ingest`` then
-``extract``, logged by ``core.runlog``), so the eval measures the pipeline,
+``extract``, logged by ``doc_intake.core.runlog``), so the eval measures the pipeline,
 not a shortcut. A document that cannot be read is scored as failed, never
 skipped: skipping it would raise the accuracy by hiding the failure. What is
 not about the document stops the run instead: missing OCR data, a missing
@@ -15,10 +15,10 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from core.extract import Pack
-from core.ingest import IngestError, OcrDataMissingError, ingest
-from core.llm import LLMProvider
-from core.runlog import RunLogEntry, extract_logged, log_unreadable
+from doc_intake.core.extract import Pack
+from doc_intake.core.ingest import IngestError, OcrDataMissingError, ingest
+from doc_intake.core.llm import LLMProvider
+from doc_intake.core.runlog import RunLogEntry, extract_logged, log_unreadable
 from evals.scoring import DocumentScore, score_document
 
 # Averages are rounded to a millionth of a dollar: the cheapest token in the

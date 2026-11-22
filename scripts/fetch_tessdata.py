@@ -17,7 +17,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from core.config import Settings
+from doc_intake.core.config import Settings
 from scripts.download import (
     ChecksumMismatchError,
     download_https,

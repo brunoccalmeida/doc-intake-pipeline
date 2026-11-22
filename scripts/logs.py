@@ -14,8 +14,8 @@ libraries keep Python's default: warnings and errors still reach stderr.
 
 import logging.config
 
-from core.config import LogLevel
-from core.runlog import RUN_LOGGER
+from doc_intake.core.config import LogLevel
+from doc_intake.core.runlog import RUN_LOGGER
 
 
 def configure_run_log(level: LogLevel) -> None:

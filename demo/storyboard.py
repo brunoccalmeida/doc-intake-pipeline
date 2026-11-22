@@ -18,9 +18,9 @@ from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
 
-from core.result import ExtractedField
 from demo import make_receipt
 from demo.evidence import Box, Evidence
+from doc_intake.core.result import ExtractedField
 
 WIDTH = 1920
 HEIGHT = 1080

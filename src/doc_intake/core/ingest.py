@@ -19,8 +19,8 @@ import tesserocr
 from PIL import Image, ImageDraw
 from pydantic import Field, model_validator
 
-from core.llm import ImageMediaType
-from core.result import StrictModel
+from doc_intake.core.llm import ImageMediaType
+from doc_intake.core.result import StrictModel
 
 PDF_SUFFIXES = frozenset({".pdf"})
 IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg"})

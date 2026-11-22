@@ -5,7 +5,7 @@ names, outcomes and usage only; ``DocumentScore`` carries no document content
 by construction (AGENTS.md invariant 6, ``docs/DATA.md``).
 """
 
-from core.pricing import PRICE_SOURCES
+from doc_intake.core.pricing import PRICE_SOURCES
 from evals.baseline import Baseline
 from evals.run import EvalRun
 from evals.scoring import ReviewLoad, field_accuracy, review_load, status_counts

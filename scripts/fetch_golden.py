@@ -13,7 +13,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from core.config import Settings
+from doc_intake.core.config import Settings
 from evals.sroie import MANIFEST_PATH, Manifest, load_manifest, to_receipt
 from scripts.download import (
     ChecksumMismatchError,

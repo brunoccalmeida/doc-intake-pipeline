@@ -10,7 +10,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from packs.receipt import Receipt
+from doc_intake.packs.receipt import Receipt
 
 PACKS_DIR = Path(__file__).parent
 SCHEMAS: dict[str, type[BaseModel]] = {"receipt": Receipt}

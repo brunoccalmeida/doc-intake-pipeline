@@ -7,7 +7,7 @@ a dropped constraint) must fail here instead of reaching the prompt unnoticed.
 
 import pytest
 
-from packs.json_schema import PACKS_DIR, SCHEMAS, render, snapshot_path
+from doc_intake.packs.json_schema import PACKS_DIR, SCHEMAS, render, snapshot_path
 
 FIX = "run `uv run poe export-schemas` and commit the diff"
 

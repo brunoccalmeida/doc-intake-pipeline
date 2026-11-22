@@ -13,10 +13,10 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from core.config import Settings
-from core.ingest import ingest
-from core.result import Citation, ExtractedField
 from demo import evidence, make_receipt, render, storyboard
+from doc_intake.core.config import Settings
+from doc_intake.core.ingest import ingest
+from doc_intake.core.result import Citation, ExtractedField
 
 
 @pytest.fixture

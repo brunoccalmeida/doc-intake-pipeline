@@ -12,8 +12,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from core.llm import ImageInput, LLMRequest, LLMResponse
-from core.result import ExtractedField, StrictModel
+from doc_intake.core.llm import ImageInput, LLMRequest, LLMResponse
+from doc_intake.core.result import ExtractedField, StrictModel
 from evals.recording import (
     PIN_PATH,
     MissingRecordingError,
