@@ -341,7 +341,10 @@ def test_an_unpriced_model_stops_the_run_and_keeps_what_was_done(
     inbox, _, report = run(tmp_path, provider, tessdata_dir)
 
     assert provider.calls == 2  # c.png is not paid for while the price is missing
-    assert [p.name for p in inbox.iterdir()] == ["b.png", "c.png"]
+    assert sorted(p.name for p in inbox.iterdir()) == [
+        "b.png",
+        "c.png",
+    ]  # iterdir order is arbitrary
     assert [p.name for p in (folder_of(report) / "documents").iterdir()] == ["a.png"]
     stopped = rows_of(folder_of(report) / "results.csv")[-1]
     assert (stopped["file"], stopped["document_status"]) == ("b.png", "failed")
