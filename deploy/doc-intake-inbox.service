@@ -1,0 +1,17 @@
+# One run over the inbox folder, started by doc-intake-inbox.timer.
+# Paths and user are the example layout in deploy/README.md; change them to
+# match the machine. Install and check: deploy/README.md.
+
+[Unit]
+Description=doc-intake: process the inbox folder once
+Documentation=https://github.com/brunoccalmeida/doc-intake-pipeline/blob/main/deploy/README.md
+
+[Service]
+# oneshot: the unit stays "activating" until the run exits, and the timer does
+# not start a service that is still active, so two runs never overlap.
+Type=oneshot
+# Its home holds uv's cache and the Python uv installed at setup, as that user.
+User=doc-intake
+# The checkout, owned by User=: Settings reads its .env from here.
+WorkingDirectory=/opt/doc-intake-pipeline
+ExecStart=/usr/local/bin/uv run --locked --no-dev python -m scripts.run_inbox /srv/doc-intake/inbox /srv/doc-intake/runs
