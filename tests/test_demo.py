@@ -8,12 +8,15 @@ to read, the problem in the first shot.
 """
 
 import re
+import sys
+import wave
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from PIL import Image
 
-from demo import evidence, make_receipt, render, storyboard
+from demo import evidence, make_receipt, narration, render, storyboard
 from doc_intake.core.config import Settings
 from doc_intake.core.ingest import ingest
 from doc_intake.core.result import Citation, ExtractedField
@@ -207,6 +210,11 @@ def test_nothing_on_screen_needs_a_developer_to_read_it(shots: list[storyboard.S
             assert not _DEVELOPER_TERMS.search(text), text
 
 
+def test_nothing_spoken_needs_a_developer_to_follow_it() -> None:
+    for line in storyboard.SCRIPT:
+        assert not _DEVELOPER_TERMS.search(line.narration), line.narration
+
+
 def test_the_receipt_and_its_values_are_on_screen_together(shots: list[storyboard.Shot]) -> None:
     # Every frame of the shots about values shows the receipt beside the fields
     # (spatial contiguity), so checking a value needs no memory of the image.
@@ -300,3 +308,139 @@ def test_a_video_over_the_limits_is_refused(seconds: float, size: int, problem: 
 
 def test_a_video_at_the_limits_is_accepted() -> None:
     render.check_limits(60.0, 10_000_000)
+
+
+# --- The voice-over (#42): one spoken line per shot, generated once and committed.
+#
+# The voice (Kokoro-82M, run by demo/voice.py on its own Python) gives no
+# bit-for-bit guarantee across machines, so the render never generates audio: it
+# reads the committed clip of each line, found by a key over the line and the
+# voice. Change a line without generating its clip and these tests fail first,
+# naming the command, instead of a video that falls silent.
+
+# A narrator speaking as "I" would pass an AI voice off as the owner's own
+# (#42: the voice narrates, the headline "Send me a sample" stays on screen).
+_FIRST_PERSON = re.compile(r"\b(I|I'm|I'll|I've|me|my|mine|myself)\b", re.IGNORECASE)
+
+
+def test_every_shot_has_a_spoken_line_that_does_not_read_the_headline() -> None:
+    for line in storyboard.SCRIPT:
+        assert line.narration
+        assert line.narration != line.caption
+
+
+def test_the_ai_narrator_never_speaks_as_the_owner() -> None:
+    for line in storyboard.SCRIPT:
+        assert not _FIRST_PERSON.search(line.narration), line.narration
+
+
+def test_a_clip_is_keyed_by_its_words_and_the_voice() -> None:
+    other_voice = replace(narration.VOICE, name="af_bella")
+
+    assert narration.key("Hello.") == narration.key("Hello.")
+    assert narration.key("Hello.") != narration.key("Hello!")
+    assert narration.key("Hello.", other_voice) != narration.key("Hello.")
+
+
+def test_every_spoken_line_has_its_committed_clip() -> None:
+    missing = [
+        line.narration for line in storyboard.SCRIPT if not narration.clip(line.narration).exists()
+    ]
+    assert not missing, f"generate them with 'uv run poe demo-voice': {missing}"
+
+
+def test_no_committed_clip_is_left_over_from_an_old_line() -> None:
+    wanted = {narration.clip(line.narration) for line in storyboard.SCRIPT}
+    orphans = sorted(set(narration.CLIPS.glob("*.wav")) - wanted)
+    assert not orphans, f"delete the clips no line uses: {orphans}"
+
+
+def test_every_clip_is_heard_whole_inside_its_shot(shots: list[storyboard.Shot]) -> None:
+    # It starts after the dip into the shot and ends before the dip out of it.
+    for shot in shots:
+        spoken = narration.seconds(narration.clip(shot.narration))
+        room = shot.seconds - render.VOICE_LEAD - render.FADE_SECONDS
+        assert spoken <= room, f"lengthen the shot or shorten the line: {shot.narration}"
+
+
+def test_clip_length_is_read_from_the_wav(tmp_path: Path) -> None:
+    path = tmp_path / "clip.wav"
+    with wave.open(str(path), "wb") as clip:
+        clip.setnchannels(1)
+        clip.setsampwidth(2)
+        clip.setframerate(24_000)
+        clip.writeframes(b"\x00\x00" * 36_000)
+
+    assert narration.seconds(path) == pytest.approx(1.5)
+
+
+def test_each_line_starts_just_after_its_shot_begins() -> None:
+    # Asymmetric lengths, so a wrong sum cannot land on the expected value.
+    assert render.voice_starts([5.0, 7.5, 2.0], lead=0.3) == [0.3, 5.3, 12.8]
+
+
+def _measured(loudness: str, peak: str) -> dict[str, str]:
+    return {
+        "input_i": loudness,
+        "input_tp": peak,
+        "input_lra": "3.40",
+        "input_thresh": "-38.12",
+        "target_offset": "0.47",
+    }
+
+
+def test_the_second_loudness_pass_scales_the_voice_by_what_the_first_measured() -> None:
+    second = render.loudnorm(_measured("-27.61", "-16.02")).split(":")
+
+    assert second[0] == f"loudnorm=I={render.LOUDNESS:.2f}"
+    for option in (
+        f"TP={render.TRUE_PEAK}",
+        "measured_I=-27.61",
+        "measured_TP=-16.02",
+        "measured_LRA=3.40",
+        "measured_thresh=-38.12",
+        "linear=true",
+    ):
+        assert option in second
+    # The first pass's offset was worked out for its own target, not this one.
+    assert not [option for option in second if option.startswith("offset=")]
+
+
+def test_peaks_that_would_clip_lower_the_target_instead_of_compressing_the_voice() -> None:
+    # Peaks 21.59 dB above the loudness: at the usual target they would pass the
+    # ceiling, and loudnorm would compress the voice on the fly (dynamic mode).
+    second = render.loudnorm(_measured("-27.61", "-6.02")).split(":")
+
+    target = render.TRUE_PEAK - render.PEAK_MARGIN - 21.59
+    assert second[0] == f"loudnorm=I={target:.2f}"
+
+
+def test_the_video_says_its_voice_is_ai_generated(shots: list[storyboard.Shot]) -> None:
+    closing = shots[-1].frames[-1]
+    assert storyboard.AI_VOICE in closing.texts
+    assert "AI" in storyboard.AI_VOICE
+
+
+def test_the_key_names_the_package_the_voice_script_pins() -> None:
+    # The key claims the clips came from VOICE.package: the script must run that one.
+    header = narration.SPEAKER.read_text(encoding="utf-8").split("# ///", 2)[1]
+    assert f'"{narration.VOICE.package}"' in header
+
+
+def test_a_failed_ffmpeg_run_says_why() -> None:
+    # The render reads ffmpeg's stderr for loudnorm's report; on a failure that
+    # stderr holds the cause, and it must reach the person running the render.
+    failing = [
+        sys.executable,
+        "-c",
+        "import sys; sys.stderr.write('No such filter: amixx'); sys.exit(1)",
+    ]
+
+    with pytest.raises(RuntimeError, match="No such filter: amixx"):
+        render.stderr_of(failing)
+
+
+def test_a_successful_run_hands_back_its_stderr() -> None:
+    talking = [sys.executable, "-c", 'import sys; sys.stderr.write(\'{"a": "1"}\')']
+
+    assert render.stderr_of(talking) == '{"a": "1"}'

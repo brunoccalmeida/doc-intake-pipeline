@@ -88,6 +88,10 @@ select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "PTH", "PT", "N", "S", "TI
 typeCheckingMode = "strict"
 pythonVersion = "3.14"
 include = ["src", "evals", "scripts", "demo", "tests", "typings"]
+# The voice-over script runs on its own Python 3.13 and lock (PEP 723,
+# demo/voice.py.lock), whose packages (kokoro-onnx) do not install in this
+# environment: pyright here could only report them missing. Ruff still lints it.
+exclude = ["demo/voice.py"]
 # Local stubs for libraries that ship no usable types (pypdfium2, tesserocr):
 # pyright resolves stubPath before installed packages. Each stub holds only
 # the API the project calls; see the header of each file.
@@ -121,6 +125,9 @@ inbox-demo = "python -m scripts.inbox_demo"
 demo-image = "docker build --file demo/Dockerfile --tag doc-intake-demo ."
 demo-render = "docker run --rm --volume ${POE_ROOT}:/work doc-intake-demo uv run --locked python -m demo.render"
 demo.sequence = ["demo-image", "demo-render"]
+# Generate the voice-over clip of every new line (demo/narration.py), locally and
+# free (Kokoro on CPU); the clips are committed, so the render never needs it.
+demo-voice = "python -m demo.narration"
 # The local gate, the same commands as CI's "check" job. Every step runs even
 # after a failure, so one run reports every problem; the exit is still non-zero.
 check.sequence = ["lint", "format-check", "types"]
