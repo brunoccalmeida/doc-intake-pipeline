@@ -19,11 +19,14 @@ Everything is installed as `doc-intake`, the user the service runs as: uv keeps 
 ## Install
 
 ```bash
+sudo git clone --branch v0.2.0 --depth 1 https://github.com/brunoccalmeida/doc-intake-pipeline /opt/doc-intake-pipeline
+cd /opt/doc-intake-pipeline
+sudo cp .env.example .env
+sudoedit .env    # the API key and any DOC_INTAKE_* setting
 sudo useradd --system --create-home --home-dir /var/lib/doc-intake --shell /usr/sbin/nologin doc-intake
 sudo mkdir -p /srv/doc-intake/inbox /srv/doc-intake/runs
 sudo chown -R doc-intake: /srv/doc-intake /opt/doc-intake-pipeline
-sudo chmod 600 /opt/doc-intake-pipeline/.env
-cd /opt/doc-intake-pipeline
+sudo chmod 600 .env
 sudo -u doc-intake -H uv sync --locked --no-dev
 sudo -u doc-intake -H uv run --locked --no-dev python -m scripts.fetch_tessdata  # OCR model, into .cache/tessdata
 sudo cp deploy/doc-intake-inbox.service deploy/doc-intake-inbox.timer /etc/systemd/system/
