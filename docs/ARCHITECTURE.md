@@ -355,4 +355,4 @@ A D18 pôs no núcleo a entrada por pasta, a execução agendada de exemplo e a 
 - **Agendador dentro do processo** (laço com `sleep`, APScheduler): o processo precisa ficar de pé, e reiniciar depois de uma queda vira problema do código. O sistema já resolve isso.
 - **Trava no código** (arquivo de lock): duplicaria o que o timer garante e deixaria lock velho depois de uma queda (YAGNI).
 
-**Não verificado:** a instalação de `deploy/README.md` não foi executada numa máquina real; o CI só valida os arquivos de unidade. Em particular, o `uv` como usuário de sistema com pasta pessoal própria segue a documentação do `useradd` e o comportamento padrão do `uv`, sem prova de ponta a ponta.
+**Não verificado:** a instalação de `deploy/README.md` não foi executada numa máquina real; o CI só valida os arquivos de unidade. Em particular, o `uv` como usuário de sistema com pasta pessoal própria segue a documentação do `useradd` e o comportamento padrão do `uv`, sem prova de ponta a ponta ([#61](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/61)).
