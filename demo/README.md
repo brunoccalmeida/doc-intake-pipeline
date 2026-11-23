@@ -89,6 +89,44 @@ It generates the missing clips locally, free and on CPU, in about a second each,
 - The README embeds the MP4 as an uploaded attachment, not committed: a regenerated binary would grow the history.
 - The closing frame carries no link or contact. Upwork's rules on contact details in portfolio files could not be read, and in the README the video already sits on GitHub.
 
+## Spreadsheet image (#60)
+
+[`spreadsheet.png`](spreadsheet.png) shows what a scheduled check leaves: the spreadsheet, with the value a person checks framed. It sits in the README's "How it runs day to day" section, and goes up as an image of the Upwork portfolio project next to the video. [`spreadsheet.py`](spreadsheet.py) draws it from the `results.csv` of `uv run poe inbox-demo`, so it shows only what the pipeline produced. After a change to the drawing or to the recordings:
+
+```sh
+uv run poe demo-sheet
+```
+
+Look at the image, then commit it. [`tests/test_demo_spreadsheet.py`](../tests/test_demo_spreadsheet.py) fails while the committed PNG differs from what the code draws.
+
+### Decisions (#60)
+
+**An image, not a second video.** The issue first asked for a video of the delivered flow. Research found no evidence it would win clients:
+
+- No independent study links video in a freelancer portfolio or on a B2B service page to more hires. The largest observational dataset found saw video not lift landing-page conversion, and sometimes hurt it ([Unbounce](https://unbounce.com/landing-page-optimization/video-on-landing-pages), about 35,000 pages, correlational).
+- Buyer surveys rank trials, demos and reviews highest ([TrustRadius 2026](https://hginsights.com/news/trustradius-2026-b2b-buying-disconnect-report-reveals-ai-has-changed-how-buyers-research-but-not-what-they-trust/), [Forrester 2026](http://www.forrester.com/blogs/state-of-business-buying-2026/), both on software buying). Here the trial is the free sample the video already asks for.
+- A folder, a schedule and a spreadsheet are static, and video cannot be scanned ([NN/g](https://www.nngroup.com/articles/video-usability)).
+- Video work costs the owner several rounds of review.
+
+**Cropped to one receipt.** The first draft showed all ten rows at 22 px, which would shrink to about 14 px at the 1000×750 size Upwork checks for sharpness. It also gave every row the same weight. Text shrinks with the image, and a crop should keep the detail that carries the meaning ([NN/g](https://www.nngroup.com/articles/big-pictures-small-screens/)). Screenshot guides say the same: show the smallest area that proves the claim, with one or two annotations ([example](https://www.pravinkumar.co/blog/how-to-design-a-product-screenshot-that-explains-itself-2026); expert opinion, no controlled study found).
+
+- The image shows the five rows of the receipt with a value to check, at 28 px. A test holds the grid to at least 16 px at 1000×750; that floor is our judgment.
+- Rows were cropped rather than columns, because `quote` and `note` carry the point.
+- The file name moves to a label above the grid.
+- The footer says what is left out: four columns, and the other receipt's rows.
+
+**Word for word, marked outside the data.**
+
+- The grid copies the file's rows and column names exactly, because `field_status` and `needs_review` are what the client filters. The caption names them too; the earlier "the third column" made the reader count. The test that keeps developer terms out of the words around the grid accepts only the grid's own vocabulary.
+- The CSV has no colours, so the row a person checks is framed around its cells, with a "Check" tab in the margin. A fill inside the cells would show a colour the client never sees.
+- The empty currency row stays: it shows that a value missing from the receipt is left empty, with the reason.
+
+**Limits.**
+
+- Upwork asks for 4:3, at least 1000 px wide, no side over 4000 px, under 10 MB, and no contact details. These rules were read only in search summaries, because Upwork's help pages refused automated reads ([Project Catalog images](https://support.upwork.com/hc/en-us/articles/1500011309082)). The image is 1600×1200 PNG.
+- No grid imitates Excel's or Google Sheets' look.
+- Text contrast is at least 4.5:1 (WCAG 2.2), and tests check it. The layout keeps at least 24 px between blocks, so they never read as one: the first draft's footer sat flush against the box above it and still rendered green.
+
 ## Decisions (#42): the voice-over
 
 **Kokoro-82M, voice `af_heart`, chosen by ear.** Two local voices with licences that allow commercial use spoke the same six lines, labelled A and B, and the owner picked without knowing which was which. The other was Phonon 31m, voice Harper ([gradium-ai/xn-ptts](https://github.com/gradium-ai/xn-ptts)). It ranks above Kokoro in a blind-vote arena (Elo 1108 against 1060, [Artificial Analysis](https://artificialanalysis.ai/text-to-speech/leaderboard)), needs no espeak-ng, and runs on any Python. The owner still heard Kokoro as clearly better, and the video is made to be heard. `af_heart` is Kokoro's top-graded voice ([VOICES.md](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md)), in American English, the accent of most of the Upwork audience.

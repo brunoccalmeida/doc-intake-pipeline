@@ -128,6 +128,8 @@ demo.sequence = ["demo-image", "demo-render"]
 # Generate the voice-over clip of every new line (demo/narration.py), locally and
 # free (Kokoro on CPU); the clips are committed, so the render never needs it.
 demo-voice = "python -m demo.narration"
+# Draw the spreadsheet image (demo/spreadsheet.png) from a replayed inbox run: no cost.
+demo-sheet = "python -m demo.spreadsheet"
 # The local gate, the same commands as CI's "check" job. Every step runs even
 # after a failure, so one run reports every problem; the exit is still non-zero.
 check.sequence = ["lint", "format-check", "types"]
