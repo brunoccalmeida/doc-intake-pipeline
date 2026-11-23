@@ -26,6 +26,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from demo.storyboard import BACKGROUND, BORDER, CARD, CHECK, MUTED, TEXT, Colour, font
+from doc_intake import batch
 from scripts import inbox_demo
 
 IMAGE = Path("demo/spreadsheet.png")
@@ -38,7 +39,7 @@ HEIGHT = 1200
 # status, page, source) stay in the file. "note" is wrapped inside its cell.
 SHOWN = ("field", "field_status", "value", "quote", "note")
 _WRAPPED = "note"
-_COLUMNS_IN_FILE = 9
+_COLUMNS_IN_FILE = len(batch.COLUMNS)
 
 HEADER: Colour = (241, 245, 249)  # slate-100
 
