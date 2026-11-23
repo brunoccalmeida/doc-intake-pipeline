@@ -1,6 +1,6 @@
 # Running the inbox on a schedule
 
-An example of the delivered flow on one Linux machine: documents arrive in a folder, a [systemd timer](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html) runs `scripts.run_inbox` every 15 minutes, and each run leaves `results.csv` and the processed documents in a folder of its own. What a run does is described in [`doc_intake.batch`](../src/doc_intake/batch.py); the design is [D19](../docs/ARCHITECTURE.md#d19-execução-agendada-sobre-uma-pasta-de-entrada-decidida-na-53).
+An example of the delivered flow on one Linux machine: documents arrive in a folder, a [systemd timer](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html) runs `scripts.run_inbox` every 15 minutes, and each run leaves `results.csv`, its machine copy `results.jsonl` and the processed documents in a folder of its own. What a run does is described in [`doc_intake.batch`](../src/doc_intake/batch.py); the design is [D19](../docs/ARCHITECTURE.md#d19-execução-agendada-sobre-uma-pasta-de-entrada-decidida-na-53).
 
 This is the public example. Deploying in a client's own account (their cloud, their secrets store, their connectors) is delivery work, outside this repository ([D18](../docs/ARCHITECTURE.md#d18-fronteira-entre-núcleo-kit-de-entrega-e-código-do-cliente-decidida-na-52)).
 
@@ -12,7 +12,7 @@ This is the public example. Deploying in a client's own account (their cloud, th
 | `/opt/doc-intake-pipeline` | A checkout of a release tag, owned by `doc-intake`, with its `.env` (API key and settings) readable by that user only |
 | `/usr/local/bin/uv` | uv, at the version `required-version` in `pyproject.toml` asks for |
 | `/srv/doc-intake/inbox` | Where documents arrive: saved there, or a folder a Drive or Dropbox client keeps in sync |
-| `/srv/doc-intake/runs` | One folder per run: `results.csv` and `documents/` |
+| `/srv/doc-intake/runs` | One folder per run: `results.csv`, `results.jsonl` and `documents/` |
 
 Everything is installed as `doc-intake`, the user the service runs as: uv keeps its cache and the Python it downloads in the home of whoever runs it, so a `sudo uv sync` as root would leave the service without a Python it can read.
 
@@ -54,12 +54,12 @@ In `results.csv`, record a decision only for the rows you checked on the page; a
 | `corrected` | The value is wrong, or empty while the document has it | the right value: a total as `19.90` (a dot, no currency), a date as `2026-03-04`, a currency as its ISO code (`MYR`) |
 | `not_on_page` | The value is filled, but the document does not have that field | empty |
 
-Check each value against the page itself, with `page` and `quote` saying where to look: the suggestion is what is being checked, not a starting point.
+Check each value against the page itself, with `page` and `quote` saying where to look: the suggestion is what is being checked, not a starting point. Write a right value only in `correct_value`: the `value` column is not read back, so a value fixed there and marked `confirmed` would record the run's wrong value as right.
 
 To keep the file readable afterwards:
 
 - **Excel:** open it with **Data > From Text/CSV**, set every column to **Text**, and save as **CSV UTF-8 (Comma delimited)**. Opened with a double click, Excel converts cells as it reads them (it drops leading zeros, for one), and the CSV it saves keeps what it converted; importing the columns as Text is Microsoft's way around it ([Microsoft: keep leading zeros and large numbers](https://support.microsoft.com/en-us/office/keep-leading-zeros-and-large-numbers-1bf7b935-36e1-4985-842f-5dfa51f85fe7)). A sheet saved with `;` between cells, as Excel does in regions with a decimal comma, is read too.
-- **Google Sheets:** import it, then download it again as CSV.
+- **Google Sheets:** import it, then download it again as CSV and put the download in the run folder as `results.csv`, replacing the original: the download has another name, and the original has no verdicts.
 
 `doc_intake.review.read_reviewed_run` reads a reviewed folder back as labeled fields. It stops at the first row it cannot use (an unknown verdict, a corrected value it cannot read, a row the run did not write) and names that row; fix it in the sheet and read again.
 

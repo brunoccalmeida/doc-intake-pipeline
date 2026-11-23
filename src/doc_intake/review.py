@@ -27,7 +27,7 @@ from typing import Literal, TypeIs, get_args
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from doc_intake.batch import COPY_NAME, RESULTS_NAME, VERDICT_COLUMNS
+from doc_intake.batch import COPY_NAME, RESULTS_NAME, VERDICT_COLUMNS, spreadsheet_safe
 from doc_intake.core.extract import Pack
 from doc_intake.core.result import ExtractionResult, is_field
 
@@ -65,7 +65,7 @@ def read_reviewed_run[S: BaseModel](folder: Path, pack: Pack[S]) -> list[Label]:
     seen: dict[tuple[str, str], int] = {}
     files = {file for file, _ in suggested}
     for number, row in _sheet_rows(folder / RESULTS_NAME):
-        file, field = row.get("file") or "", row.get("field") or ""
+        file, field = _unguarded(row.get("file") or ""), row.get("field") or ""
         where = f"row {number} ({file}, {field})" if field else f"row {number} ({file})"
         key = (file, field)
         if key in seen:
@@ -99,8 +99,8 @@ def _label[S: BaseModel](
             raise ReviewError(f"{where}: a correct_value but no verdict; add one")
         return None
     if not _is_verdict(verdict):
-        known = ", ".join(_VERDICTS)
-        raise ReviewError(f"{where}: unknown verdict {verdict!r}; use one of {known}")
+        # Not echoed: a value pasted one column off would reach the message.
+        raise ReviewError(f"{where}: unknown verdict; use one of {', '.join(_VERDICTS)}")
     if verdict != "corrected":
         if correct:
             raise ReviewError(f"{where}: only a corrected verdict takes a correct_value")
@@ -119,6 +119,17 @@ def _label[S: BaseModel](
 
 def _is_verdict(text: str) -> TypeIs[Verdict]:
     return text in _VERDICTS
+
+
+def _unguarded(cell: str) -> str:
+    """The file name in ``cell`` without the ``'`` that ``spreadsheet_safe`` added.
+
+    The run writes ``-scan.png`` as ``'-scan.png``; a spreadsheet may keep
+    that quote in the cell or drop it when saving, so both name the file.
+    """
+    if cell.startswith("'") and spreadsheet_safe(cell[1:]) == cell:
+        return cell[1:]
+    return cell
 
 
 def _value_type[S: BaseModel](pack: Pack[S], field: str) -> TypeAdapter[object]:
@@ -140,6 +151,10 @@ def _suggestions[S: BaseModel](path: Path, pack: Pack[S]) -> dict[tuple[str, str
     """What the run produced per (file, field); a failed document keys (file, "")."""
     suggested: dict[tuple[str, str], object] = {}
     result_type = ExtractionResult[pack.schema]
+    if not path.is_file():
+        raise ReviewError(
+            f"{path.parent.name} has no {path.name}: a run from before #63 cannot be read as labels"
+        )
     for line in path.read_text(encoding="utf-8").splitlines():
         copy = json.loads(line)
         file = str(copy["file"])

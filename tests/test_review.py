@@ -58,9 +58,14 @@ class OneAnswer:
 @pytest.fixture
 def run_folder(tmp_path: Path, no_doc_intake_env: None) -> Path:
     """A run of two receipts, ``a.png`` and ``b.png``, and one failed file, ``c.png``."""
+    return make_run(tmp_path, ("a.png", "b.png", "c.png"))
+
+
+def make_run(tmp_path: Path, names: tuple[str, ...]) -> Path:
+    """The run folder of ``names``; the third document's call fails."""
     inbox = tmp_path / "inbox"
     inbox.mkdir()
-    for name in ("a.png", "b.png", "c.png"):
+    for name in names:
         # A page with no text is not a readable document: it needs some.
         image = Image.new("L", (900, 200), color=255)
         ImageDraw.Draw(image).text((40, 60), "TOTAL 9.90", fill=0, font=ImageFont.load_default(64))
@@ -162,6 +167,12 @@ def test_a_sheet_saved_with_semicolons_and_capitalised_verdicts_reads_the_same(
             id="unknown-verdict",
         ),
         pytest.param(
+            # A value pasted one column off is document content: never echoed.
+            judge("a.png", "total", "1 Main St"),
+            r"row 5 \(a.png, total\): unknown verdict",
+            id="value-pasted-into-verdict",
+        ),
+        pytest.param(
             judge("a.png", "total", "corrected"),
             r"row 5 \(a.png, total\): corrected needs",
             id="corrected-without-value",
@@ -212,7 +223,7 @@ def test_a_verdict_that_cannot_become_a_label_fails_naming_the_row(
         read_reviewed_run(run_folder, RECEIPT)
     # The message may reach a log: it names the row, never the value typed
     # (AGENTS.md invariant 6).
-    for typed in ("12,50", "04/03/2026", "19.90", "myr"):
+    for typed in ("12,50", "04/03/2026", "19.90", "myr", "main st"):
         assert typed not in str(raised.value)
 
 
@@ -233,13 +244,39 @@ def test_a_field_in_two_rows_fails(run_folder: Path) -> None:
 
 
 def test_a_sheet_without_the_verdict_columns_fails(run_folder: Path) -> None:
-    # A sheet written before #63, or one whose columns a reviewer deleted.
+    # A reviewer deleted a column.
     path = run_folder / "results.csv"
     header, *rest = path.read_text(encoding="utf-8-sig").splitlines()
     path.write_text("\n".join([header.replace(',"verdict"', ""), *rest]), encoding="utf-8-sig")
 
     with pytest.raises(ReviewError, match=r"results\.csv has no verdict column"):
         read_reviewed_run(run_folder, RECEIPT)
+
+
+def test_a_run_folder_without_the_machine_copy_fails_naming_it(run_folder: Path) -> None:
+    # A run from before #63, or a copy someone deleted.
+    (run_folder / "results.jsonl").unlink()
+
+    with pytest.raises(ReviewError, match=r"no results\.jsonl"):
+        read_reviewed_run(run_folder, RECEIPT)
+
+
+@pytest.mark.parametrize("in_sheet", ["'-a.png", "-a.png"], ids=["as-written", "quote-dropped"])
+def test_a_file_named_like_a_formula_is_matched_with_or_without_its_guard_quote(
+    tmp_path: Path, no_doc_intake_env: None, in_sheet: str
+) -> None:
+    # The CSV prefixes such a name with ' (batch.spreadsheet_safe); a
+    # spreadsheet may keep the quote in the cell or drop it when saving.
+    folder = make_run(tmp_path, ("-a.png",))
+
+    def edit(rows: list[Row]) -> None:
+        total = row(rows, "'-a.png", "total")
+        total.update(file=in_sheet, verdict="confirmed")
+
+    review(folder, edit)
+
+    [label] = read_reviewed_run(folder, RECEIPT)
+    assert (label.file, label.truth) == ("-a.png", Decimal("9.90"))
 
 
 def test_a_sheet_not_saved_as_utf8_fails_saying_how_to_save_it(run_folder: Path) -> None:
