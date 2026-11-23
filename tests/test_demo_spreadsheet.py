@@ -90,12 +90,13 @@ def test_the_words_around_the_grid_need_no_developer_to_read_them(
         assert not _DEVELOPER_TERMS.search(plain), text
 
 
-@pytest.mark.parametrize(("foreground", "background"), spreadsheet.TEXT_ON)
-def test_text_contrasts_with_its_background(
-    foreground: tuple[int, int, int], background: tuple[int, int, int]
-) -> None:
-    # WCAG 2.2 SC 1.4.3: at least 4.5:1 for text.
-    assert storyboard.contrast(foreground, background) >= 4.5
+def test_every_text_drawn_contrasts_with_what_it_is_drawn_on(sheet: spreadsheet.Sheet) -> None:
+    # WCAG 2.2 SC 1.4.3: at least 4.5:1 for text. The pairs come from the
+    # drawing itself, not from a list kept by hand that could drift from it.
+    assert len(sheet.colours) >= 4  # title, grid, header, tab at least
+    for foreground, background in sheet.colours:
+        ratio = storyboard.contrast(foreground, background)
+        assert ratio >= 4.5, f"{foreground} on {background}: {ratio:.2f}:1"
 
 
 # Blocks that touch read as one; 24 px is about one line of the grid (our judgment).
@@ -140,7 +141,18 @@ def test_a_cell_too_wide_for_the_image_is_refused_rather_than_overlapping(
     rows = spreadsheet.read_rows(results)
     rows[0] = {**rows[0], "value": "W" * 200}  # a row of the receipt shown
 
-    with pytest.raises(ValueError, match="does not fit"):
+    with pytest.raises(ValueError, match="the grid does not fit"):
+        spreadsheet.draw(rows)
+
+
+def test_a_word_too_long_to_wrap_in_its_cell_is_refused_rather_than_overflowing(
+    results: Path,
+) -> None:
+    # A path or a link in a note has no space to break at.
+    rows = spreadsheet.read_rows(results)
+    rows[0] = {**rows[0], "note": "see " + "W" * 40}
+
+    with pytest.raises(ValueError, match="does not fit its cell"):
         spreadsheet.draw(rows)
 
 

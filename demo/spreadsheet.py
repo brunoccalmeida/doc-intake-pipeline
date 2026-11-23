@@ -20,7 +20,7 @@ video's palette and font.
 
 import csv
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -41,15 +41,6 @@ _WRAPPED = "note"
 _COLUMNS_IN_FILE = 9
 
 HEADER: Colour = (241, 245, 249)  # slate-100
-
-# Every text colour on the background it is drawn on (tests check 4.5:1).
-TEXT_ON: tuple[tuple[Colour, Colour], ...] = (
-    (TEXT, BACKGROUND),
-    (MUTED, BACKGROUND),
-    (TEXT, CARD),
-    (TEXT, HEADER),
-    (CARD, CHECK),
-)
 
 _MARGIN = 60
 _GRID_LEFT = 200  # left of it, the tab naming the row a person checks
@@ -76,6 +67,8 @@ class Sheet:
     blocks: tuple[tuple[str, Box], ...]
     # Each text in the box it is written in: (name, its box, the box around it).
     nested: tuple[tuple[str, Box, Box], ...]
+    # Every (text colour, colour under it) pair drawn, for the contrast test.
+    colours: tuple[tuple[Colour, Colour], ...]
 
 
 def results_csv(root: Path) -> Path:
@@ -144,8 +137,11 @@ def _widths(rows: Sequence[dict[str, str]]) -> dict[str, float]:
 
 @dataclass(slots=True)
 class _Painter:
+    """Draws every text, noting its words and the colours it sets on what."""
+
     draw: ImageDraw.ImageDraw
-    texts: list[str]
+    texts: list[str] = field(default_factory=list[str])
+    colours: set[tuple[Colour, Colour]] = field(default_factory=set[tuple[Colour, Colour]])
 
     def say(
         self,
@@ -154,11 +150,12 @@ class _Painter:
         *,
         size: int,
         fill: Colour,
+        on: Colour,
         bold: bool = False,
         anchor: str = "la",
     ) -> Box:
         """Draw words for the buyer, keep them for the tests to read, and return where they sit."""
-        self.cell(xy, text, size=size, fill=fill, bold=bold, anchor=anchor)
+        self.cell(xy, text, size=size, fill=fill, on=on, bold=bold, anchor=anchor)
         self.texts.append(text)
         return self.draw.textbbox(
             xy, text, font=font(size), anchor=anchor, stroke_width=1 if bold else 0
@@ -169,11 +166,13 @@ class _Painter:
         xy: tuple[float, float],
         text: str,
         *,
+        on: Colour,
         size: int = CELL_SIZE,
         fill: Colour = TEXT,
         bold: bool = False,
         anchor: str = "la",
     ) -> None:
+        self.colours.add((fill, on))
         self.draw.text(
             xy,
             text,
@@ -202,7 +201,7 @@ def draw(all_rows: Sequence[dict[str, str]]) -> Sheet:
 
     image = Image.new("RGB", (WIDTH, HEIGHT), BACKGROUND)
     canvas = ImageDraw.Draw(image)
-    paint = _Painter(canvas, [])
+    paint = _Painter(canvas)
     blocks: list[tuple[str, Box]] = []
     nested: list[tuple[str, Box, Box]] = []
 
@@ -211,20 +210,33 @@ def draw(all_rows: Sequence[dict[str, str]]) -> Sheet:
     blocks.append(
         (
             "headline",
-            paint.say((WIDTH / 2, 120), headline, size=64, fill=TEXT, bold=True, anchor="mm"),
+            paint.say(
+                (WIDTH / 2, 120),
+                headline,
+                size=64,
+                fill=TEXT,
+                on=BACKGROUND,
+                bold=True,
+                anchor="mm",
+            ),
         )
     )
     subline = (
         "Drop receipts in a folder. Each scheduled check adds one row per value to a spreadsheet."
     )
     blocks.append(
-        ("subline", paint.say((WIDTH / 2, 200), subline, size=30, fill=MUTED, anchor="mm"))
+        (
+            "subline",
+            paint.say((WIDTH / 2, 200), subline, size=30, fill=MUTED, on=BACKGROUND, anchor="mm"),
+        )
     )
     label = f"The rows of one receipt, {file}:"
     blocks.append(
         (
             "label",
-            paint.say((_GRID_LEFT, _GRID_TOP - 30), label, size=28, fill=MUTED, anchor="ls"),
+            paint.say(
+                (_GRID_LEFT, _GRID_TOP - 30), label, size=28, fill=MUTED, on=BACKGROUND, anchor="ls"
+            ),
         )
     )
 
@@ -243,7 +255,9 @@ def draw(all_rows: Sequence[dict[str, str]]) -> Sheet:
     )
     x = float(_GRID_LEFT)
     for column in SHOWN:
-        paint.cell((x + _CELL_PAD, _GRID_TOP + header / 2), column, bold=True, anchor="lm")
+        paint.cell(
+            (x + _CELL_PAD, _GRID_TOP + header / 2), column, on=HEADER, bold=True, anchor="lm"
+        )
         x += widths[column]
         if column != SHOWN[-1]:
             canvas.line((x, _GRID_TOP, x, bottom), fill=BORDER, width=2)
@@ -253,7 +267,7 @@ def draw(all_rows: Sequence[dict[str, str]]) -> Sheet:
         x = float(_GRID_LEFT)
         for column in SHOWN:
             for number, line in enumerate(row[column]):
-                paint.cell((x + _CELL_PAD, top + _ROW_PAD / 2 + 4 + number * _LINE), line)
+                paint.cell((x + _CELL_PAD, top + _ROW_PAD / 2 + 4 + number * _LINE), line, on=CARD)
             x += widths[column]
         if index in marked:
             to_frame.append((top, top + height))
@@ -271,8 +285,12 @@ def draw(all_rows: Sequence[dict[str, str]]) -> Sheet:
     which = "the flagged value goes" if count == 1 else f"the {count} flagged values go"
     caption = f"Only {which} to a person, with the words it was read from and why."
     how = "Filter field_status for needs_review to list them across every receipt."
-    first = paint.say((WIDTH / 2, bottom + 80), caption, size=32, fill=TEXT, bold=True, anchor="mm")
-    second = paint.say((WIDTH / 2, bottom + 132), how, size=28, fill=MUTED, anchor="mm")
+    first = paint.say(
+        (WIDTH / 2, bottom + 80), caption, size=32, fill=TEXT, on=BACKGROUND, bold=True, anchor="mm"
+    )
+    second = paint.say(
+        (WIDTH / 2, bottom + 132), how, size=28, fill=MUTED, on=BACKGROUND, anchor="mm"
+    )
     blocks.append(
         ("caption", (min(first[0], second[0]), first[1], max(first[2], second[2]), second[3]))
     )
@@ -284,10 +302,24 @@ def draw(all_rows: Sequence[dict[str, str]]) -> Sheet:
         "in the same check are not."
     )
     blocks.append(
-        ("footer", paint.say((WIDTH / 2, HEIGHT - 36), footer, size=22, fill=MUTED, anchor="mm"))
+        (
+            "footer",
+            paint.say(
+                (WIDTH / 2, HEIGHT - 36), footer, size=22, fill=MUTED, on=BACKGROUND, anchor="mm"
+            ),
+        )
     )
     cells = tuple(tuple(row[column] for column in SHOWN) for row in rows)
-    return Sheet(image, file, cells, marked, tuple(paint.texts), tuple(blocks), tuple(nested))
+    return Sheet(
+        image,
+        file,
+        cells,
+        marked,
+        tuple(paint.texts),
+        tuple(blocks),
+        tuple(nested),
+        tuple(sorted(paint.colours)),
+    )
 
 
 def _mark(
@@ -309,6 +341,7 @@ def _mark(
         "Check",
         size=28,
         fill=CARD,
+        on=CHECK,
         bold=True,
         anchor="mm",
     )
