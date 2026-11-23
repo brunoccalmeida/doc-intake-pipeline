@@ -9,8 +9,10 @@ A scheduler (``deploy/``) starts one run at a time; each run:
    so two runs never mix and nothing is paid for before that check;
 3. extracts every document, logging each by the hash of its bytes, never its
    file name (AGENTS.md invariant 6);
-4. writes ``results.csv`` (one row per field) through a temporary file and
-   ``os.replace``, so nobody opens half a file;
+4. writes ``results.jsonl`` (the results as produced, one line per document)
+   and ``results.csv`` (one row per field, with empty columns for the
+   reviewer's verdict, read back by ``doc_intake.review``), each through a
+   temporary file and ``os.replace``, so nobody opens half a file;
 5. only then moves the originals to ``documents/`` beside it.
 
 If a run stops before step 5, the files are still in the inbox and the next
@@ -30,6 +32,7 @@ the first call.
 import csv
 import hashlib
 import io
+import json
 import re
 import shutil
 from collections.abc import Iterator
@@ -55,8 +58,15 @@ from doc_intake.core.runlog import extract_logged, log_unreadable, new_run_id
 
 SUPPORTED_SUFFIXES = PDF_SUFFIXES | IMAGE_SUFFIXES
 RESULTS_NAME = "results.csv"
+# The results as the run produced them, one JSON object per document. The
+# reviewer edits results.csv in a spreadsheet, which may rewrite a value (a
+# date in the local format); doc_intake.review reads the suggestions from here.
+COPY_NAME = "results.jsonl"
 DOCUMENTS_NAME = "documents"
 
+# What the reviewer fills, empty when written: an empty verdict means not
+# reviewed, never confirmed (doc_intake.review, docs/ARCHITECTURE.md D20).
+VERDICT_COLUMNS: tuple[str, ...] = ("verdict", "correct_value")
 COLUMNS: tuple[str, ...] = (
     "file",
     "document_status",
@@ -67,6 +77,7 @@ COLUMNS: tuple[str, ...] = (
     "source",
     "quote",
     "note",
+    *VERDICT_COLUMNS,
 )
 
 # A cell starting with one of these may run as a formula in Excel or Sheets
@@ -187,6 +198,7 @@ def run_inbox[S: BaseModel](
         raise
 
     outcomes = [_unless_replaced(pack, outcome) for outcome in outcomes]
+    _write_copy(folder / COPY_NAME, outcomes)
     _write_csv(folder / RESULTS_NAME, outcomes)
     moved = folder / DOCUMENTS_NAME
     moved.mkdir()
@@ -301,6 +313,14 @@ def _rows[S: BaseModel](outcome: _Outcome[S]) -> Iterator[dict[str, str]]:
         yield row
 
 
+def _write_copy[S: BaseModel](path: Path, outcomes: list[_Outcome[S]]) -> None:
+    lines = (
+        json.dumps({"file": o.path.name, "result": o.result.model_dump(mode="json")})
+        for o in outcomes
+    )
+    _write_atomically(path, "".join(line + "\n" for line in lines), encoding="utf-8")
+
+
 def _write_csv[S: BaseModel](path: Path, outcomes: list[_Outcome[S]]) -> None:
     buffer = io.StringIO(newline="")
     # Every cell quoted: OWASP's other half of the defence. A spreadsheet that
@@ -311,7 +331,12 @@ def _write_csv[S: BaseModel](path: Path, outcomes: list[_Outcome[S]]) -> None:
     for outcome in outcomes:
         for row in _rows(outcome):
             writer.writerow({key: spreadsheet_safe(value) for key, value in row.items()})
-    temporary = path.with_name(f".{path.name}.tmp")
     # utf-8-sig writes the BOM Excel needs to open the file as UTF-8.
-    temporary.write_text(buffer.getvalue(), encoding="utf-8-sig", newline="")
+    _write_atomically(path, buffer.getvalue(), encoding="utf-8-sig")
+
+
+def _write_atomically(path: Path, text: str, *, encoding: str) -> None:
+    """Write through a temporary file, so nobody opens half a file."""
+    temporary = path.with_name(f".{path.name}.tmp")
+    temporary.write_text(text, encoding=encoding, newline="")
     temporary.replace(path)  # atomic on one filesystem (os.replace)

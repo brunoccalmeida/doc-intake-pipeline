@@ -42,6 +42,27 @@ sudo systemctl start doc-intake-inbox.service     # one run now
 journalctl -u doc-intake-inbox.service            # summary line and run log
 ```
 
+## Reviewing a run
+
+Each run folder holds `results.csv`, the spreadsheet a person reviews, and `results.jsonl`, the results exactly as the run produced them. Leave `results.jsonl` as it is: a confirmed value is read from it, because a spreadsheet may rewrite a value it shows (a date in the local format).
+
+In `results.csv`, record a decision only for the rows you checked on the page; an empty `verdict` means not reviewed, never "looks right":
+
+| `verdict` | When | `correct_value` |
+| --- | --- | --- |
+| `confirmed` | The value is right as written, or the field is empty and the document does not have it | empty |
+| `corrected` | The value is wrong, or empty while the document has it | the right value: a total as `19.90` (a dot, no currency), a date as `2026-03-04`, a currency as its ISO code (`MYR`) |
+| `not_on_page` | The value is filled, but the document does not have that field | empty |
+
+Check each value against the page itself, with `page` and `quote` saying where to look: the suggestion is what is being checked, not a starting point.
+
+To keep the file readable afterwards:
+
+- **Excel:** open it with **Data > From Text/CSV**, set every column to **Text**, and save as **CSV UTF-8 (Comma delimited)**. Opened with a double click, Excel converts cells as it reads them (it drops leading zeros, for one), and the CSV it saves keeps what it converted; importing the columns as Text is Microsoft's way around it ([Microsoft: keep leading zeros and large numbers](https://support.microsoft.com/en-us/office/keep-leading-zeros-and-large-numbers-1bf7b935-36e1-4985-842f-5dfa51f85fe7)). A sheet saved with `;` between cells, as Excel does in regions with a decimal comma, is read too.
+- **Google Sheets:** import it, then download it again as CSV.
+
+`doc_intake.review.read_reviewed_run` reads a reviewed folder back as labeled fields. It stops at the first row it cannot use (an unknown verdict, a corrected value it cannot read, a row the run did not write) and names that row; fix it in the sheet and read again.
+
 ## Why these settings
 
 - **No two runs at once.** With `Type=oneshot`, the service stays active until the run ends, and a timer does not start a service that is still active: "it is not restarted, but simply left running" ([systemd.timer](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html)). No lock file is needed.

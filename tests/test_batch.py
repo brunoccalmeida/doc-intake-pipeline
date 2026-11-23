@@ -206,9 +206,37 @@ def test_a_run_writes_one_row_per_field_and_moves_the_originals_beside_it(
         "source": "image",
         "quote": "TOTAL 9.90",
         "note": "read from the image of page 1; check it on the page",
+        # The reviewer's to fill (doc_intake.review); empty means not reviewed.
+        "verdict": "",
+        "correct_value": "",
     }
     assert rows[0]["value"] == ""
     assert rows[0]["note"] == "not printed"
+
+
+def test_a_run_keeps_a_machine_copy_of_each_result_beside_the_review_queue(
+    tmp_path: Path, tessdata_dir: Path
+) -> None:
+    # The reviewer edits results.csv in a spreadsheet, which may rewrite the
+    # value column; the copy is what a confirmed verdict refers back to.
+    printed_page(tmp_path / "inbox", "a.png", "TOTAL 9.90")
+    printed_page(tmp_path / "inbox", "b.png", "unreadable")
+
+    _, _, report = run(
+        tmp_path, ScriptedProvider([REVIEW_TOTAL, RuntimeError("rate limit")]), tessdata_dir
+    )
+
+    lines = (folder_of(report) / "results.jsonl").read_text(encoding="utf-8").splitlines()
+    copies = [json.loads(line) for line in lines]
+    assert [copy["file"] for copy in copies] == ["a.png", "b.png"]
+    assert copies[0]["result"]["status"] == "needs_review"
+    assert copies[0]["result"]["fields"]["total"]["value"] == "9.90"
+    assert copies[1]["result"] == {
+        "status": "failed",
+        "fields": None,
+        "errors": [f"RuntimeError; {batch.LEFT_FOR_NEXT_RUN}"],
+        "review": [],
+    }
 
 
 def test_the_csv_opens_as_utf8_in_excel_and_disarms_formulas(
