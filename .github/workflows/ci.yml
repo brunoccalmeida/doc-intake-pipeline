@@ -262,13 +262,99 @@ jobs:
     permissions:
       contents: read
 
+  # deploy/README.md run as written on a machine with systemd (#61): "check"
+  # verifies the unit files, this runs the install steps a client follows
+  # (service user, uv, sync, OCR model, units) and starts the service.
+  # scripts/readme_block.py extracts the README's blocks, under the
+  # set -euo pipefail the README tells a client to use (plus -x, for this
+  # log). Every other difference from a client's machine is declared below,
+  # and the job fails when its text is no longer in the README, so CI never
+  # runs a stale copy. No paid
+  # call: the API key is a dummy the provider refuses.
+  #
+  # Two machines, two ways uv finds Python: ubuntu-latest (26.04) ships the
+  # Python 3.14 of .python-version, so uv uses it; ubuntu-24.04 does not, so
+  # uv downloads one into the home of whoever runs the install. Only the
+  # second shows an install as root breaking the service (#61).
+  deploy-smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The commit under test instead of the release tag (which a PR has not
+      # published yet), and a dummy key instead of an editor.
+      - name: Read the install steps from deploy/README.md
+        env:
+          README_CLONE: sudo git clone --branch v0.2.0 --depth 1 https://github.com/brunoccalmeida/doc-intake-pipeline
+          CI_CLONE: sudo git clone --depth 1 "file://$GITHUB_WORKSPACE"
+          README_EDIT: "sudoedit .env    # the API key and any DOC_INTAKE_* setting"
+          CI_EDIT: sudo sed -i 's/^DOC_INTAKE_ANTHROPIC_API_KEY=$/DOC_INTAKE_ANTHROPIC_API_KEY=not-a-real-key/' .env
+        run: >-
+          python3 scripts/readme_block.py deploy/README.md "## Install"
+          --replace "$README_CLONE" "$CI_CLONE"
+          --replace "$README_EDIT" "$CI_EDIT"
+          > "$RUNNER_TEMP/install.sh"
+
+      # Ends with the README's "Check it" block: one run over the empty inbox,
+      # which must exit 0.
+      - name: Install and check it, as the README says
+        run: bash "$RUNNER_TEMP/install.sh"
+
+      # The service runs this binary: an owner other than root could swap it.
+      - name: uv is owned by root
+        run: test "$(stat -c %u:%g /usr/local/bin/uv)" = 0:0
+
+      - name: An empty inbox is a successful run
+        run: |
+          test "$(systemctl show -p Result --value doc-intake-inbox.service)" = success
+          sudo journalctl -u doc-intake-inbox.service --no-pager | grep "nothing ready in the inbox"
+
+      # Backdated past the 60 s settle window instead of waiting for it.
+      # Exit 1 alone could be any failure (no Python, no permission): the
+      # results.csv row naming the provider's refusal proves the run reached
+      # the provider as the service user. The timer is stopped meanwhile: a
+      # run it started would reset Result before it is read.
+      - name: A provider error leaves the document in the inbox
+        run: |
+          sudo systemctl stop doc-intake-inbox.timer
+          sudo install -o doc-intake -g doc-intake -m 644 demo/receipt.png /srv/doc-intake/inbox/receipt.png
+          sudo touch -d '-2 min' /srv/doc-intake/inbox/receipt.png
+          if sudo systemctl start doc-intake-inbox.service; then
+            echo "::error::the run succeeded with a dummy API key"
+            exit 1
+          fi
+          test "$(systemctl show -p Result --value doc-intake-inbox.service)" = exit-code
+          test "$(systemctl show -p ExecMainStatus --value doc-intake-inbox.service)" = 1
+          sudo test -f /srv/doc-intake/inbox/receipt.png
+          sudo sh -c 'grep AuthenticationError /srv/doc-intake/runs/*/results.csv'
+          sudo systemctl start doc-intake-inbox.timer
+
+      - name: The timer is scheduled
+        run: |
+          systemctl is-enabled doc-intake-inbox.timer
+          systemctl is-active doc-intake-inbox.timer
+          systemctl list-timers --no-pager doc-intake-inbox.timer | grep doc-intake-inbox.timer
+
+      - name: Show the service log
+        if: ${{ failure() }}
+        run: sudo journalctl -u doc-intake-inbox.service --no-pager
+
   # The single required check (ruleset on main). always(): a skipped required
   # check counts as passed, so the gate must run, and fail, when a dependency
   # fails. A new job must be added to "needs"; tests/test_ci_gate.py enforces it.
   ci-passed:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [check, test, eval, package, secret-scan, workflow-audit, dependency-audit]
+    needs: [check, test, eval, package, deploy-smoke, secret-scan, workflow-audit, dependency-audit]
     if: ${{ always() }}
 
     steps:
