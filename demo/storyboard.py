@@ -184,7 +184,7 @@ def _luminance(colour: Colour) -> float:
 
 
 @cache
-def _font(size: int) -> ImageFont.FreeTypeFont:
+def font(size: int) -> ImageFont.FreeTypeFont:
     # Pillow's bundled font: the same on Windows and in the render's container.
     font = ImageFont.load_default(size=size)
     if not isinstance(font, ImageFont.FreeTypeFont):  # a Pillow built without FreeType
@@ -222,7 +222,7 @@ class _Canvas:
         self.draw.text(
             xy,
             text,
-            font=_font(size),
+            font=font(size),
             fill=fill,
             anchor=anchor,
             stroke_width=1 if bold else 0,

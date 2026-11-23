@@ -21,6 +21,8 @@ For each document, a JSON result with company, address, date, total and currency
 
 ## How it runs day to day
 
+![The spreadsheet a check leaves for a sample receipt: five rows, one per value, each with the text it was read from; the total, read from the image, is framed and marked for a person to check.](demo/spreadsheet.png)
+
 1. **Documents land in a folder.** Save them there, or use a folder that Google Drive or Dropbox keeps in sync on the computer that runs the pipeline.
 2. **The folder is checked on a schedule**, every 15 minutes in the example setup. A file still being copied or synced is left for the next check.
 3. **Each check leaves a spreadsheet** that opens in Excel or Google Sheets: one row per field, with the value, the page and the exact text it was read from. Filter `field_status` to `needs_review` and you have the review queue. The original documents are moved into the same folder as the spreadsheet, so each one is next to its rows.
