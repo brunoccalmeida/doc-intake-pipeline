@@ -14,7 +14,7 @@ This is the public example. Deploying in a client's own account (their cloud, th
 | `/srv/doc-intake/inbox` | Where documents arrive: saved there, or a folder a Drive or Dropbox client keeps in sync |
 | `/srv/doc-intake/runs` | One folder per run: `results.csv`, `results.jsonl` and `documents/` |
 
-Everything is installed as `doc-intake`, the user the service runs as: uv keeps its cache and the Python it downloads in the home of whoever runs it, so a `sudo uv sync` as root would leave the service without a Python it can read.
+Everything is installed as `doc-intake`, the user the service runs as: uv keeps its cache and the Python it downloads in the home of whoever runs it ([uv storage](https://docs.astral.sh/uv/reference/storage/)). On a machine without the Python version in `.python-version` (Ubuntu 24.04, for one), uv downloads it, and a `sudo uv sync` as root would leave the service without a Python it can read; where the system has it, the mistake would go unnoticed until a machine without it.
 
 ## Install
 

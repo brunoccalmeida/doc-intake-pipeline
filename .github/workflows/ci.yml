@@ -269,8 +269,17 @@ jobs:
   # from a client's machine is declared below, and the job fails when its
   # text is no longer in the README, so CI never runs a stale copy. No paid
   # call: the API key is a dummy the provider refuses.
+  #
+  # Two machines, two ways uv finds Python: ubuntu-latest (26.04) ships the
+  # Python 3.14 of .python-version, so uv uses it; ubuntu-24.04 does not, so
+  # uv downloads one into the home of whoever runs the install. Only the
+  # second shows an install as root breaking the service (#61).
   deploy-smoke:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
 
     steps:
