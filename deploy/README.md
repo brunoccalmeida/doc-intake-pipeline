@@ -18,12 +18,16 @@ Everything is installed as `doc-intake`, the user the service runs as: uv keeps 
 
 ## Install
 
+Save the block as a file and run it with `bash -euo pipefail <file>`, so the first command that fails stops the rest. Pasted into a terminal, a failed command does not stop the next ones, and a half-done install is harder to undo than one that never started.
+
 ```bash
-# uv, at the version pyproject.toml requires, checked against its published SHA-256
-curl -LsSf -o /tmp/uv.tar.gz https://github.com/astral-sh/uv/releases/download/0.13.9/uv-x86_64-unknown-linux-gnu.tar.gz
-echo "a7fbaff2b9a271d85c1bdb540941090fd1ce011797b4abeb48e4dcd39c2471d5  /tmp/uv.tar.gz" | sha256sum --check --strict
-sudo tar -xzf /tmp/uv.tar.gz -C /usr/local/bin --strip-components=1 uv-x86_64-unknown-linux-gnu/uv
-rm /tmp/uv.tar.gz
+# uv, at the version pyproject.toml requires, checked against its published
+# SHA-256 and installed owned by root (the archive records its builder's uid)
+uv_tmp=$(mktemp -d)
+curl -LsSf -o "$uv_tmp/uv.tar.gz" https://github.com/astral-sh/uv/releases/download/0.13.9/uv-x86_64-unknown-linux-gnu.tar.gz
+echo "a7fbaff2b9a271d85c1bdb540941090fd1ce011797b4abeb48e4dcd39c2471d5  $uv_tmp/uv.tar.gz" | sha256sum --check --strict && tar -xzf "$uv_tmp/uv.tar.gz" -C "$uv_tmp"
+sudo install -m 755 "$uv_tmp/uv-x86_64-unknown-linux-gnu/uv" /usr/local/bin/uv
+rm -r "$uv_tmp"
 sudo git clone --branch v0.2.0 --depth 1 https://github.com/brunoccalmeida/doc-intake-pipeline /opt/doc-intake-pipeline
 cd /opt/doc-intake-pipeline
 sudo cp .env.example .env
@@ -78,7 +82,7 @@ To keep the file readable afterwards:
 - **Files still arriving are left alone.** A file is taken once it has not changed for 60 seconds (`--settle`). Neither [Dropbox](https://help.dropbox.com/delete-restore/cache-folder) nor [Google Drive for desktop](https://support.google.com/drive/answer/16631477) documents how it writes a synced file, so the run does not assume a file appears whole.
 - **Keep `inbox` and `runs` on one filesystem.** Within one filesystem a move is a rename; across filesystems it copies the file and then deletes it ([`shutil.move`](https://docs.python.org/3.14/library/shutil.html#shutil.move)), and a crash in between can leave a file in both places.
 
-CI checks both unit files with `systemd-analyze verify` (unknown keys, a missing `ExecStart` binary), and the `deploy-smoke` job runs the two blocks above, as written, on an Ubuntu machine with systemd: it installs from the checkout under test instead of the release tag and writes a dummy API key instead of opening an editor. It then starts the service over an empty inbox (exit 0) and over a document (the provider refuses the dummy key at no cost: exit 1, the document stays in the inbox).
+CI checks both unit files with `systemd-analyze verify` (unknown keys, a missing `ExecStart` binary), and the `deploy-smoke` job runs the two blocks above, as written, with `set -euo pipefail`, on Ubuntu 24.04 and on the latest Ubuntu, with systemd: it installs from the checkout under test instead of the release tag and writes a dummy API key instead of opening an editor. It then starts the service over an empty inbox (exit 0) and over a document (the provider refuses the dummy key at no cost: exit 1, the document stays in the inbox).
 
 ## Other schedulers
 

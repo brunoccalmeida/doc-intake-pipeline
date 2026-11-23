@@ -265,9 +265,11 @@ jobs:
   # deploy/README.md run as written on a machine with systemd (#61): "check"
   # verifies the unit files, this runs the install steps a client follows
   # (service user, uv, sync, OCR model, units) and starts the service.
-  # scripts/readme_block.py extracts the README's blocks; each difference
-  # from a client's machine is declared below, and the job fails when its
-  # text is no longer in the README, so CI never runs a stale copy. No paid
+  # scripts/readme_block.py extracts the README's blocks, under the
+  # set -euo pipefail the README tells a client to use (plus -x, for this
+  # log). Every other difference from a client's machine is declared below,
+  # and the job fails when its text is no longer in the README, so CI never
+  # runs a stale copy. No paid
   # call: the API key is a dummy the provider refuses.
   #
   # Two machines, two ways uv finds Python: ubuntu-latest (26.04) ships the
@@ -319,9 +321,11 @@ jobs:
       # Backdated past the 60 s settle window instead of waiting for it.
       # Exit 1 alone could be any failure (no Python, no permission): the
       # results.csv row naming the provider's refusal proves the run reached
-      # the provider as the service user.
+      # the provider as the service user. The timer is stopped meanwhile: a
+      # run it started would reset Result before it is read.
       - name: A provider error leaves the document in the inbox
         run: |
+          sudo systemctl stop doc-intake-inbox.timer
           sudo install -o doc-intake -g doc-intake -m 644 demo/receipt.png /srv/doc-intake/inbox/receipt.png
           sudo touch -d '-2 min' /srv/doc-intake/inbox/receipt.png
           if sudo systemctl start doc-intake-inbox.service; then
@@ -332,6 +336,7 @@ jobs:
           test "$(systemctl show -p ExecMainStatus --value doc-intake-inbox.service)" = 1
           sudo test -f /srv/doc-intake/inbox/receipt.png
           sudo sh -c 'grep AuthenticationError /srv/doc-intake/runs/*/results.csv'
+          sudo systemctl start doc-intake-inbox.timer
 
       - name: The timer is scheduled
         run: |

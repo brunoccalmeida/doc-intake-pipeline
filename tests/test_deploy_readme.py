@@ -1,8 +1,9 @@
 """deploy/README.md installs what the project pins (#61).
 
-The deploy smoke test in CI runs the README's install block, so a broken
-step fails there; these checks catch the drift CI cannot see, because the
-job would still pass with an older uv.
+The deploy smoke test in CI runs the README's install block, and its
+``uv sync`` would refuse a uv other than ``required-version``. These checks
+name the drift locally, in seconds, instead of as a failed sync minutes into
+a CI job, and keep the download checked against a pinned hash.
 """
 
 import re
