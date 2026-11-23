@@ -307,6 +307,10 @@ jobs:
       - name: Install and check it, as the README says
         run: bash "$RUNNER_TEMP/install.sh"
 
+      # The service runs this binary: an owner other than root could swap it.
+      - name: uv is owned by root
+        run: test "$(stat -c %u:%g /usr/local/bin/uv)" = 0:0
+
       - name: An empty inbox is a successful run
         run: |
           test "$(systemctl show -p Result --value doc-intake-inbox.service)" = success
