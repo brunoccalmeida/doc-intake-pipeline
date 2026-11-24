@@ -11,16 +11,19 @@ from pathlib import Path
 
 import pytest
 
+from doc_intake.acceptance import FieldEvidence
 from doc_intake.core.config import Settings
 from doc_intake.core.ingest import ingest
 from doc_intake.core.llm import LLMRequest, LLMResponse
 from doc_intake.core.pricing import UnknownModelPriceError
 from doc_intake.packs.receipt import RECEIPT
 from doc_intake.providers import MissingCredentialError
+from evals.cross_fit import CrossFit
 from evals.readme import END, START
 from evals.recording import RecordingProvider, RecordingStore
 from evals.run import run_eval
 from evals.sroie import MANIFEST_PATH, load_manifest
+from scripts import run_eval as run_eval_script
 from scripts.run_eval import main
 
 GOLDEN = Settings().sroie_dir
@@ -178,6 +181,48 @@ def test_a_wrong_value_accepted_without_review_fails_the_gate_at_equal_accuracy(
     expected = "total: 1 wrong values accepted without review, above the baseline of 0"
     assert f"- {expected}" in report
     assert expected in capsys.readouterr().err
+
+
+def test_a_wrong_image_read_value_auto_accepted_fails_the_gate_at_zero(
+    recordings: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # The wrong total is read from the image, so review catches it by default;
+    # a policy that accepts image-read totals for this receipt lets it through.
+    record(recordings, golden_answer(total="0.01"))
+    path = baseline(tmp_path)
+    content = json.loads(path.read_text(encoding="utf-8"))
+    content["fields"]["total"] = 0
+    path.write_text(json.dumps(content), encoding="utf-8")
+
+    def accepting_total(scores: object, from_image: object, pack: object) -> CrossFit:
+        evidence = {name: FieldEvidence(reviewed=0, errors=0) for name in FIELDS}
+        return CrossFit(target=0.02, evidence=evidence, accepts={FIRST_ID: frozenset({"total"})})
+
+    monkeypatch.setattr(run_eval_script, "cross_fit", accepting_total)
+
+    code, report = run(tmp_path)
+
+    assert code == 1
+    expected = "total: 1 wrong values accepted from the image by a cross-fitted policy, above 0"
+    assert f"- {expected}" in report
+    assert expected in capsys.readouterr().err
+    assert "## Auto-acceptance, cross-fitted" in report
+    assert "| total | 0 | 0 | 100.000% | 1 | 1 |" in report
+
+
+def test_with_nothing_accepted_the_section_shows_zero_and_the_gate_passes(
+    recordings: Path, tmp_path: Path
+) -> None:
+    record(recordings, golden_answer())
+    baseline(tmp_path)
+
+    code, report = run(tmp_path)
+
+    assert code == 0
+    assert "## Auto-acceptance, cross-fitted" in report
 
 
 def test_a_missing_recording_fails_naming_the_fix(

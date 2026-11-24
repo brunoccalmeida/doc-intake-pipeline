@@ -11,7 +11,14 @@ from evals.run import EvalRun
 from evals.scoring import ReviewLoad, field_accuracy, review_load, status_counts
 
 
-def render_report(run: EvalRun, baseline: Baseline | None, *, regressions: list[str]) -> str:
+def render_report(
+    run: EvalRun,
+    baseline: Baseline | None,
+    *,
+    regressions: list[str],
+    auto_acceptance: list[str] | None = None,
+) -> str:
+    """The report; ``auto_acceptance`` is the cross-fitted section (``evals.cross_fit``)."""
     lines = ["# Eval report: SROIE receipts", ""]
     if regressions:
         lines += ["**Gate: failed.**", "", *(f"- {problem}" for problem in regressions)]
@@ -56,6 +63,8 @@ def render_report(run: EvalRun, baseline: Baseline | None, *, regressions: list[
         else "none"
     )
     lines.append(_load_row("**All fields**", ReviewLoad.total(loads.values()), limit))
+    if auto_acceptance:
+        lines += ["", *auto_acceptance]
 
     counts = status_counts(run.scores)
     lines += ["", "## Documents by status", ""]

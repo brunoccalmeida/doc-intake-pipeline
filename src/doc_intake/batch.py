@@ -15,6 +15,10 @@ A scheduler (``deploy/``) starts one run at a time; each run:
    temporary file and ``os.replace``, so nobody opens half a file;
 5. only then moves the originals to ``documents/`` beside it.
 
+With an acceptance policy (``doc_intake.acceptance``, docs/ARCHITECTURE.md
+D22), values read from the image of an accepted field are accepted without
+review, except a random audit share sent back to the queue.
+
 If a run stops before step 5, the files are still in the inbox and the next
 run processes them again: a document may be paid for twice, never lost
 (at-least-once).
@@ -42,6 +46,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from doc_intake.acceptance import Acceptance, audit
 from doc_intake.core.extract import Pack
 from doc_intake.core.ingest import (
     IMAGE_SUFFIXES,
@@ -53,7 +58,7 @@ from doc_intake.core.ingest import (
 )
 from doc_intake.core.llm import LLMProvider
 from doc_intake.core.pricing import UnknownModelPriceError
-from doc_intake.core.result import ExtractionResult, is_field
+from doc_intake.core.result import ExtractedField, ExtractionResult, is_field
 from doc_intake.core.runlog import extract_logged, log_unreadable, new_run_id
 
 SUPPORTED_SUFFIXES = PDF_SUFFIXES | IMAGE_SUFFIXES
@@ -167,6 +172,7 @@ def run_inbox[S: BaseModel](
     max_retries: int,
     settle: timedelta,
     now: datetime,
+    acceptance: Acceptance | None = None,
 ) -> RunReport:
     """Process the documents ready in ``inbox`` into a new folder under ``runs``.
 
@@ -186,7 +192,7 @@ def run_inbox[S: BaseModel](
     try:
         for path in documents:
             outcome, stop = _process(
-                path, pack, provider, tessdata_dir, provider_name, max_retries, run_id
+                path, pack, provider, tessdata_dir, provider_name, max_retries, run_id, acceptance
             )
             outcomes.append(outcome)
             if stop:
@@ -221,6 +227,7 @@ def _process[S: BaseModel](
     provider_name: str,
     max_retries: int,
     run_id: str,
+    acceptance: Acceptance | None,
 ) -> tuple[_Outcome[S], bool]:
     """One document's outcome, and whether the run must stop after it.
 
@@ -258,6 +265,7 @@ def _process[S: BaseModel](
             run_id=run_id,
             provider_name=provider_name,
             max_retries=max_retries,
+            accept_from_image=acceptance.fields if acceptance else frozenset(),
         )
     except UnknownModelPriceError as error:
         # Paid, but its cost cannot be logged: every further call would be
@@ -269,6 +277,8 @@ def _process[S: BaseModel](
         # extract_logged with the calls already paid. Retried by every run
         # until it succeeds; exit 1 on each run tells someone to look.
         return _left(pack, path, f"{type(error).__name__}; {LEFT_FOR_NEXT_RUN}"), False
+    if acceptance is not None:
+        result = audit(result, acceptance.fields, rate=acceptance.audit_rate, draw=acceptance.draw)
     return _Outcome(path, result, move=True, digest=document_id), False
 
 
@@ -308,9 +318,17 @@ def _rows[S: BaseModel](outcome: _Outcome[S]) -> Iterator[dict[str, str]]:
             "page": "" if citation is None else str(citation.page),
             "source": "" if citation is None else citation.source,
             "quote": "" if citation is None else citation.quote,
-            "note": problems.get(name) or field.reason or "",
+            "note": problems.get(name) or field.reason or _accepted_note(field),
         }
         yield row
+
+
+def _accepted_note(field: ExtractedField[object]) -> str:
+    """Why a value read from the image is not under review: only a policy accepts one."""
+    citation = field.citation
+    if citation is not None and citation.source == "image":
+        return "accepted from the image by the acceptance policy"
+    return ""
 
 
 def _write_copy[S: BaseModel](path: Path, outcomes: list[_Outcome[S]]) -> None:

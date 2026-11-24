@@ -15,14 +15,18 @@ Exits 1 when a document failed, so the scheduler marks the run as failed and
 someone looks; ``needs_review`` is the queue working, and exits 0.
 
 Configuration is checked before the inbox is read (fail fast): an unpriced
-model or a missing key stops the run before anything is paid for.
+model, a missing key or an acceptance policy that cannot be used
+(``DOC_INTAKE_ACCEPTANCE_POLICY``, docs/ARCHITECTURE.md D22) stops the run
+before anything is paid for.
 """
 
 import argparse
+import random
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from doc_intake.acceptance import Acceptance, accepted_fields, load_policy
 from doc_intake.batch import run_inbox
 from doc_intake.core.config import Settings
 from doc_intake.core.llm import LLMProvider
@@ -35,6 +39,10 @@ from scripts.logs import configure_run_log
 # Neither Google Drive nor Dropbox documents how it writes a synced file, so a
 # file is taken only once it has not changed for this long (own judgment).
 DEFAULT_SETTLE_SECONDS = 60
+
+# Which accepted values go to the audit: unpredictable, so no pattern in the
+# documents can steer which values are checked (a test replaces it).
+audit_draw = random.SystemRandom().random
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -58,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     settings = Settings()
     configure_run_log(settings.log_level)
     price_of(settings.model)
+    acceptance = acceptance_of(settings)
     provider: LLMProvider
     if replay is not None:
         provider = ReplayProvider(
@@ -69,11 +78,32 @@ def main(argv: list[str] | None = None) -> int:
     else:
         provider = make_provider(settings)
 
-    return process(settings, provider, inbox, runs, settle=timedelta(seconds=settle))
+    return process(
+        settings, provider, inbox, runs, settle=timedelta(seconds=settle), acceptance=acceptance
+    )
+
+
+def acceptance_of(settings: Settings) -> Acceptance | None:
+    """The configured acceptance policy, as a run applies it; None when unset."""
+    if settings.acceptance_policy is None:
+        return None
+    policy = load_policy(settings.acceptance_policy)
+    return Acceptance(
+        accepted_fields(policy, RECEIPT),
+        audit_rate=policy.audit_rate,
+        # Looked up at call time, so a test's replacement is the one used.
+        draw=lambda: audit_draw(),
+    )
 
 
 def process(
-    settings: Settings, provider: LLMProvider, inbox: Path, runs: Path, *, settle: timedelta
+    settings: Settings,
+    provider: LLMProvider,
+    inbox: Path,
+    runs: Path,
+    *,
+    settle: timedelta,
+    acceptance: Acceptance | None = None,
 ) -> int:
     """One run, its summary line on stdout, and the exit code (module docstring)."""
     report = run_inbox(
@@ -86,6 +116,7 @@ def process(
         max_retries=settings.max_retries,
         settle=settle,
         now=datetime.now(UTC),
+        acceptance=acceptance,
     )
     if report.folder is None:
         print("nothing ready in the inbox")

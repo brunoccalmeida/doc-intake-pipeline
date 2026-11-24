@@ -50,7 +50,10 @@ class Label:
     ``suggested`` and ``truth`` have the pack's types (``Decimal``, ``date``,
     ``str``); ``None`` means empty, and absent from the page for ``truth``.
     ``source`` is where the run read its suggestion (its citation's source),
-    ``None`` when the run left the field empty.
+    ``None`` when the run left the field empty. ``queued`` says whether the
+    run sent the field to review (its ``needs_review`` rows, audit included):
+    a verdict on an accepted row is the reviewer's pick, not a sample, and
+    the acceptance calibration leaves it out (docs/ARCHITECTURE.md D22).
     """
 
     file: str
@@ -59,6 +62,7 @@ class Label:
     suggested: object
     truth: object
     source: QuoteSource | None
+    queued: bool = False
 
 
 def read_reviewed_run[S: BaseModel](folder: Path, pack: Pack[S]) -> list[Label]:
@@ -108,7 +112,15 @@ def _label[S: BaseModel](
         if correct:
             raise ReviewError(f"{where}: only a corrected verdict takes a correct_value")
         truth = suggestion.value if verdict == "confirmed" else None
-        return Label(file, field, verdict, suggestion.value, truth, source=suggestion.source)
+        return Label(
+            file,
+            field,
+            verdict,
+            suggestion.value,
+            truth,
+            source=suggestion.source,
+            queued=suggestion.queued,
+        )
     if not correct:
         raise ReviewError(f"{where}: corrected needs the right value in correct_value")
     try:
@@ -117,7 +129,15 @@ def _label[S: BaseModel](
         # Without the input: Pydantic's messages would otherwise quote it.
         problems = "; ".join(e["msg"] for e in error.errors(include_input=False))
         raise ReviewError(f"{where}: correct_value is not a valid {field}: {problems}") from None
-    return Label(file, field, verdict, suggestion.value, truth, source=suggestion.source)
+    return Label(
+        file,
+        field,
+        verdict,
+        suggestion.value,
+        truth,
+        source=suggestion.source,
+        queued=suggestion.queued,
+    )
 
 
 def _is_verdict(text: str) -> TypeIs[Verdict]:
@@ -156,6 +176,7 @@ class _Suggestion:
 
     value: object
     source: QuoteSource | None
+    queued: bool = False
 
 
 def _suggestions[S: BaseModel](path: Path, pack: Pack[S]) -> dict[tuple[str, str], _Suggestion]:
@@ -170,7 +191,7 @@ def _suggestions[S: BaseModel](path: Path, pack: Pack[S]) -> dict[tuple[str, str
         copy = json.loads(line)
         file = str(copy["file"])
         try:
-            fields = result_type.model_validate(copy["result"]).fields
+            result = result_type.model_validate(copy["result"])
         except ValidationError as error:
             # A run from before the pack's schema changed. Without the input:
             # Pydantic's messages would otherwise quote the document's values.
@@ -181,6 +202,7 @@ def _suggestions[S: BaseModel](path: Path, pack: Pack[S]) -> dict[tuple[str, str
             raise ReviewError(
                 f"{path.name} line {number}: not a {pack.name} result: {problems}"
             ) from None
+        fields = result.fields
         if fields is None:
             suggested[(file, "")] = _Suggestion(None, None)
             continue
@@ -188,7 +210,9 @@ def _suggestions[S: BaseModel](path: Path, pack: Pack[S]) -> dict[tuple[str, str
             value = getattr(fields, name)
             if is_field(value):
                 source = value.citation.source if value.citation is not None else None
-                suggested[(file, name)] = _Suggestion(value.value, source)
+                suggested[(file, name)] = _Suggestion(
+                    value.value, source, queued=name in result.review
+                )
     return suggested
 
 

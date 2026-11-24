@@ -21,7 +21,7 @@ from doc_intake.core.llm import LLMRequest, LLMResponse
 from doc_intake.core.result import Citation, ExtractedField
 from doc_intake.core.runlog import RUN_LOGGER, RunLogEntry
 from doc_intake.packs.receipt import RECEIPT, Receipt
-from evals.run import Usage, run_eval
+from evals.run import EvalRun, Usage, run_eval
 from evals.sroie import MANIFEST_PATH, load_manifest
 
 SETTINGS = Settings()
@@ -76,6 +76,33 @@ def test_golden_answer_scores_every_field_correct_and_meters_the_call(
         FIRST_ID,
         "scripted",
     )
+
+
+def test_the_run_names_image_read_fields_and_applies_a_receipts_accepted_ones() -> None:
+    # Golden citations are read from the image (D12): every valued field.
+    answer = golden_text(FIRST_ID)
+    image_read = frozenset(
+        name for name, field in json.loads(answer).items() if field["citation"] is not None
+    )
+    assert "total" in image_read
+
+    def scored(accept: dict[str, frozenset[str]] | None) -> EvalRun:
+        return run_eval(
+            [FIRST_ID],
+            RECEIPT,
+            ScriptedProvider(answer),
+            golden_dir=SETTINGS.sroie_dir,
+            tessdata_dir=SETTINGS.tessdata_dir,
+            run_id="run-1",
+            provider_name="scripted",
+            accept=accept,
+        )
+
+    default, accepted = scored(None), scored({FIRST_ID: frozenset({"total"})})
+
+    assert default.from_image == {FIRST_ID: image_read}
+    assert default.scores[0].routes["total"] == "review"
+    assert accepted.scores[0].routes == default.scores[0].routes | {"total": "accepted"}
 
 
 def logged(caplog: pytest.LogCaptureFixture) -> list[dict[str, object]]:

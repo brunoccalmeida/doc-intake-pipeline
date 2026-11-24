@@ -26,6 +26,7 @@ from doc_intake.core.runlog import new_run_id
 from doc_intake.packs.receipt import RECEIPT
 from doc_intake.providers import make_provider
 from evals.baseline import BASELINE_PATH, load_baseline, regressions, save_baseline
+from evals.cross_fit import cross_fit, render_cross_fit
 from evals.readme import render_summary, replace_summary
 from evals.recording import MissingRecordingError, RecordingProvider, RecordingStore, ReplayProvider
 from evals.report import render_report
@@ -84,6 +85,24 @@ def main(argv: list[str] | None = None) -> int:
             provider_name=settings.provider,
             max_retries=settings.max_retries,
         )
+        # Auto-acceptance (D22): each receipt under the policy of the others,
+        # scored again where that policy accepts something.
+        fit = cross_fit(run.scores, run.from_image, RECEIPT)
+        rescored = (
+            run_eval(
+                list(fit.accepts),
+                RECEIPT,
+                provider,
+                golden_dir=settings.sroie_dir,
+                tessdata_dir=settings.tessdata_dir,
+                run_id=new_run_id(),
+                provider_name=settings.provider,
+                max_retries=settings.max_retries,
+                accept=fit.accepts,
+            ).scores
+            if fit.accepts
+            else []
+        )
     except MissingRecordingError as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
@@ -98,6 +117,14 @@ def main(argv: list[str] | None = None) -> int:
         if baseline is not None
         else [f"no baseline at {baseline_path}"]
     )
+    # Zero, not a baseline: a wrong value no person checks is invented data
+    # reaching the client (AGENTS.md invariant 1).
+    wrong_auto = fit.wrong_accepted(rescored)
+    found += [
+        f"{name}: {count} wrong values accepted from the image by a cross-fitted policy, above 0"
+        for name, count in wrong_auto.items()
+        if count
+    ]
     # A subset cannot match the README's whole-set numbers, so only a full run checks
     # them; and only a passing one: the fix for a worse score is the code, and
     # writing the README then would publish the worse numbers.
@@ -113,7 +140,13 @@ def main(argv: list[str] | None = None) -> int:
             )
 
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(render_report(run, baseline, regressions=found), encoding="utf-8")
+    report = render_report(
+        run,
+        baseline,
+        regressions=found,
+        auto_acceptance=render_cross_fit(fit, wrong=wrong_auto),
+    )
+    report_path.write_text(report, encoding="utf-8")
     usage = run.usage
     print(
         f"documents={usage.documents} calls={usage.calls} input_tokens={usage.input_tokens} "

@@ -82,6 +82,23 @@ uv run poe review-report runs/2026-11-22T153000Z runs/2026-11-23T153000Z
 
 It prints, per field and per source (`text`, `image`, or `empty` when the run left the field empty), the fields reviewed, the fields wrong, the error rate, and its 95% upper bound: the highest error rate those reviews cannot rule out. With no error in 100 fields, the bound is still about 3%. It counts only the fields someone reviewed, so if the review covers flagged fields only, it says nothing about the fields the run accepted. It prints field names and numbers, never a value.
 
+## Accepting image-read fields without review
+
+By default, every value read from the page image goes to review, because no code can check a picture. Once enough of them are reviewed, a field can skip that review when its reviews show its error rate is under a target you choose ([D22](../docs/ARCHITECTURE.md#d22-aceite-automático-por-campo-com-auditoria-decidida-na-65)). Choose the target first, say 2%, and keep it: a target moved until a field passes protects nothing.
+
+```bash
+uv run poe calibrate --target 0.02 --out /srv/doc-intake/policy.json runs/2026-11-22T153000Z runs/2026-11-23T153000Z
+```
+
+It writes the policy (the target and, per field, the image-read values reviewed and how many were wrong) and prints, per field, the upper bound of its error rate and whether it is accepted. To apply it, set `DOC_INTAKE_ACCEPTANCE_POLICY=/srv/doc-intake/policy.json` in `.env`; a policy file that cannot be read stops the next run before any document is sent. Unset, nothing changes.
+
+- **How many reviews it takes.** With no wrong value, about 330 reviewed image-read values of a field for a 2% target, and 130 for 5%. One wrong value needs many more.
+- **Calibrate as often as you like, always on every reviewed run since the first,** into the same policy file, with the same target. The bound stays valid however often you look at one growing set of reviews, so running it after every reviewed batch, until a field passes, does not weaken it; leaving out a run, or changing the target, would. The command refuses both.
+- **Review every queued image-read value of the field, not a chosen few.** Skipping the hard ones makes the error rate look smaller than it is. Only rows the run sent to review count: a verdict written on an accepted row is ignored, because a value picked for checking is not a sample.
+- **Why its bound is higher than the report's.** `review-report` gives the bound for one look at a fixed set of reviews. `calibrate` gives one that holds however often you calibrate, shared by the five fields so that no field slips through by chance among them; it needs more reviews to reach the same number.
+- **Accepted values still get checked by a sample.** Their rows say `accepted from the image by the acceptance policy`. A random 10% of them (`--audit-rate`) come back to the queue with the note `audit sample of values accepted from the image`: review them like any other row, because nothing else measures an accepted field. Include those runs the next time you calibrate; if the audit finds errors, the bound rises and the field goes back to review.
+- **Only the image check is lifted.** A quote missing from the page, or a value that is not the text of its quote, still goes to review.
+
 ## Why these settings
 
 - **No two runs at once.** With `Type=oneshot`, the service stays active until the run ends, and a timer does not start a service that is still active: "it is not restarted, but simply left running" ([systemd.timer](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html)). No lock file is needed.

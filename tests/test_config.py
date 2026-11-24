@@ -70,6 +70,15 @@ def test_extraction_defaults() -> None:
     assert settings.openai_api_key is None
 
 
+def test_auto_acceptance_is_off_unless_a_policy_is_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Off by default: every image-read value goes to review (D14, D22).
+    assert Settings().acceptance_policy is None
+    monkeypatch.setenv("DOC_INTAKE_ACCEPTANCE_POLICY", "/srv/doc-intake/policy.json")
+    assert Settings().acceptance_policy == Path("/srv/doc-intake/policy.json")
+
+
 def test_recordings_dir_defaults_to_the_project_cache() -> None:
     assert Settings().recordings_dir == Path(".cache/recordings")
 

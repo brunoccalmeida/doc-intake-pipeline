@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     anthropic_profile: str | None = None
     # Retries after the first call when the answer fails validation.
     max_retries: Annotated[int, Field(ge=0)] = 2
+    # A client's acceptance policy ("uv run poe calibrate"): image-read values
+    # of the fields it accepts skip review, except an audit share. Unset, every
+    # image-read value goes to review (docs/ARCHITECTURE.md D14, D22).
+    acceptance_policy: Path | None = None
 
     @field_validator("anthropic_profile", mode="before")
     @classmethod
