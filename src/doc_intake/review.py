@@ -29,7 +29,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from doc_intake.batch import COPY_NAME, RESULTS_NAME, VERDICT_COLUMNS, spreadsheet_safe
 from doc_intake.core.extract import Pack
-from doc_intake.core.result import ExtractionResult, is_field
+from doc_intake.core.result import ExtractionResult, QuoteSource, is_field
 
 type Verdict = Literal["confirmed", "corrected", "not_on_page"]
 _VERDICTS: tuple[str, ...] = get_args(Verdict.__value__)
@@ -49,6 +49,8 @@ class Label:
 
     ``suggested`` and ``truth`` have the pack's types (``Decimal``, ``date``,
     ``str``); ``None`` means empty, and absent from the page for ``truth``.
+    ``source`` is where the run read its suggestion (its citation's source),
+    ``None`` when the run left the field empty.
     """
 
     file: str
@@ -56,6 +58,7 @@ class Label:
     verdict: Verdict
     suggested: object
     truth: object
+    source: QuoteSource | None
 
 
 def read_reviewed_run[S: BaseModel](folder: Path, pack: Pack[S]) -> list[Label]:
@@ -92,7 +95,7 @@ def _label[S: BaseModel](
     field: str,
     verdict: str,
     correct: str,
-    suggestion: object,
+    suggestion: _Suggestion,
 ) -> Label | None:
     if not verdict:
         if correct:
@@ -104,8 +107,8 @@ def _label[S: BaseModel](
     if verdict != "corrected":
         if correct:
             raise ReviewError(f"{where}: only a corrected verdict takes a correct_value")
-        truth = suggestion if verdict == "confirmed" else None
-        return Label(file, field, verdict, suggested=suggestion, truth=truth)
+        truth = suggestion.value if verdict == "confirmed" else None
+        return Label(file, field, verdict, suggestion.value, truth, source=suggestion.source)
     if not correct:
         raise ReviewError(f"{where}: corrected needs the right value in correct_value")
     try:
@@ -114,7 +117,7 @@ def _label[S: BaseModel](
         # Without the input: Pydantic's messages would otherwise quote it.
         problems = "; ".join(e["msg"] for e in error.errors(include_input=False))
         raise ReviewError(f"{where}: correct_value is not a valid {field}: {problems}") from None
-    return Label(file, field, verdict, suggested=suggestion, truth=truth)
+    return Label(file, field, verdict, suggestion.value, truth, source=suggestion.source)
 
 
 def _is_verdict(text: str) -> TypeIs[Verdict]:
@@ -147,25 +150,45 @@ def _value_type[S: BaseModel](pack: Pack[S], field: str) -> TypeAdapter[object]:
     return TypeAdapter[object](value)
 
 
-def _suggestions[S: BaseModel](path: Path, pack: Pack[S]) -> dict[tuple[str, str], object]:
+@dataclass(frozen=True, slots=True)
+class _Suggestion:
+    """What the run produced for one field, and where it read it."""
+
+    value: object
+    source: QuoteSource | None
+
+
+def _suggestions[S: BaseModel](path: Path, pack: Pack[S]) -> dict[tuple[str, str], _Suggestion]:
     """What the run produced per (file, field); a failed document keys (file, "")."""
-    suggested: dict[tuple[str, str], object] = {}
+    suggested: dict[tuple[str, str], _Suggestion] = {}
     result_type = ExtractionResult[pack.schema]
     if not path.is_file():
         raise ReviewError(
             f"{path.parent.name} has no {path.name}: a run from before #63 cannot be read as labels"
         )
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
         copy = json.loads(line)
         file = str(copy["file"])
-        fields = result_type.model_validate(copy["result"]).fields
+        try:
+            fields = result_type.model_validate(copy["result"]).fields
+        except ValidationError as error:
+            # A run from before the pack's schema changed. Without the input:
+            # Pydantic's messages would otherwise quote the document's values.
+            problems = "; ".join(
+                f"{'.'.join(map(str, e['loc']))}: {e['msg']}"
+                for e in error.errors(include_input=False)
+            )
+            raise ReviewError(
+                f"{path.name} line {number}: not a {pack.name} result: {problems}"
+            ) from None
         if fields is None:
-            suggested[(file, "")] = None
+            suggested[(file, "")] = _Suggestion(None, None)
             continue
         for name in type(fields).model_fields:
             value = getattr(fields, name)
             if is_field(value):
-                suggested[(file, name)] = value.value
+                source = value.citation.source if value.citation is not None else None
+                suggested[(file, name)] = _Suggestion(value.value, source)
     return suggested
 
 

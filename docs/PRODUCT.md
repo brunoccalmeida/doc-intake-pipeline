@@ -41,7 +41,7 @@ Base: 15 vagas de extração de documentos no Upwork, com pagamento verificado, 
 | Tipos de documento | Faturas, pedidos de compra, confirmações de pedido, romaneios, tickets de campo, timesheets, cheques | Um pack: recibo |
 | Volume | Até 150 a 300 documentos por dia, em dezenas de formatos | Medido em 20 recibos |
 | Revisão humana | Fila para campos de baixa confiança, com acesso ao original e jeito de corrigir | Fila na planilha: filtro `field_status = needs_review`, com valor, citação, motivo e o original movido para a mesma pasta da execução (#53). Sem tela de revisão; correção feita na planilha não volta ao pipeline |
-| Prova de qualidade | Acurácia por campo medida em documentos reais, piloto com 10 a 20 documentos antes do projeto | Eval por campo com gate no CI (D4, D16) |
+| Prova de qualidade | Acurácia por campo medida em documentos reais, piloto com 10 a 20 documentos antes do projeto | Eval por campo com gate no CI (D4, D16); nos documentos do cliente, relatório de erro por campo a partir das revisões, com limite superior de 95% (D21, #64) |
 | Entrega | Código na hospedagem ou no repositório do cliente, documentação, instruções de configuração, 30 dias de correção de bugs | Fora do núcleo (kit) |
 
 ## Limites que valem para demos e dados fictícios
