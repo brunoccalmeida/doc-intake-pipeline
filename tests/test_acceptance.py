@@ -105,7 +105,7 @@ def test_a_policy_for_another_pack_or_field_fails() -> None:
 
 def image(file: str, field: str, suggested: object, truth: object) -> Label:
     verdict = "confirmed" if suggested == truth else "corrected"
-    return Label(file, field, verdict, suggested, truth, source="image")
+    return Label(file, field, verdict, suggested, truth, source="image", queued=True)
 
 
 def test_calibration_counts_image_read_labels_of_every_field() -> None:
@@ -113,6 +113,9 @@ def test_calibration_counts_image_read_labels_of_every_field() -> None:
         image("a.png", "total", Decimal("9.90"), Decimal("9.90")),
         image("b.png", "total", Decimal("5.00"), Decimal("15.00")),
         image("a.png", "date", date(2026, 3, 4), date(2026, 3, 4)),
+        # An accepted value the reviewer chose to check, outside the audit
+        # draw: a pick, not a sample, so it would bias the count.
+        Label("d.png", "total", "confirmed", Decimal("2.00"), Decimal("2.00"), source="image"),
         # Read from the text or left empty: another population, not calibrated.
         Label("c.png", "total", "confirmed", Decimal("1.00"), Decimal("1.00"), source="text"),
         Label("c.png", "currency", "not_on_page", None, None, source=None),

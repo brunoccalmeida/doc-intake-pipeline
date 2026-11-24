@@ -136,6 +136,25 @@ def invoice_policy(path: Path) -> None:
     write_policy(path, pack="invoice")
 
 
+def test_a_drawn_audit_sends_the_accepted_total_back_to_the_queue(
+    no_doc_intake_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    recorded_model(monkeypatch)
+    monkeypatch.setenv("DOC_INTAKE_ACCEPTANCE_POLICY", str(write_policy(tmp_path / "p.json")))
+    monkeypatch.setattr(run_inbox, "audit_draw", lambda: 0.0)  # under any audit rate
+    inbox, runs = tmp_path / "inbox", tmp_path / "runs"
+    inbox.mkdir()
+    shutil.copy(DEMO / "receipt-review.png", inbox / "receipt-review.png")
+
+    code = main([str(inbox), str(runs), "--settle", "0", "--replay", str(DEMO / "recordings")])
+
+    assert code == 0
+    assert capsys.readouterr().out.endswith(": 1 documents, 1 needs review, 0 failed\n")
+
+
 @pytest.mark.parametrize(
     ("write", "error", "match"),
     [

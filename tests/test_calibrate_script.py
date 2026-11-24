@@ -18,7 +18,7 @@ PRIVATE_TOTAL = Decimal("4321.09")
 
 def total(file: str, truth: Decimal = PRIVATE_TOTAL) -> Label:
     verdict = "confirmed" if truth == PRIVATE_TOTAL else "corrected"
-    return Label(file, "total", verdict, PRIVATE_TOTAL, truth, source="image")
+    return Label(file, "total", verdict, PRIVATE_TOTAL, truth, source="image", queued=True)
 
 
 RUNS = {
@@ -26,8 +26,8 @@ RUNS = {
     "run-1": [total(f"{i}.png") for i in range(200)],
     "run-2": [
         *(total(f"{i}.png") for i in range(130)),
-        Label("x.png", "date", "corrected", None, None, source="image"),
-        Label("y.png", "date", "confirmed", None, None, source="image"),
+        Label("x.png", "date", "corrected", None, None, source="image", queued=True),
+        Label("y.png", "date", "confirmed", None, None, source="image", queued=True),
         Label("z.png", "company", "confirmed", "ACME", "ACME", source="text"),
     ],
     "text-only": [Label("z.png", "company", "confirmed", "ACME", "ACME", source="text")],
@@ -97,6 +97,36 @@ def test_the_audit_rate_is_configurable(tmp_path: Path) -> None:
     )
 
     assert load_policy(out_path).audit_rate == 0.25
+
+
+def test_a_policy_that_leaves_out_a_run_the_previous_one_used_is_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The bound holds however often it is looked at only along one growing
+    # sequence of labels: dropping a run with an error would pick the sample.
+    out_path = tmp_path / "policy.json"
+    main(["--target", "0.02", "--out", str(out_path), str(tmp_path / "run-1")])
+    before = out_path.read_text(encoding="utf-8")
+
+    code = main(["--target", "0.02", "--out", str(out_path), str(tmp_path / "run-2")])
+
+    assert code == 1
+    assert out_path.read_text(encoding="utf-8") == before
+    assert "run-1" in capsys.readouterr().err
+
+
+def test_a_policy_with_another_target_than_the_previous_one_is_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A target moved after seeing the labels is chosen to let a field pass.
+    out_path = tmp_path / "policy.json"
+    main(["--target", "0.02", "--out", str(out_path), str(tmp_path / "run-1")])
+
+    code = main(["--target", "0.05", "--out", str(out_path), str(tmp_path / "run-1")])
+
+    assert code == 1
+    assert load_policy(out_path).target == 0.02
+    assert "target" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(

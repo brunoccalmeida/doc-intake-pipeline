@@ -129,12 +129,22 @@ def test_each_verdict_becomes_a_label_and_unreviewed_fields_none(run_folder: Pat
     review(run_folder, edit)
 
     assert read_reviewed_run(run_folder, RECEIPT) == [
-        Label("a.png", "company", "confirmed", "ACME", "ACME", source="text"),
+        # The page's text is only "TOTAL 9.90": company and date cite text that is
+        # not there and address the image, so they were queued; total was not.
+        Label("a.png", "company", "confirmed", "ACME", "ACME", source="text", queued=True),
         Label("a.png", "total", "corrected", Decimal("9.90"), Decimal("19.90"), source="text"),
         # Confirming an empty field labels it absent; an empty field has no source.
         Label("a.png", "currency", "confirmed", None, None, source=None),
-        Label("b.png", "address", "not_on_page", "1 Main St", None, source="image"),
-        Label("b.png", "date", "corrected", date(2026, 3, 4), date(2026, 4, 3), source="text"),
+        Label("b.png", "address", "not_on_page", "1 Main St", None, source="image", queued=True),
+        Label(
+            "b.png",
+            "date",
+            "corrected",
+            date(2026, 3, 4),
+            date(2026, 4, 3),
+            source="text",
+            queued=True,
+        ),
     ]
 
 

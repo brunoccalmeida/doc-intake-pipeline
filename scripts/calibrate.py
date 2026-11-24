@@ -25,6 +25,7 @@ from doc_intake.acceptance import (
     DEFAULT_AUDIT_RATE,
     AcceptancePolicy,
     calibrate,
+    load_policy,
     upper_bounds,
 )
 from doc_intake.packs.receipt import RECEIPT
@@ -61,16 +62,46 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{folder.name}: {error}", file=sys.stderr)
             return 1
         runs.append(folder.name)
-    if not any(label.source == "image" for label in labels):
+    if not any(label.source == "image" and label.queued for label in labels):
         print(
             "no value read from the image was reviewed: fill in the verdict column first",
             file=sys.stderr,
         )
         return 1
+    if out.exists():
+        problem = _breaks_the_sequence(load_policy(out), target=args.target, runs=runs)
+        if problem:
+            print(f"{out}: {problem}", file=sys.stderr)
+            return 1
     policy = calibrate(labels, RECEIPT, target=args.target, audit_rate=args.audit_rate, runs=runs)
-    out.write_text(policy.model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
+    # Through a temporary file: a scheduled run may load the policy meanwhile.
+    temporary = out.with_name(f".{out.name}.tmp")
+    temporary.write_text(policy.model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
+    temporary.replace(out)  # atomic on one filesystem (os.replace)
     print(render(policy))
     return 0
+
+
+def _breaks_the_sequence(previous: AcceptancePolicy, *, target: float, runs: list[str]) -> str:
+    """Why a new policy cannot replace ``previous``, or "" when it can.
+
+    The bound holds however often it is looked at only along one growing
+    sequence of labels, checked against one target fixed in advance
+    (docs/ARCHITECTURE.md D22). Leaving out a run with an error, or moving the
+    target, would pick the result.
+    """
+    if target != previous.target:
+        return (
+            f"its target is {previous.target}; a target changed after seeing the reviews "
+            "voids the bound (write a new policy file only for a new decision)"
+        )
+    missing = [run for run in previous.runs if run not in runs]
+    if missing:
+        return (
+            f"it was calibrated on {', '.join(missing)}, not given now; "
+            "calibrate on every reviewed run since the first"
+        )
+    return ""
 
 
 def render(policy: AcceptancePolicy) -> str:

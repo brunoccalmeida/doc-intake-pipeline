@@ -125,18 +125,12 @@ def anytime_upper_bound(errors: int, reviewed: int, *, target: float, delta: flo
     def inside(p: float) -> bool:
         return errors * math.log(p) + (reviewed - errors) * math.log1p(-p) > floor
 
+    # The observed rate is always inside: B(1+S, b+n-S)/B(1, b) is the prior's
+    # average of L, at most L's maximum, L(S/n); with delta < 1 the floor is
+    # below log L(S/n). So the interval runs from S/n up to the upper end:
+    # inside below it, outside above it. Bisect until the interval stops
+    # shrinking, as error_report.upper_error_bound does.
     low, high = errors / reviewed, 1.0
-    if errors == 0:
-        low = 0.0
-        inside_low = -floor > 0  # log L(0) = 0 when no value was wrong
-    else:
-        inside_low = inside(low)
-    if not inside_low:
-        # Even the observed rate is ruled out: the sequence is empty, which
-        # happens with probability under delta. Rule nothing out instead.
-        return 1.0
-    # Inside below the upper end, outside above it: bisect until the interval
-    # stops shrinking, as error_report.upper_error_bound does.
     while (middle := (low + high) / 2) not in (low, high):
         if inside(middle):
             low = middle
@@ -188,12 +182,15 @@ def calibrate[S: BaseModel](
 ) -> AcceptancePolicy:
     """The policy that ``labels`` support: image-read evidence for every field of ``pack``.
 
-    A label is wrong when the reviewer's value differs from the run's, as in
+    Only queued labels count: before a field is accepted, all its image-read
+    values are queued; after, only the audit draw is. A verdict on an accepted
+    row was the reviewer's pick, and a picked sample voids the bound. A label
+    is wrong when the reviewer's value differs from the run's, as in
     ``doc_intake.error_report``.
     """
     counts = {name: [0, 0] for name in pack.schema.model_fields}
     for label in labels:
-        if label.source != "image":
+        if label.source != "image" or not label.queued:
             continue
         count = counts[label.field]
         count[0] += 1
