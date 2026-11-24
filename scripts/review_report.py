@@ -29,7 +29,9 @@ def main(argv: list[str] | None = None) -> int:
     folders: list[Path] = args.folders
 
     labels: list[Label] = []
-    for folder in folders:
+    # A folder given twice (a repeated path, overlapping globs) would count its
+    # reviews twice and narrow the bound, the unsafe side: each counts once.
+    for folder in dict.fromkeys(folder.resolve() for folder in folders):
         try:
             labels += read_reviewed_run(folder, RECEIPT)
         except ReviewError as error:

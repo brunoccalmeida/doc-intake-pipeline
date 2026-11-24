@@ -60,6 +60,17 @@ def test_the_report_adds_up_every_folder_and_prints_no_value(
     assert PRIVATE_COMPANY not in out
 
 
+def test_a_folder_given_twice_counts_once(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Counted twice, the same reviews would narrow the bound: the unsafe side.
+    run = tmp_path / "run-2"
+    code = main([str(run), str(tmp_path / "x" / ".." / "run-2")])
+
+    assert code == 0
+    assert capsys.readouterr().out.splitlines()[1].split()[:4] == ["total", "image", "1", "0"]
+
+
 def test_a_folder_that_cannot_be_read_fails_naming_it(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

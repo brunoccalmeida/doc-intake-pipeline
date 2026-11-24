@@ -262,6 +262,24 @@ def test_a_run_folder_without_the_machine_copy_fails_naming_it(run_folder: Path)
         read_reviewed_run(run_folder, RECEIPT)
 
 
+def test_a_machine_copy_the_pack_no_longer_reads_fails_without_its_values(
+    run_folder: Path,
+) -> None:
+    # A run from before a pack's schema changed: a field it no longer has.
+    path = run_folder / "results.jsonl"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    copy = json.loads(lines[1])
+    copy["result"]["fields"]["tip"] = cited("Private Tip 7.77", "Private Tip 7.77")
+    lines[1] = json.dumps(copy)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    with pytest.raises(ReviewError, match=r"results\.jsonl line 2: .*tip") as error:
+        read_reviewed_run(run_folder, RECEIPT)
+
+    assert "Private" not in str(error.value)
+    assert "ACME" not in str(error.value)
+
+
 @pytest.mark.parametrize("in_sheet", ["'-a.png", "-a.png"], ids=["as-written", "quote-dropped"])
 def test_a_file_named_like_a_formula_is_matched_with_or_without_its_guard_quote(
     tmp_path: Path, no_doc_intake_env: None, in_sheet: str

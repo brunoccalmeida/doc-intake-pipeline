@@ -166,10 +166,21 @@ def _suggestions[S: BaseModel](path: Path, pack: Pack[S]) -> dict[tuple[str, str
         raise ReviewError(
             f"{path.parent.name} has no {path.name}: a run from before #63 cannot be read as labels"
         )
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
         copy = json.loads(line)
         file = str(copy["file"])
-        fields = result_type.model_validate(copy["result"]).fields
+        try:
+            fields = result_type.model_validate(copy["result"]).fields
+        except ValidationError as error:
+            # A run from before the pack's schema changed. Without the input:
+            # Pydantic's messages would otherwise quote the document's values.
+            problems = "; ".join(
+                f"{'.'.join(map(str, e['loc']))}: {e['msg']}"
+                for e in error.errors(include_input=False)
+            )
+            raise ReviewError(
+                f"{path.name} line {number}: not a {pack.name} result: {problems}"
+            ) from None
         if fields is None:
             suggested[(file, "")] = _Suggestion(None, None)
             continue
