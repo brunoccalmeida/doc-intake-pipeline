@@ -74,6 +74,14 @@ To keep the file readable afterwards:
 
 `doc_intake.review.read_reviewed_run` reads a reviewed folder back as labeled fields. It stops at the first row it cannot use (an unknown verdict, a corrected value it cannot read, a row the run did not write) and names that row; fix it in the sheet and read again.
 
+To see how often each field was wrong, give one or more reviewed folders to the report:
+
+```bash
+uv run poe review-report runs/2026-11-22T153000Z runs/2026-11-23T153000Z
+```
+
+It prints, per field and per source (`text`, `image`, or `empty` when the run left the field empty), the fields reviewed, the fields wrong, the error rate, and its 95% upper bound: the highest error rate those reviews cannot rule out. With no error in 100 fields, the bound is still about 3%. It counts only the fields someone reviewed, so if the review covers flagged fields only, it says nothing about the fields the run accepted. It prints field names and numbers, never a value.
+
 ## Why these settings
 
 - **No two runs at once.** With `Type=oneshot`, the service stays active until the run ends, and a timer does not start a service that is still active: "it is not restarted, but simply left running" ([systemd.timer](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html)). No lock file is needed.

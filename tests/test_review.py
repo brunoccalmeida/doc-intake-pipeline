@@ -21,18 +21,19 @@ from doc_intake.review import Label, ReviewError, read_reviewed_run
 NOW = datetime(2026, 11, 22, 15, 30, tzinfo=UTC)
 
 
-def cited(value: str, quote: str) -> dict[str, object]:
+def cited(value: str, quote: str, source: str = "text") -> dict[str, object]:
     return {
         "value": value,
-        "citation": {"page": 1, "source": "text", "quote": quote},
+        "citation": {"page": 1, "source": source, "quote": quote},
         "reason": None,
     }
 
 
-# Every field but currency has a value; date and total are converted types.
+# Every field but currency has a value; date and total are converted types,
+# and the address is read from the image.
 ANSWER = {
     "company": cited("ACME", "ACME"),
-    "address": cited("1 Main St", "1 Main St"),
+    "address": cited("1 Main St", "1 Main St", source="image"),
     "date": cited("2026-03-04", "04/03/2026"),
     "total": cited("9.90", "TOTAL 9.90"),
     "currency": {"value": None, "citation": None, "reason": "not printed"},
@@ -128,12 +129,12 @@ def test_each_verdict_becomes_a_label_and_unreviewed_fields_none(run_folder: Pat
     review(run_folder, edit)
 
     assert read_reviewed_run(run_folder, RECEIPT) == [
-        Label("a.png", "company", "confirmed", suggested="ACME", truth="ACME"),
-        Label("a.png", "total", "corrected", suggested=Decimal("9.90"), truth=Decimal("19.90")),
-        # Confirming an empty field labels it absent.
-        Label("a.png", "currency", "confirmed", suggested=None, truth=None),
-        Label("b.png", "address", "not_on_page", suggested="1 Main St", truth=None),
-        Label("b.png", "date", "corrected", suggested=date(2026, 3, 4), truth=date(2026, 4, 3)),
+        Label("a.png", "company", "confirmed", "ACME", "ACME", source="text"),
+        Label("a.png", "total", "corrected", Decimal("9.90"), Decimal("19.90"), source="text"),
+        # Confirming an empty field labels it absent; an empty field has no source.
+        Label("a.png", "currency", "confirmed", None, None, source=None),
+        Label("b.png", "address", "not_on_page", "1 Main St", None, source="image"),
+        Label("b.png", "date", "corrected", date(2026, 3, 4), date(2026, 4, 3), source="text"),
     ]
 
 
