@@ -73,6 +73,7 @@ def extract_logged[S: BaseModel](
     run_id: str,
     provider_name: str,
     max_retries: int = 2,
+    accept_from_image: frozenset[str] = frozenset(),
     clock: Callable[[], float] = time.perf_counter,
 ) -> tuple[ExtractionResult[S], RunLogEntry]:
     """``extract`` the document, then log and return its entry.
@@ -105,7 +106,9 @@ def extract_logged[S: BaseModel](
 
     started = clock()
     try:
-        result = extract(document, pack, metered, max_retries=max_retries)
+        result = extract(
+            document, pack, metered, max_retries=max_retries, accept_from_image=accept_from_image
+        )
     except Exception as error:
         # A transport error after paid calls (an SDK out of retries, say): log
         # what was spent, by the error's class only (its message may quote

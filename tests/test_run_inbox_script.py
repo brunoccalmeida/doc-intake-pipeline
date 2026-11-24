@@ -1,10 +1,13 @@
 """``uv run poe inbox``: one scheduled run over an inbox folder."""
 
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
+from doc_intake.acceptance import AcceptancePolicy, FieldEvidence
 from doc_intake.core.llm import LLMProvider
 from doc_intake.core.pricing import UnknownModelPriceError
 from scripts import run_inbox
@@ -86,3 +89,72 @@ def test_a_model_without_a_price_fails_before_touching_the_inbox(
     # The inbox does not exist: the price check is what fails first.
     with pytest.raises(UnknownModelPriceError, match="'model-x'"):
         main([str(tmp_path / "inbox"), str(tmp_path / "runs")])
+
+
+def write_policy(path: Path, *, pack: str = "receipt") -> Path:
+    # 330 clean image-read totals: the first count under a 2% target (D22).
+    policy = AcceptancePolicy(
+        pack=pack,
+        target=0.02,
+        evidence={"total": FieldEvidence(reviewed=330, errors=0)},
+        runs=["2026-11-22T15-30-00Z"],
+    )
+    path.write_text(policy.model_dump_json(), encoding="utf-8")
+    return path
+
+
+def test_a_policy_accepts_the_image_read_total_of_the_demo_receipt(
+    no_doc_intake_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    recorded_model(monkeypatch)
+    policy = write_policy(tmp_path / "policy.json")
+    monkeypatch.setenv("DOC_INTAKE_ACCEPTANCE_POLICY", str(policy))
+    monkeypatch.setattr(run_inbox, "audit_draw", lambda: 0.99)  # not drawn for the audit
+    inbox, runs = tmp_path / "inbox", tmp_path / "runs"
+    inbox.mkdir()
+    for name in ("receipt.png", "receipt-review.png"):
+        shutil.copy(DEMO / name, inbox / name)
+
+    code = main([str(inbox), str(runs), "--settle", "0", "--replay", str(DEMO / "recordings")])
+
+    assert code == 0
+    assert capsys.readouterr().out.endswith(": 2 documents, 0 needs review, 0 failed\n")
+
+
+def no_policy(path: Path) -> None:
+    pass
+
+
+def policy_without_target(path: Path) -> None:
+    path.write_text('{"pack": "receipt"}', encoding="utf-8")
+
+
+def invoice_policy(path: Path) -> None:
+    write_policy(path, pack="invoice")
+
+
+@pytest.mark.parametrize(
+    ("write", "error", "match"),
+    [
+        (no_policy, FileNotFoundError, "policy.json"),
+        (policy_without_target, ValidationError, "target"),
+        (invoice_policy, ValueError, "invoice"),
+    ],
+)
+def test_a_policy_that_cannot_be_used_fails_before_touching_the_inbox(
+    no_doc_intake_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    write: Callable[[Path], object],
+    error: type[Exception],
+    match: str,
+) -> None:
+    recorded_model(monkeypatch)
+    write(tmp_path / "policy.json")
+    monkeypatch.setenv("DOC_INTAKE_ACCEPTANCE_POLICY", str(tmp_path / "policy.json"))
+    # The inbox does not exist: the policy is what fails first.
+    with pytest.raises(error, match=match):
+        main([str(tmp_path / "inbox"), str(tmp_path / "runs"), "--replay", str(tmp_path)])

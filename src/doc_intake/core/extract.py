@@ -7,7 +7,10 @@ The flow for one document (``docs/ARCHITECTURE.md`` D1-D3):
    the rejected answer and the validation errors, up to ``max_retries`` times;
    when retries run out, the result is ``failed`` with no fields (never partial);
 3. check every citation against the page text it names; a quote that is not
-   there downgrades the result to ``needs_review``.
+   there downgrades the result to ``needs_review``. A value read from the page
+   image always does, unless its field is in ``accept_from_image``: a client's
+   acceptance policy (``doc_intake.acceptance``, D22) that vouches for image
+   reading only, so every other check still applies.
 
 Transport errors (network, authentication, rate limit after the SDK's own
 retries) are not validation failures: they propagate to the caller, which
@@ -66,11 +69,19 @@ class Pack[S: BaseModel]:
 
 
 def extract[S: BaseModel](
-    document: Document, pack: Pack[S], provider: LLMProvider, *, max_retries: int = 2
+    document: Document,
+    pack: Pack[S],
+    provider: LLMProvider,
+    *,
+    max_retries: int = 2,
+    accept_from_image: frozenset[str] = frozenset(),
 ) -> ExtractionResult[S]:
     """Fill ``pack.schema`` from ``document``; see the module docstring for the flow."""
     if max_retries < 0:
         raise ValueError(f"max_retries must be 0 or more, got {max_retries}")
+    unknown = sorted(accept_from_image - set(pack.schema.model_fields))
+    if unknown:
+        raise ValueError(f"accepted fields not in the schema: {', '.join(unknown)}")
     instructions = _instructions(pack)
     images = _page_images(document)
     prompt = _document_prompt(document)
@@ -90,7 +101,7 @@ def extract[S: BaseModel](
             errors = _describe(error)
             prompt = _retry_prompt(_document_prompt(document), answer, errors)
             continue
-        problems = _citation_problems(fields, document, pack.printed)
+        problems = _citation_problems(fields, document, pack.printed, accept_from_image)
         if problems:
             return ExtractionResult[S](
                 status="needs_review",
@@ -165,13 +176,14 @@ def _describe(error: ValidationError) -> list[str]:
 
 
 def _citation_problems(
-    fields: BaseModel, document: Document, printed: frozenset[str]
+    fields: BaseModel, document: Document, printed: frozenset[str], accepted: frozenset[str]
 ) -> dict[str, str]:
     """What a person must check, by field name in schema order; one problem per field.
 
     - a "text" quote must appear on the page it names;
     - an "image" quote cannot be checked by code, so it always goes to review
-      (``docs/ARCHITECTURE.md`` D12), and it must cite a page whose image was sent;
+      (``docs/ARCHITECTURE.md`` D12) unless its field is ``accepted`` (D22), and
+      it must cite a page whose image was sent;
     - a field read as printed must have its value inside its quote (D11).
 
     Comparison ignores how whitespace is laid out (a model often copies a
@@ -185,14 +197,14 @@ def _citation_problems(
         if not is_field(field) or field.citation is None:
             continue
         text = field.value if name in printed and isinstance(field.value, str) else None
-        problem = _citation_problem(text, field.citation, pages)
+        problem = _citation_problem(text, field.citation, pages, accepted=name in accepted)
         if problem is not None:
             problems[name] = problem
     return problems
 
 
 def _citation_problem(
-    text: str | None, citation: Citation, pages: dict[int, PageText]
+    text: str | None, citation: Citation, pages: dict[int, PageText], *, accepted: bool
 ) -> str | None:
     """The first problem found, or None; ``text`` is the value of a printed field."""
     page = pages.get(citation.page)
@@ -205,7 +217,7 @@ def _citation_problem(
         return f"cites the image of page {citation.page}, which was not sent"
     if text is not None and _squash(text) not in quote:
         return "value is not the text of its quote"
-    if citation.source == "image":
+    if citation.source == "image" and not accepted:
         return f"read from the image of page {citation.page}; check it on the page"
     return None
 

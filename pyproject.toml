@@ -123,6 +123,8 @@ inbox = "python -m scripts.run_inbox"
 inbox-demo = "python -m scripts.inbox_demo"
 # Per field and source, the error rate of reviewed run folders and its 95% upper bound.
 review-report = "python -m scripts.review_report"
+# A client's acceptance policy from reviewed run folders: which image-read fields skip review.
+calibrate = "python -m scripts.calibrate"
 # Render the demo video (demo/README.md) into .cache/demo, in Docker: replay only, no cost.
 demo-image = "docker build --file demo/Dockerfile --tag doc-intake-demo ."
 demo-render = "docker run --rm --volume ${POE_ROOT}:/work doc-intake-demo uv run --locked python -m demo.render"

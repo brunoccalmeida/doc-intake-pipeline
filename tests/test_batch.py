@@ -12,6 +12,7 @@ import pytest
 from PIL import Image, ImageDraw, ImageFont
 
 from doc_intake import batch
+from doc_intake.acceptance import Acceptance
 from doc_intake.batch import RunReport, ready_documents, run_inbox, spreadsheet_safe
 from doc_intake.core.config import Settings
 from doc_intake.core.ingest import Document, OcrDataMissingError, PageText
@@ -145,7 +146,10 @@ def rows_of(csv_path: Path) -> list[dict[str, str]]:
 
 
 def run(
-    tmp_path: Path, provider: ScriptedProvider, tessdata_dir: Path
+    tmp_path: Path,
+    provider: ScriptedProvider,
+    tessdata_dir: Path,
+    acceptance: Acceptance | None = None,
 ) -> tuple[Path, Path, RunReport]:
     inbox, runs = tmp_path / "inbox", tmp_path / "runs"
     report = run_inbox(
@@ -158,6 +162,7 @@ def run(
         max_retries=0,
         settle=SETTLE,
         now=NOW,
+        acceptance=acceptance,
     )
     return inbox, runs, report
 
@@ -212,6 +217,32 @@ def test_a_run_writes_one_row_per_field_and_moves_the_originals_beside_it(
     }
     assert rows[0]["value"] == ""
     assert rows[0]["note"] == "not printed"
+
+
+def test_an_acceptance_policy_accepts_image_values_and_audits_a_drawn_share(
+    tmp_path: Path, tessdata_dir: Path
+) -> None:
+    inbox = tmp_path / "inbox"
+    for name in ("a.png", "b.png", "c.png"):
+        printed_page(inbox, name, "TOTAL 9.90")
+    provider = ScriptedProvider([REVIEW_TOTAL] * 3)
+    drawn = iter([0.9, 0.1, 0.9])  # b's total is drawn for the audit
+    acceptance = Acceptance(frozenset({"total"}), audit_rate=0.5, draw=drawn.__next__)
+
+    _, _, report = run(tmp_path, provider, tessdata_dir, acceptance)
+
+    assert (report.documents, report.needs_review) == (3, 1)
+    totals = [r for r in rows_of(folder_of(report) / "results.csv") if r["field"] == "total"]
+    assert [(r["file"], r["document_status"], r["field_status"], r["note"]) for r in totals] == [
+        ("a.png", "ok", "accepted", "accepted from the image by the acceptance policy"),
+        (
+            "b.png",
+            "needs_review",
+            "needs_review",
+            "audit sample of values accepted from the image; check it on page 1",
+        ),
+        ("c.png", "ok", "accepted", "accepted from the image by the acceptance policy"),
+    ]
 
 
 def test_a_run_keeps_a_machine_copy_of_each_result_beside_the_review_queue(

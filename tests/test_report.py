@@ -43,6 +43,7 @@ RUN = EvalRun(
         ),
     ],
     usage=USAGE,
+    from_image={},
 )
 BASELINE = Baseline(
     documents=3, fields={"company": 1, "total": 1}, wrong_accepted={"company": 0, "total": 0}

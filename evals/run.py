@@ -6,9 +6,12 @@ not a shortcut. A document that cannot be read is scored as failed, never
 skipped: skipping it would raise the accuracy by hiding the failure. What is
 not about the document stops the run instead: missing OCR data, a missing
 golden record or recording, a transport error.
+
+``accept`` applies an acceptance policy per receipt (``evals.cross_fit``):
+the fields whose image-read values skip review, as ``extract`` takes them.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -18,6 +21,7 @@ from pydantic import BaseModel
 from doc_intake.core.extract import Pack
 from doc_intake.core.ingest import IngestError, OcrDataMissingError, ingest
 from doc_intake.core.llm import LLMProvider
+from doc_intake.core.result import ExtractionResult, is_field
 from doc_intake.core.runlog import RunLogEntry, extract_logged, log_unreadable
 from evals.scoring import DocumentScore, score_document
 
@@ -63,8 +67,11 @@ class Usage:
 
 @dataclass(frozen=True, slots=True)
 class EvalRun:
+    """The scores, the usage and, per receipt, the fields whose value was read from the image."""
+
     scores: list[DocumentScore]
     usage: Usage
+    from_image: dict[str, frozenset[str]]
 
 
 def run_eval[S: BaseModel](
@@ -77,10 +84,12 @@ def run_eval[S: BaseModel](
     run_id: str,
     provider_name: str,
     max_retries: int = 2,
+    accept: Mapping[str, frozenset[str]] | None = None,
 ) -> EvalRun:
     """Score ``<id>.jpg`` against ``<id>.json`` in ``golden_dir`` for every id."""
     scores: list[DocumentScore] = []
     entries: list[RunLogEntry] = []
+    from_image: dict[str, frozenset[str]] = {}
     for document_id in document_ids:
         golden = pack.schema.model_validate_json(
             (golden_dir / f"{document_id}.json").read_text(encoding="utf-8")
@@ -109,7 +118,21 @@ def run_eval[S: BaseModel](
             run_id=run_id,
             provider_name=provider_name,
             max_retries=max_retries,
+            accept_from_image=(accept or {}).get(document_id, frozenset()),
         )
         scores.append(score_document(document_id, golden, result))
         entries.append(entry)
-    return EvalRun(scores=scores, usage=Usage.of(entries))
+        from_image[document_id] = _read_from_image(result)
+    return EvalRun(scores=scores, usage=Usage.of(entries), from_image=from_image)
+
+
+def _read_from_image[S: BaseModel](result: ExtractionResult[S]) -> frozenset[str]:
+    if result.fields is None:
+        return frozenset()
+    return frozenset(
+        name
+        for name in type(result.fields).model_fields
+        if is_field(field := getattr(result.fields, name))
+        and field.citation is not None
+        and field.citation.source == "image"
+    )

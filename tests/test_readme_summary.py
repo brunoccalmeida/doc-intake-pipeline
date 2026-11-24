@@ -42,6 +42,7 @@ RUN = EvalRun(
         cost_usd=Decimal("0.094"),
         models=("claude-opus-5-5",),
     ),
+    from_image={},
 )
 
 
@@ -60,7 +61,7 @@ def test_the_summary_counts_values_and_where_they_went() -> None:
 
 
 def test_no_wrong_value_reads_as_none() -> None:
-    run = EvalRun(scores=RUN.scores[:1], usage=RUN.usage)
+    run = EvalRun(scores=RUN.scores[:1], usage=RUN.usage, from_image={})
 
     assert "- **2 accepted automatically**, none of them wrong." in render_summary(run)
 
@@ -76,7 +77,7 @@ def test_a_cost_below_a_cent_is_not_shown_as_zero() -> None:
         models=("gpt-6-luna",),
     )
 
-    summary = render_summary(EvalRun(scores=RUN.scores, usage=usage))
+    summary = render_summary(EvalRun(scores=RUN.scores, usage=usage, from_image={}))
 
     assert summary.splitlines()[-1] == (
         "- **under $0.01 for the whole set**, under $0.01 per receipt."

@@ -306,6 +306,38 @@ def test_image_citation_of_a_page_without_image_is_flagged() -> None:
     assert result.errors == ["company: cites the image of page 1, which was not sent"]
 
 
+def test_a_field_accepted_from_the_image_skips_only_the_image_review() -> None:
+    # An acceptance policy (#65, D22) vouches for image reading, nothing else.
+    from_image = cited("THANK YOU", "THANK YOU", page=2, source="image")
+    provider = FakeProvider([sale_json(company=from_image)])
+    result = extract(DOCUMENT, PACK, provider, accept_from_image=frozenset({"company"}))
+    assert (result.status, result.errors, result.review) == ("ok", [], [])
+
+
+@pytest.mark.parametrize(
+    ("company", "problem"),
+    [
+        (cited("THANK YOU AGAIN", "THANK YOU", page=2, source="image"), "value is not the text"),
+        (cited("ACME", "ACME", source="image"), "cites the image of page 1, which was not sent"),
+        (cited("ACME", "ACME CORP"), "quote not found on page 1"),
+    ],
+)
+def test_an_accepted_field_is_still_checked_for_every_other_problem(
+    company: dict[str, object], problem: str
+) -> None:
+    provider = FakeProvider([sale_json(company=company)])
+    result = extract(DOCUMENT, PACK, provider, accept_from_image=frozenset({"company"}))
+    assert result.review == ["company"]
+    assert result.errors[0].startswith(f"company: {problem}")
+
+
+def test_accepting_a_field_the_schema_lacks_fails_before_any_call() -> None:
+    provider = FakeProvider([])
+    with pytest.raises(ValueError, match="seller"):
+        extract(DOCUMENT, PACK, provider, accept_from_image=frozenset({"seller"}))
+    assert provider.requests == []
+
+
 def test_empty_field_needs_no_citation_check() -> None:
     empty = {"value": None, "citation": None, "reason": "no amount printed"}
     provider = FakeProvider([sale_json(total=empty)])
