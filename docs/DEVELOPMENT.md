@@ -83,13 +83,15 @@ Every pull request must pass the `ci-passed` gate: lint, types, tests, the eval,
 
 ### Using the core from another project
 
-The core is an installable package, `doc-intake-pipeline`, imported as `doc_intake` (`doc_intake.core`, `doc_intake.packs`, `doc_intake.providers`). It is not on PyPI: another uv project depends on it through a git tag, so an upgrade is a deliberate change to that tag ([D18](ARCHITECTURE.md#d18-fronteira-entre-núcleo-kit-de-entrega-e-código-do-cliente-decidida-na-52)).
+The core is an installable package, `doc-intake-pipeline`, imported as `doc_intake` (`doc_intake.core`, `doc_intake.packs`, `doc_intake.providers`, `doc_intake.batch`, `doc_intake.review`). It is not on PyPI: another uv project depends on it through a git tag, so an upgrade is a deliberate change to that tag ([D18](ARCHITECTURE.md#d18-fronteira-entre-núcleo-kit-de-entrega-e-código-do-cliente-decidida-na-52)).
 
 ```bash
-uv add git+https://github.com/brunoccalmeida/doc-intake-pipeline --tag v0.1.0
+uv add git+https://github.com/brunoccalmeida/doc-intake-pipeline --tag v0.2.0
 ```
 
-This writes `doc-intake-pipeline = { git = "https://github.com/brunoccalmeida/doc-intake-pipeline", tag = "v0.1.0" }` under `[tool.uv.sources]`, and `uv.lock` records the commit the tag resolved to ([uv: Git dependencies](https://docs.astral.sh/uv/concepts/projects/dependencies/#git)). To upgrade, change the tag and run `uv lock`. The consumer needs Python 3.14 or later. The OCR model is not in the package: set `DOC_INTAKE_TESSDATA_DIR` to a directory holding the `eng.traineddata` of `tessdata_fast` at the commit and SHA-256 pinned in [`scripts/fetch_tessdata.py`](../scripts/fetch_tessdata.py). Another model reads different text, so citations and eval results stop being comparable. The per-document run-log line (ids, status, tokens, cost) goes to the `doc_intake.core.runlog` logger at INFO; Python drops it unless the consumer configures a handler for that logger. The evals, scripts and demo stay in this repository and do not ship.
+This writes `doc-intake-pipeline = { git = "https://github.com/brunoccalmeida/doc-intake-pipeline", tag = "v0.2.0" }` under `[tool.uv.sources]`, and `uv.lock` records the commit the tag resolved to ([uv: Git dependencies](https://docs.astral.sh/uv/concepts/projects/dependencies/#git)). To upgrade, change the tag and run `uv lock`. The consumer needs Python 3.14 or later. The OCR model is not in the package: set `DOC_INTAKE_TESSDATA_DIR` to a directory holding the `eng.traineddata` of `tessdata_fast` at the commit and SHA-256 pinned in [`scripts/fetch_tessdata.py`](../scripts/fetch_tessdata.py). Another model reads different text, so citations and eval results stop being comparable. The per-document run-log line (ids, status, tokens, cost) goes to the `doc_intake.core.runlog` logger at INFO; Python drops it unless the consumer configures a handler for that logger. The evals, scripts and demo stay in this repository and do not ship.
+
+A release goes in this order, because a published tag never moves: a PR bumps `version` in `pyproject.toml` (with `uv lock`) and every tag the docs install, plus the copy of the clone command in `.github/workflows/ci.yml`, which `tests/test_release_tags.py` keeps equal to that version; after the squash merge, an annotated tag `v<version>` goes on the squash commit. Until the tag is pushed, the clone in [`deploy/README.md`](../deploy/README.md) fails, so the tag follows the merge right away.
 
 ## Eval
 

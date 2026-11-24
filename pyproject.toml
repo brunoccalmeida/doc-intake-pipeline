@@ -1,6 +1,6 @@
 [project]
 name = "doc-intake-pipeline"
-version = "0.1.0"
+version = "0.2.0"
 description = "LLM document intake pipeline with source citations, schema validation and per-field evals gating CI"
 readme = "README.md"
 license = "MIT"
