@@ -203,7 +203,7 @@ def test_rounding_may_be_negative_but_net_and_tax_may_not() -> None:
 
 
 # The amounts as SROIE receipts print them (#66): the total includes the tax,
-# and a rounding adjustment to 5 sen (Bank Negara Malaysia) closes the sum.
+# and a rounding adjustment, as printed on the golden receipts, closes the sum.
 AMOUNTS_PAGE = (
     "ACME SDN BHD\nTotal (Excluding GST): 25.45\nGST Payable: 1.53\n"
     "Total (Inclusive of GST): 26.98\nRounding Adj: 0.02\nTOTAL: 27.00"

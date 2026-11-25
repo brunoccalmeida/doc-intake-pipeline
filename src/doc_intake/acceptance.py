@@ -183,7 +183,9 @@ def calibrate[S: BaseModel](
     """The policy that ``labels`` support: image-read evidence for every field of ``pack``.
 
     Only queued labels count: before a field is accepted, all its image-read
-    values are queued; after, only the audit draw is. A verdict on an accepted
+    values are queued; after, the audit draw is, and so is a value sent back
+    by another check (its quote, or a failed rule): picked by a sign of
+    error, so it is expected to raise the bound, not lower it (D23). A verdict on an accepted
     row was the reviewer's pick, and a picked sample voids the bound. A label
     is wrong when the reviewer's value differs from the run's, as in
     ``doc_intake.error_report``.
