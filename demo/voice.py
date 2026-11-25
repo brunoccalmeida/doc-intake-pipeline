@@ -3,9 +3,9 @@
 # dependencies = ["kokoro-onnx==0.6.1", "soundfile==0.14.0"]
 #
 # [tool.uv]
-# # Only releases at least a week old when the lock was made, as Dependabot
-# # waits for the main lock (.github/dependabot.yml).
-# exclude-newer = "2026-11-15T00:00:00Z"
+# # Only releases at least a week old, the same cooldown as the main lock
+# # (pyproject.toml, docs/ARCHITECTURE.md D7).
+# exclude-newer = "7 days"
 # ///
 """Speak one line of the demo's voice-over into a WAV file (#42, ``demo/README.md``).
 

@@ -40,6 +40,11 @@ build-backend = "uv_build"
 # One uv version for every machine: setup-uv in CI reads this same field
 # (its "version" input defaults to the version in pyproject.toml).
 required-version = "==0.13.9"
+# Release cooldown for every resolution (uv lock, uv add), matching the 7 days
+# Dependabot waits (.github/dependabot.yml): a compromised release is usually
+# taken down within days. Compared against each file's upload time. A security
+# fix that cannot wait gets a temporary per-package exemption (D7).
+exclude-newer = "7 days"
 
 [tool.uv.build-backend]
 # The import name differs from the distribution name (doc-intake-pipeline would

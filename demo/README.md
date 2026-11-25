@@ -57,7 +57,7 @@ uv run poe demo-voice
 
 It generates the missing clips locally, free and on CPU, in about a second each, and lists the clips no line uses any more, for you to delete. The first run downloads the voice (about 350 MB, checked by SHA-256) into `.cache/voice`. Then commit `demo/voice-clips`.
 
-[`voice.py`](voice.py) is the one script that speaks. It runs on its own Python 3.13 and lock ([`voice.py.lock`](voice.py.lock), PEP 723), because Kokoro's package does not install on this project's Python 3.14. To update its packages, edit the pins and the `exclude-newer` date in its header, run `uv lock --script demo/voice.py`, and generate every clip again (delete `demo/voice-clips/*.wav` first). The key covers the voice, not the package versions, so listen to the result.
+[`voice.py`](voice.py) is the one script that speaks. It runs on its own Python 3.13 and lock ([`voice.py.lock`](voice.py.lock), PEP 723), because Kokoro's package does not install on this project's Python 3.14. To update its packages, edit the pins in its header (its `exclude-newer = "7 days"` keeps out releases younger than a week, as for the main lock), run `uv lock --script demo/voice.py`, and generate every clip again (delete `demo/voice-clips/*.wav` first). The key covers the voice, not the package versions, so listen to the result.
 
 ## Decisions (#45)
 
