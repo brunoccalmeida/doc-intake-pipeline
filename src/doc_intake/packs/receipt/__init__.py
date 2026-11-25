@@ -38,15 +38,16 @@ class Receipt(StrictModel, frozen=True):
         description="ISO 4217 code (e.g. MYR for 'RM'); null when not printed."
     )
     net: ExtractedField[Money] = Field(
-        description="Amount before tax, as a decimal number; null when not printed."
+        description="The total before tax and rounding, as a decimal number; null when not "
+        "printed as one amount."
     )
     tax: ExtractedField[Money] = Field(
-        description="Total tax amount, added or included in the total, as a decimal number; "
-        "null when not printed."
+        description="All the tax, added or included in the total, as a decimal number; null "
+        "when not printed as one amount."
     )
     rounding: ExtractedField[SignedMoney] = Field(
-        description="Rounding adjustment to the total, negative when it lowers the total; "
-        "null when not printed."
+        description="Rounding adjustment to the total, with its sign as printed; null when "
+        "not printed."
     )
 
 
@@ -84,11 +85,14 @@ the address.
 symbol; the quote is the line that shows it.
 - currency: the ISO 4217 code of the printed symbol or code (RM is MYR); null \
 when no currency is printed, even if the country suggests one.
-- net, tax and rounding: amounts printed on the receipt, never computed from \
-other amounts; null when the receipt does not print them. net is the amount \
-before tax (e.g. "Total Excluding GST", or the amount column of a tax summary); \
-tax is the total tax, whether added to the total or included in it; rounding is \
-the rounding adjustment line, negative when it lowers the total. Each quote is \
-the line that prints the amount.""",
+- net, tax and rounding: each one amount printed on the receipt, never computed \
+from other amounts, never chosen among several; null when the receipt does not \
+print it as one amount. net is everything in the total except tax and rounding \
+(after any discount or service charge), e.g. "Total Excluding GST" or the amount \
+of a tax summary's only row or total row; a subtotal that includes tax is not \
+net. tax is all the tax, added to the total or included in it; when tax is \
+printed only per rate, with no total, net and tax are null. rounding is the \
+rounding adjustment line, with its sign as printed (-0.02, 0.02- and (0.02) are \
+negative). Each quote is the line that prints the amount.""",
     rules=(AMOUNTS_ADD_UP,),
 )

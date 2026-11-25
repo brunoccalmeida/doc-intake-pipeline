@@ -367,6 +367,24 @@ def test_money_value_missing_from_its_quote_goes_to_review() -> None:
     assert result.errors == ["total: amount is not a number printed in its quote"]
 
 
+def one_page(text: str) -> Document:
+    return Document(pages=(PageText(number=1, text=text, source="text_layer", image=None),))
+
+
+@pytest.mark.parametrize(
+    ("value", "printed", "status"),
+    [
+        ("1234.50", "TOTAL RM1,234.50", "ok"),  # thousands comma, symbol attached
+        ("9.00", "TOTAL 9,00", "ok"),  # decimal comma: OCR or a European receipt
+        ("900", "TOTAL 9,00", "needs_review"),  # a thousands group has three digits
+    ],
+)
+def test_money_value_is_read_through_its_separators(value: str, printed: str, status: str) -> None:
+    provider = FakeProvider([sale_json(total=cited(value, printed))])
+    result = extract(one_page(f"ACME TRADING SDN BHD\n{printed}"), PACK, provider)
+    assert result.status == status
+
+
 class Bill(StrictModel, frozen=True):
     """Amounts a consistency rule ties together; rounding may be negative."""
 

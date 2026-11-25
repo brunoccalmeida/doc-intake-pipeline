@@ -43,8 +43,11 @@ def test_annotated_amounts_add_up_to_the_sroie_total(golden_dir: Path, entry: Go
     # Our reading of net, tax and rounding (#66) is checked against SROIE's own
     # total wherever the rule applies: a misread amount fails here, not in the eval.
     record = Receipt.model_validate_json((golden_dir / f"{entry.id}.json").read_text("utf-8"))
+    # A plain bool, so a failure prints the id, not the record: pytest would
+    # show the call's arguments, and the CI log is public (D6).
+    holds = AMOUNTS_ADD_UP.holds(record) is not False
 
-    assert AMOUNTS_ADD_UP.holds(record) is not False
+    assert holds, f"{entry.id}: annotated amounts do not add up to the SROIE total"
 
 
 def test_the_amounts_rule_applies_to_most_of_the_golden_set(golden_dir: Path) -> None:
@@ -53,4 +56,6 @@ def test_the_amounts_rule_applies_to_most_of_the_golden_set(golden_dir: Path) ->
         Receipt.model_validate_json((golden_dir / f"{entry.id}.json").read_text("utf-8"))
         for entry in ENTRIES
     ]
-    assert sum(AMOUNTS_ADD_UP.holds(record) is True for record in records) == 14
+    applies = sum(AMOUNTS_ADD_UP.holds(record) is True for record in records)
+
+    assert applies == 14

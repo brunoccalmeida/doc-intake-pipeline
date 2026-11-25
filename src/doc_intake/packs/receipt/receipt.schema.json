@@ -301,15 +301,15 @@
     },
     "net": {
       "$ref": "#/$defs/ExtractedField_Money_",
-      "description": "Amount before tax, as a decimal number; null when not printed."
+      "description": "The total before tax and rounding, as a decimal number; null when not printed as one amount."
     },
     "tax": {
       "$ref": "#/$defs/ExtractedField_Money_",
-      "description": "Total tax amount, added or included in the total, as a decimal number; null when not printed."
+      "description": "All the tax, added or included in the total, as a decimal number; null when not printed as one amount."
     },
     "rounding": {
       "$ref": "#/$defs/ExtractedField_SignedMoney_",
-      "description": "Rounding adjustment to the total, negative when it lowers the total; null when not printed."
+      "description": "Rounding adjustment to the total, with its sign as printed; null when not printed."
     }
   },
   "required": [

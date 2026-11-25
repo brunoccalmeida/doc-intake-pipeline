@@ -144,3 +144,14 @@ def test_entities_missing_a_field_fail(missing: str) -> None:
 
     with pytest.raises(ValueError, match=missing):
         to_receipt(json.dumps(fields).encode(), currency=MYR, amounts=NO_AMOUNTS)
+
+
+def test_an_invalid_amounts_file_names_the_problem_without_its_content(tmp_path: Path) -> None:
+    # The error reaches the public CI log; the annotation is private (D6).
+    path = tmp_path / "sroie-amounts.json"
+    bad = NO_AMOUNTS.model_dump(mode="json") | {"tax": {"value": "-4321.09"}}
+    path.write_text(json.dumps({"X51005447841": bad}), "utf-8")
+
+    with pytest.raises(ValueError, match=r"X51005447841\.tax") as caught:
+        load_amounts(path)
+    assert "4321.09" not in str(caught.value)

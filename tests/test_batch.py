@@ -446,3 +446,25 @@ def test_every_cell_is_quoted_so_a_semicolon_cannot_split_one(
     text = (folder_of(report) / "results.csv").read_text(encoding="utf-8-sig")
     assert '"x;=1+1"' in text
     assert all(line.startswith('"') for line in text.splitlines())
+
+
+def test_an_empty_field_sent_to_review_by_a_rule_keeps_the_models_reason(
+    tmp_path: Path, tessdata_dir: Path
+) -> None:
+    # The first empty field a person is asked to check (#66): the reviewer needs
+    # both why it is checked and why the model left it empty.
+    printed_page(tmp_path / "inbox", "a.png", "TOTAL 9.90")
+    amounts = {
+        **REVIEW_TOTAL,
+        "net": image_field("7.74", "NET 7.74"),
+        "tax": image_field("0.46", "TAX 0.46"),
+    }
+
+    _, _, report = run(tmp_path, ScriptedProvider([amounts]), tessdata_dir)
+
+    rows = rows_of(folder_of(report) / "results.csv")
+    [rounding] = [row for row in rows if row["field"] == "rounding"]
+    assert (rounding["field_status"], rounding["note"]) == (
+        "needs_review",
+        "fails rule amounts_add_up: net + tax + rounding must equal total; not printed",
+    )

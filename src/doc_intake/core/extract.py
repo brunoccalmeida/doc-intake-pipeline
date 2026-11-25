@@ -263,11 +263,18 @@ def _with_rule_problems[S: BaseModel](
 
 # A number as receipts print it: digits, optional thousands commas, optional decimals.
 _NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
+# "9,00": a comma before exactly two final digits is a decimal comma, since a
+# thousands group has three. Decimal point with thousands dots ("1.234,56") is
+# not read: such an amount goes to review (D23).
+_DECIMAL_COMMA = re.compile(r"\d+,\d{2}")
 
 
 def _numbers(quote: str) -> set[Decimal]:
     """Every number printed in ``quote``, as exact values; a sign is not read."""
-    return {Decimal(match.replace(",", "")) for match in _NUMBER.findall(quote)}
+    return {
+        Decimal(match.replace(",", "." if _DECIMAL_COMMA.fullmatch(match) else ""))
+        for match in _NUMBER.findall(quote)
+    }
 
 
 def _citation_problem(

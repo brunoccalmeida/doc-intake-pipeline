@@ -20,7 +20,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, TypeAdapter
+from pydantic import Field, TypeAdapter, ValidationError
 
 from doc_intake.core.result import Citation, ExtractedField, StrictModel
 from doc_intake.packs.receipt import CurrencyCode, Money, Receipt, SignedMoney
@@ -67,7 +67,16 @@ def load_amounts(path: Path) -> dict[str, Amounts]:
             f"{path} not found: the golden amounts live in the private recordings "
             "repository; clone it as docs/DATA.md says"
         )
-    return _AMOUNTS.validate_json(path.read_bytes())
+    try:
+        return _AMOUNTS.validate_json(path.read_bytes())
+    except ValidationError as error:
+        # Locations and rules only: the input is the private annotation, and
+        # this message reaches the public CI log (D6).
+        problems = "; ".join(
+            f"{'.'.join(map(str, e['loc']))}: {e['msg']}"
+            for e in error.errors(include_url=False, include_input=False, include_context=False)
+        )
+        raise ValueError(f"{path} is not a valid amounts file: {problems}") from None
 
 
 class Manifest(StrictModel, frozen=True):
