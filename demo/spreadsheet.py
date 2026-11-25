@@ -186,7 +186,11 @@ class _Painter:
 
 
 def draw(all_rows: Sequence[dict[str, str]]) -> Sheet:
-    rows = _receipt_to_check(all_rows)
+    receipt = _receipt_to_check(all_rows)
+    # An empty field with nothing to check proves nothing here: cropped like the
+    # unshown columns, and counted in the footer (#66).
+    rows = [row for row in receipt if row["value"] or row["field_status"] == "needs_review"]
+    hidden = len(receipt) - len(rows)
     widths = _widths(rows)
     wrapped = [
         {
@@ -299,8 +303,8 @@ def draw(all_rows: Sequence[dict[str, str]]) -> Sheet:
     others = len({row["file"] for row in all_rows}) - 1
     footer = (
         f"Fictional sample receipts. {len(SHOWN)} of the spreadsheet's {_COLUMNS_IN_FILE} "
-        f"columns shown; the rows of {others} other {'receipt' if others == 1 else 'receipts'} "
-        "in the same check are not."
+        f"columns shown; {hidden} empty fields and the rows of {others} other "
+        f"{'receipt' if others == 1 else 'receipts'} in the same check are not."
     )
     blocks.append(
         (

@@ -34,12 +34,24 @@ def test_the_grid_holds_the_rows_of_the_receipt_to_check_word_for_word(
 ) -> None:
     rows = spreadsheet.read_rows(results)
     review = [row for row in rows if row["file"] == "receipt-review.png"]
+    # An empty field with nothing to check is cropped like the unshown columns
+    # (#66): eight rows do not fit at a size Upwork's preview can read.
+    shown = [row for row in review if row["value"] or row["field_status"] == "needs_review"]
 
-    assert len(rows) == 10  # two receipts, five fields each
+    assert len(rows) == 16  # two receipts, eight fields each
     assert sheet.file == "receipt-review.png"
-    assert sheet.cells == tuple(
-        tuple(row[column] for column in spreadsheet.SHOWN) for row in review
-    )
+    assert 0 < len(shown) < len(review)
+    assert sheet.cells == tuple(tuple(row[column] for column in spreadsheet.SHOWN) for row in shown)
+
+
+def test_the_footer_says_how_many_empty_fields_are_not_shown(
+    results: Path, sheet: spreadsheet.Sheet
+) -> None:
+    review = [row for row in spreadsheet.read_rows(results) if row["file"] == sheet.file]
+    hidden = len(review) - len(sheet.cells)
+
+    assert hidden > 1
+    assert any(f"{hidden} empty fields" in text for text in sheet.texts), sheet.texts
 
 
 def test_only_the_value_a_person_checks_is_marked(sheet: spreadsheet.Sheet) -> None:
