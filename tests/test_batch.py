@@ -17,7 +17,7 @@ from doc_intake.batch import RunReport, ready_documents, run_inbox, spreadsheet_
 from doc_intake.core.config import Settings
 from doc_intake.core.ingest import Document, OcrDataMissingError, PageText
 from doc_intake.core.llm import LLMRequest, LLMResponse
-from doc_intake.packs.receipt import RECEIPT
+from doc_intake.packs.receipt import RECEIPT, Receipt
 
 NOW = datetime(2026, 11, 22, 15, 30, tzinfo=UTC)
 SETTLE = timedelta(seconds=60)
@@ -92,7 +92,7 @@ def image_field(value: str, quote: str) -> dict[str, object]:
     return {"value": value, "citation": citation, "reason": None}
 
 
-ALL_NULL = {name: null_field() for name in ("company", "address", "date", "total", "currency")}
+ALL_NULL = {name: null_field() for name in Receipt.model_fields}
 REVIEW_TOTAL = {**ALL_NULL, "total": image_field("9.90", "TOTAL 9.90")}
 FORMULA_COMPANY = {**ALL_NULL, "company": image_field("=1+1", "=1+1")}
 
@@ -200,7 +200,7 @@ def test_a_run_writes_one_row_per_field_and_moves_the_originals_beside_it(
         ("b-review.png", name, "needs_review" if name == "total" else "accepted")
         for name in ALL_NULL
     ]
-    total = rows[8]
+    [total] = [r for r in rows if (r["file"], r["field"]) == ("b-review.png", "total")]
     assert total == {
         "file": "b-review.png",
         "document_status": "needs_review",
@@ -446,3 +446,25 @@ def test_every_cell_is_quoted_so_a_semicolon_cannot_split_one(
     text = (folder_of(report) / "results.csv").read_text(encoding="utf-8-sig")
     assert '"x;=1+1"' in text
     assert all(line.startswith('"') for line in text.splitlines())
+
+
+def test_an_empty_field_sent_to_review_by_a_rule_keeps_the_models_reason(
+    tmp_path: Path, tessdata_dir: Path
+) -> None:
+    # The first empty field a person is asked to check (#66): the reviewer needs
+    # both why it is checked and why the model left it empty.
+    printed_page(tmp_path / "inbox", "a.png", "TOTAL 9.90")
+    amounts = {
+        **REVIEW_TOTAL,
+        "net": image_field("7.74", "NET 7.74"),
+        "tax": image_field("0.46", "TAX 0.46"),
+    }
+
+    _, _, report = run(tmp_path, ScriptedProvider([amounts]), tessdata_dir)
+
+    rows = rows_of(folder_of(report) / "results.csv")
+    [rounding] = [row for row in rows if row["field"] == "rounding"]
+    assert (rounding["field_status"], rounding["note"]) == (
+        "needs_review",
+        "fails rule amounts_add_up: net + tax + rounding must equal total; not printed",
+    )

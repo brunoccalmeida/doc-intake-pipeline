@@ -92,11 +92,12 @@ def test_a_model_without_a_price_fails_before_touching_the_inbox(
 
 
 def write_policy(path: Path, *, pack: str = "receipt") -> Path:
-    # 330 clean image-read totals: the first count under a 2% target (D22).
+    # 356 clean image-read totals: the first count under a 2% target with the
+    # receipt's eight fields (D22, D23).
     policy = AcceptancePolicy(
         pack=pack,
         target=0.02,
-        evidence={"total": FieldEvidence(reviewed=330, errors=0)},
+        evidence={"total": FieldEvidence(reviewed=356, errors=0)},
         runs=["2026-11-22T15-30-00Z"],
     )
     path.write_text(policy.model_dump_json(), encoding="utf-8")

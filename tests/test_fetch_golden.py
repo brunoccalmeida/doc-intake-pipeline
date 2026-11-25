@@ -6,13 +6,14 @@ The download is replaced by a fake, so these tests never touch the network.
 import hashlib
 import json
 from collections.abc import Callable
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
-from doc_intake.core.result import ExtractedField
+from doc_intake.core.result import Citation, ExtractedField
 from doc_intake.packs.receipt import Receipt
-from evals.sroie import GoldenEntry, Manifest
+from evals.sroie import Amounts, GoldenEntry, Manifest
 from scripts.download import ChecksumMismatchError
 from scripts.fetch_golden import install
 
@@ -37,6 +38,15 @@ def manifest(*, image_sha256: str = sha(IMAGE), entities_sha256: str = sha(ENTIT
     return Manifest(source="o/r", commit="c" * 40, split="test", seed="s", size=1, receipts=[entry])
 
 
+NOT_PRINTED = ExtractedField[Decimal](value=None, citation=None, reason="not printed")
+TAX = ExtractedField[Decimal](
+    value=Decimal("0.59"),
+    citation=Citation(page=1, source="image", quote="GST 0.59"),
+    reason=None,
+)
+AMOUNTS = {RID: Amounts(net=NOT_PRINTED, tax=TAX, rounding=NOT_PRINTED)}
+
+
 def serve(calls: list[str]) -> Callable[[str], bytes]:
     """A fake download that serves by file extension and records each URL."""
 
@@ -50,7 +60,7 @@ def serve(calls: list[str]) -> Callable[[str], bytes]:
 def test_verified_files_and_the_converted_golden_record_are_written(tmp_path: Path) -> None:
     calls: list[str] = []
 
-    install(tmp_path, manifest(), download=serve(calls))
+    install(tmp_path, manifest(), amounts=AMOUNTS, download=serve(calls))
 
     assert calls == [
         f"https://raw.githubusercontent.com/o/r/{'c' * 40}/test/img/{RID}.jpg",
@@ -60,18 +70,39 @@ def test_verified_files_and_the_converted_golden_record_are_written(tmp_path: Pa
     golden = Receipt.model_validate_json((tmp_path / f"{RID}.json").read_text(encoding="utf-8"))
     assert golden.total.citation is not None
     assert golden.total.citation.quote == "10.40"
+    # Our own reading of what SROIE does not annotate, from the private clone (#66).
+    assert (golden.net, golden.tax, golden.rounding) == (NOT_PRINTED, TAX, NOT_PRINTED)
+
+
+def test_a_receipt_without_annotated_amounts_fails_before_any_download(tmp_path: Path) -> None:
+    calls: list[str] = []
+    with pytest.raises(ValueError, match=f"no amounts annotated for {RID}"):
+        install(tmp_path, manifest(), amounts={}, download=serve(calls))
+
+    assert (calls, list(tmp_path.iterdir())) == ([], [])
+
+
+def test_amounts_for_a_receipt_outside_the_manifest_fail(tmp_path: Path) -> None:
+    # A stale annotation means the selection or the file changed: say so.
+    stray = {**AMOUNTS, "X00000000000": AMOUNTS[RID]}
+    with pytest.raises(
+        ValueError, match="amounts annotated for receipts not in the manifest: X00000000000"
+    ):
+        install(tmp_path, manifest(), amounts=stray, download=serve([]))
 
 
 def test_tampered_download_is_rejected_and_not_written(tmp_path: Path) -> None:
     with pytest.raises(ChecksumMismatchError, match=RID):
-        install(tmp_path, manifest(image_sha256=sha(b"other")), download=serve([]))
+        install(tmp_path, manifest(image_sha256=sha(b"other")), amounts=AMOUNTS, download=serve([]))
 
     assert list(tmp_path.iterdir()) == []
 
 
 def test_tampered_ground_truth_leaves_no_golden_record(tmp_path: Path) -> None:
     with pytest.raises(ChecksumMismatchError, match=f"{RID} ground truth"):
-        install(tmp_path, manifest(entities_sha256=sha(b"other")), download=serve([]))
+        install(
+            tmp_path, manifest(entities_sha256=sha(b"other")), amounts=AMOUNTS, download=serve([])
+        )
 
     # The image was verified before the failure, so keeping it is safe; the
     # unverified ground truth and any record converted from it are not written.
@@ -79,10 +110,10 @@ def test_tampered_ground_truth_leaves_no_golden_record(tmp_path: Path) -> None:
 
 
 def test_verified_files_are_not_downloaded_again(tmp_path: Path) -> None:
-    install(tmp_path, manifest(), download=serve([]))
+    install(tmp_path, manifest(), amounts=AMOUNTS, download=serve([]))
     calls: list[str] = []
 
-    install(tmp_path, manifest(), download=serve(calls))
+    install(tmp_path, manifest(), amounts=AMOUNTS, download=serve(calls))
 
     assert calls == []
     assert (tmp_path / f"{RID}.json").is_file()

@@ -110,10 +110,10 @@ Look at the image, then commit it. [`tests/test_demo_spreadsheet.py`](../tests/t
 
 **Cropped to one receipt.** The first draft showed all ten rows at 22 px, which would shrink to about 14 px at the 1000×750 size Upwork checks for sharpness. It also gave every row the same weight. Text shrinks with the image, and a crop should keep the detail that carries the meaning ([NN/g](https://www.nngroup.com/articles/big-pictures-small-screens/)). Screenshot guides say the same: show the smallest area that proves the claim, with one or two annotations ([example](https://www.pravinkumar.co/blog/how-to-design-a-product-screenshot-that-explains-itself-2026); expert opinion, no controlled study found).
 
-- The image shows the five rows of the receipt with a value to check, at 28 px. A test holds the grid to at least 16 px at 1000×750; that floor is our judgment.
+- The image shows the rows of the receipt with a value to check, at 28 px. Since #66 it leaves out the empty fields with nothing to check (four on that receipt): eight rows do not fit at that size. A test holds the grid to at least 16 px at 1000×750; that floor is our judgment.
 - Rows were cropped rather than columns, because `quote` and `note` carry the point.
 - The file name moves to a label above the grid.
-- The footer says what is left out: four columns, and the other receipt's rows.
+- The footer says what is left out: six columns, the empty fields, and the other receipt's rows.
 
 **Word for word, marked outside the data.**
 

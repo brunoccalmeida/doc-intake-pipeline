@@ -37,6 +37,9 @@ ANSWER = {
     "date": cited("2026-03-04", "04/03/2026"),
     "total": cited("9.90", "TOTAL 9.90"),
     "currency": {"value": None, "citation": None, "reason": "not printed"},
+    "net": {"value": None, "citation": None, "reason": "not printed"},
+    "tax": {"value": None, "citation": None, "reason": "not printed"},
+    "rounding": {"value": None, "citation": None, "reason": "not printed"},
 }
 
 
@@ -220,7 +223,7 @@ def test_a_sheet_saved_with_semicolons_and_capitalised_verdicts_reads_the_same(
         ),
         pytest.param(
             judge("c.png", "", "confirmed"),
-            r"row 12 \(c.png\): .*no fields to review",
+            r"row 18 \(c.png\): .*no fields to review",
             id="verdict-on-failed-document",
         ),
     ],
@@ -242,7 +245,7 @@ def test_a_row_the_run_did_not_write_fails(run_folder: Path) -> None:
     review(run_folder, judge("a.png", "total", "confirmed"))
     review(run_folder, lambda rows: rows.append({**rows[0], "file": "z.png"}))
 
-    with pytest.raises(ReviewError, match=r"row 13 \(z.png, company\): not in this run"):
+    with pytest.raises(ReviewError, match=r"row 19 \(z.png, company\): not in this run"):
         read_reviewed_run(run_folder, RECEIPT)
 
 
@@ -250,7 +253,7 @@ def test_a_field_in_two_rows_fails(run_folder: Path) -> None:
     # Two rows for one field (a pasted row) leave its verdict ambiguous.
     review(run_folder, lambda rows: rows.append({**rows[0], "verdict": "confirmed"}))
 
-    with pytest.raises(ReviewError, match=r"row 13 \(a.png, company\): also in row 2"):
+    with pytest.raises(ReviewError, match=r"row 19 \(a.png, company\): also in row 2"):
         read_reviewed_run(run_folder, RECEIPT)
 
 

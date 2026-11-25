@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 from pydantic import Field
 
-from doc_intake.core.extract import Pack, extract
+from doc_intake.core.extract import Pack, Rule, extract
 from doc_intake.core.ingest import Document, PageImage, PageText
 from doc_intake.core.llm import ImageInput, LLMRequest, LLMResponse
 from doc_intake.core.result import ExtractedField, StrictModel
@@ -343,3 +343,158 @@ def test_empty_field_needs_no_citation_check() -> None:
     provider = FakeProvider([sale_json(total=empty)])
     result = extract(DOCUMENT, PACK, provider)
     assert result.status == "ok"
+
+
+# Money must be read, not computed (#66): a value the rule checks could
+# otherwise be derived from the others, and the rule would check itself.
+@pytest.mark.parametrize(
+    ("value", "quote"),
+    [
+        ("9", "TOTAL   RM 9.00"),
+        ("9.00", "TOTAL   RM 9.00"),
+    ],
+)
+def test_money_value_printed_in_its_quote_is_accepted(value: str, quote: str) -> None:
+    provider = FakeProvider([sale_json(total=cited(value, quote))])
+    assert extract(DOCUMENT, PACK, provider).status == "ok"
+
+
+def test_money_value_missing_from_its_quote_goes_to_review() -> None:
+    # 8.20 is not printed in the quote: a computed or misplaced value.
+    provider = FakeProvider([sale_json(total=cited("8.20", "TOTAL   RM 9.00"))])
+    result = extract(DOCUMENT, PACK, provider)
+    assert result.review == ["total"]
+    assert result.errors == ["total: amount is not a number printed in its quote"]
+
+
+def one_page(text: str) -> Document:
+    return Document(pages=(PageText(number=1, text=text, source="text_layer", image=None),))
+
+
+@pytest.mark.parametrize(
+    ("value", "printed", "status"),
+    [
+        ("1234.50", "TOTAL RM1,234.50", "ok"),  # thousands comma, symbol attached
+        ("9.00", "TOTAL 9,00", "ok"),  # decimal comma: OCR or a European receipt
+        ("900", "TOTAL 9,00", "needs_review"),  # a thousands group has three digits
+    ],
+)
+def test_money_value_is_read_through_its_separators(value: str, printed: str, status: str) -> None:
+    provider = FakeProvider([sale_json(total=cited(value, printed))])
+    result = extract(one_page(f"ACME TRADING SDN BHD\n{printed}"), PACK, provider)
+    assert result.status == status
+
+
+class Bill(StrictModel, frozen=True):
+    """Amounts a consistency rule ties together; rounding may be negative."""
+
+    net: ExtractedField[Decimal]
+    tax: ExtractedField[Decimal]
+    rounding: ExtractedField[Decimal]
+    total: ExtractedField[Decimal]
+
+
+def _adds_up(bill: Bill) -> bool | None:
+    net, tax, total = bill.net.value, bill.tax.value, bill.total.value
+    if net is None or tax is None or total is None:
+        return None
+    return net + tax + (bill.rounding.value or 0) == total
+
+
+ADDS_UP = Rule[Bill](
+    name="amounts_add_up",
+    description="net + tax + rounding must equal total",
+    fields=("net", "tax", "rounding", "total"),
+    holds=_adds_up,
+)
+BILL_PACK = Pack(
+    name="bill",
+    schema=Bill,
+    instructions="Read the amounts.",
+    printed=frozenset(),
+    rules=(ADDS_UP,),
+)
+BILL_PAGE = "NET 7.74\nTAX 0.46\nROUNDING -0.02\nTOTAL 8.18\nTOTAL 8.20\nTAX 0.48"
+BILL_DOCUMENT = Document(
+    pages=(PageText(number=1, text=BILL_PAGE, source="text_layer", image=None),)
+)
+NO_VALUE = {"value": None, "citation": None, "reason": "not printed"}
+
+
+def bill_json(**overrides: object) -> str:
+    fields: dict[str, Any] = {
+        "net": cited("7.74", "NET 7.74"),
+        "tax": cited("0.46", "TAX 0.46"),
+        "rounding": cited("-0.02", "ROUNDING -0.02"),
+        "total": cited("8.18", "TOTAL 8.18"),
+    }
+    fields.update(overrides)
+    return json.dumps(fields)
+
+
+def test_amounts_that_add_up_are_ok() -> None:
+    # The sign of a negative amount is conversion: the quote prints it either way.
+    result = extract(BILL_DOCUMENT, BILL_PACK, FakeProvider([bill_json()]))
+    assert (result.status, result.errors) == ("ok", [])
+
+
+def test_a_failed_rule_sends_its_fields_to_review_naming_the_rule() -> None:
+    provider = FakeProvider([bill_json(total=cited("8.20", "TOTAL 8.20"))])
+    result = extract(BILL_DOCUMENT, BILL_PACK, provider)
+    assert result.status == "needs_review"
+    assert result.review == ["net", "tax", "rounding", "total"]
+    rule = "fails rule amounts_add_up: net + tax + rounding must equal total"
+    assert result.errors == [f"{name}: {rule}" for name in result.review]
+
+
+def test_a_rule_message_carries_no_document_value() -> None:
+    # Errors reach logs and the review queue (AGENTS.md invariant 6).
+    provider = FakeProvider([bill_json(total=cited("8.20", "TOTAL 8.20"))])
+    errors = " ".join(extract(BILL_DOCUMENT, BILL_PACK, provider).errors)
+    assert not any(amount in errors for amount in ("7.74", "0.46", "8.20", "8.18"))
+
+
+def test_a_rule_that_does_not_apply_sends_nothing_to_review() -> None:
+    provider = FakeProvider([bill_json(net=NO_VALUE, total=cited("8.20", "TOTAL 8.20"))])
+    result = extract(BILL_DOCUMENT, BILL_PACK, provider)
+    assert (result.status, result.review) == ("ok", [])
+
+
+def test_a_field_with_a_citation_problem_also_names_the_failed_rule() -> None:
+    # One error per field (the review queue keys notes by field), both problems in it.
+    provider = FakeProvider([bill_json(tax=cited("0.48", "TAX 0.46"))])
+    result = extract(BILL_DOCUMENT, BILL_PACK, provider)
+    assert result.errors[1] == (
+        "tax: amount is not a number printed in its quote; "
+        "fails rule amounts_add_up: net + tax + rounding must equal total"
+    )
+    assert len(result.errors) == len(result.review) == 4
+
+
+def test_a_failed_rule_overrides_acceptance_from_the_image() -> None:
+    # An acceptance policy (D22) vouches for image reading, not for the arithmetic.
+    image_document = Document(
+        pages=(PageText(number=1, text=BILL_PAGE, source="ocr", image=PAGE_2_IMAGE),)
+    )
+    from_image = cited("8.30", "TOTAL 8.30", source="image")
+    provider = FakeProvider([bill_json(total=from_image)])
+    result = extract(image_document, BILL_PACK, provider, accept_from_image=frozenset({"total"}))
+    assert "total" in result.review
+    assert result.errors[-1].startswith("total: fails rule amounts_add_up")
+
+
+def test_a_rule_naming_a_field_the_schema_lacks_fails_when_the_pack_is_built() -> None:
+    typo = Rule[Bill](name="typo", description="d", fields=("subtotal",), holds=_adds_up)
+    with pytest.raises(ValueError, match="rule typo names fields not in the schema: subtotal"):
+        Pack(name="bill", schema=Bill, instructions="", printed=frozenset(), rules=(typo,))
+
+
+def test_two_rules_with_one_name_fail_when_the_pack_is_built() -> None:
+    with pytest.raises(ValueError, match="rule amounts_add_up is declared twice"):
+        Pack(
+            name="bill",
+            schema=Bill,
+            instructions="",
+            printed=frozenset(),
+            rules=(ADDS_UP, ADDS_UP),
+        )

@@ -82,6 +82,25 @@ jobs:
       - name: Fetch OCR language data
         run: uv run poe fetch-tessdata
 
+      # Our annotation of the amounts SROIE does not annotate quotes the
+      # receipts, so it lives in the private recordings repository (#66,
+      # docs/DATA.md), and fetch-golden reads it from there: checked out
+      # first, as in the eval job below.
+      - name: Read the pinned recordings commit
+        id: pin
+        run: |
+          echo "repository=$(jq -r .repository evals/recordings.json)" >> "$GITHUB_OUTPUT"
+          echo "commit=$(jq -r .commit evals/recordings.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout recordings
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: ${{ steps.pin.outputs.repository }}
+          ref: ${{ steps.pin.outputs.commit }}
+          path: .cache/recordings
+          ssh-key: ${{ secrets.RECORDINGS_DEPLOY_KEY }}
+          persist-credentials: false
+
       # SROIE has no published licence, so the golden set is not in Git: the
       # 20 receipts are downloaded from a pinned mirror commit and checked
       # against the SHA-256 in evals/golden/sroie.json (docs/DATA.md). Without
@@ -122,9 +141,6 @@ jobs:
       - name: Fetch OCR language data
         run: uv run poe fetch-tessdata
 
-      - name: Fetch golden set
-        run: uv run poe fetch-golden
-
       # The pin is validated by tests/test_recording.py (owner/repo, 40-hex SHA).
       - name: Read the pinned recordings commit
         id: pin
@@ -140,6 +156,10 @@ jobs:
           path: .cache/recordings
           ssh-key: ${{ secrets.RECORDINGS_DEPLOY_KEY }}
           persist-credentials: false
+
+      # After the recordings: the golden amounts are read from that clone (#66).
+      - name: Fetch golden set
+        run: uv run poe fetch-golden
 
       - name: Run the eval
         run: uv run poe eval

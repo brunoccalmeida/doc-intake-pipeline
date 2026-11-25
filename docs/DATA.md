@@ -33,7 +33,7 @@ Without a licence, default copyright applies ([GitHub Docs: licensing a reposito
 
 ### Recorded responses (eval)
 
-The eval replays recorded LLM responses (`docs/ARCHITECTURE.md` D4). Each response quotes its receipt (company, address, date, total and the cited lines), so it is derived from SROIE as much as the converted ground truth is, and stays out of this repository for the same reason. The recordings live in the **private** repository `brunoccalmeida/doc-intake-recordings`; this repository pins the commit it replays in [`evals/recordings.json`](../evals/recordings.json), and CI reads it with a read-only deploy key. What is public is only what is ours: per-field scores, outcomes by receipt id and field, tokens and cost (the eval report holds no value from a receipt).
+The eval replays recorded LLM responses (`docs/ARCHITECTURE.md` D4). Each response quotes its receipt (company, address, date, the amounts and the cited lines), so it is derived from SROIE as much as the converted ground truth is, and stays out of this repository for the same reason. The recordings live in the **private** repository `brunoccalmeida/doc-intake-recordings`; this repository pins the commit it replays in [`evals/recordings.json`](../evals/recordings.json), and CI reads it with a read-only deploy key. What is public is only what is ours: per-field scores, outcomes by receipt id and field, tokens and cost (the eval report holds no value from a receipt).
 
 The key covers the OCR text and the JSON Schema, so a dependency update that changes either (Pillow, tesserocr, the `eng` model, Pydantic) also needs a re-recording, even in a Dependabot pull request: the eval job then fails with "no recording".
 
@@ -73,6 +73,25 @@ SROIE does not annotate currency, and the `Receipt` schema requires it. We read 
 | X51005433518, X51007231276, X51007231341 | `$` | null: `$` does not identify one currency |
 
 The `$` case is a judgment: these receipts are Malaysian, so the money is ringgit, but the printed symbol alone does not say so, and the pack forbids inferring from the country.
+
+### Amounts: our annotation, kept private (#66)
+
+SROIE does not annotate the amount before tax, the tax or the rounding adjustment, and the `Receipt` schema requires them since #66 (`docs/ARCHITECTURE.md` D23). We read them from each image on 2026-11-24, following the pack's instructions: an amount is printed, never computed; `net` is a single printed amount before tax (a `Total (Excluding GST)` line or the amount column of a one-rate tax summary); `tax` is the tax added or included; `rounding` is the adjustment line; each is null with a reason when not printed.
+
+Unlike the currency code, these values and their quotes are content of the receipts, so the annotation lives in the **private** recordings repository, at `golden/sroie-amounts.json`, at the pinned commit. `uv run poe fetch-golden` reads it from `DOC_INTAKE_RECORDINGS_DIR` and refuses to run without it, or when it and the manifest name different receipts. The CI `test` job therefore checks out the recordings repository too, with the same read-only deploy key as the `eval` job; a pull request from a fork has no secret and fails there, by design.
+
+What is public is the shape only:
+
+| Receipts | What is printed |
+| --- | --- |
+| 14 | net, tax and, on 5 of them, a rounding line: the rule applies |
+| 4 | the tax only, "included in total" (no amount before tax) |
+| 1 | the tax split by rate (6% and 0%), with no single amount before tax |
+| 1 | no tax at all (a prepaid fuel chit) |
+
+**Checked against SROIE:** on the 14 receipts where the rule applies, net + tax + rounding equals SROIE's own total exactly, and `tests/test_golden_sroie.py` keeps it so: a misread amount fails there. A mutation (one tax one cent off) failed it. The 6 others have no independent check: one reading from the image, compared with the OCR text where it reads the line.
+
+**Annotated before the model was run:** the golden set and the prompt normally change in separate pull requests, so the expected answer is never fitted to the model's output. New fields need both at once, so this annotation came first instead. It was committed to the recordings repository (`a683792`, 2026-11-24) before the receipts were re-recorded with the new prompt (`6644c45`, 2026-11-25), and `golden/` is unchanged between the two commits.
 
 ### Corrections
 

@@ -154,6 +154,48 @@
       "title": "ExtractedField[Money]",
       "type": "object"
     },
+    "ExtractedField_SignedMoney_": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SignedMoney"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "citation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Citation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NonBlankText"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "value",
+        "citation",
+        "reason"
+      ],
+      "title": "ExtractedField[SignedMoney]",
+      "type": "object"
+    },
     "ExtractedField_str_": {
       "additionalProperties": false,
       "properties": {
@@ -222,6 +264,16 @@
         "image"
       ],
       "type": "string"
+    },
+    "SignedMoney": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ]
     }
   },
   "additionalProperties": false,
@@ -246,6 +298,18 @@
     "currency": {
       "$ref": "#/$defs/ExtractedField_CurrencyCode_",
       "description": "ISO 4217 code (e.g. MYR for 'RM'); null when not printed."
+    },
+    "net": {
+      "$ref": "#/$defs/ExtractedField_Money_",
+      "description": "The total before tax and rounding, as a decimal number; null when not printed as one amount."
+    },
+    "tax": {
+      "$ref": "#/$defs/ExtractedField_Money_",
+      "description": "All the tax, added or included in the total, as a decimal number; null when not printed as one amount."
+    },
+    "rounding": {
+      "$ref": "#/$defs/ExtractedField_SignedMoney_",
+      "description": "Rounding adjustment to the total, with its sign as printed; null when not printed."
     }
   },
   "required": [
@@ -253,7 +317,10 @@
     "address",
     "date",
     "total",
-    "currency"
+    "currency",
+    "net",
+    "tax",
+    "rounding"
   ],
   "title": "Receipt",
   "type": "object"

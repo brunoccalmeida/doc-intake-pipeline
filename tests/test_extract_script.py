@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 from doc_intake.core.config import Settings
 from doc_intake.core.llm import LLMProvider, LLMRequest, LLMResponse
 from doc_intake.core.pricing import UnknownModelPriceError
+from doc_intake.packs.receipt import Receipt
 from doc_intake.providers import MissingCredentialError
 from scripts import extract_document
 from scripts.extract_document import main
@@ -67,7 +68,7 @@ def test_a_missing_key_fails_before_reading_the_file(
 ALL_NULL = json.dumps(
     {
         name: {"value": None, "citation": None, "reason": "not printed"}
-        for name in ("company", "address", "date", "total", "currency")
+        for name in Receipt.model_fields
     }
 )
 

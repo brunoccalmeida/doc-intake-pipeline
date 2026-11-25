@@ -6,8 +6,11 @@ the script replays it, as CI does, with no key and no network.
 """
 
 import json
+import re
 import uuid
+from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -78,20 +81,50 @@ def golden_answer(**changes: object) -> str:
     return json.dumps(golden)
 
 
+def without_amounts(answer: dict[str, Any]) -> dict[str, Any]:
+    """``answer`` with net and tax left empty, so the amounts rule does not apply.
+
+    A wrong total would otherwise fail the rule and go to review (D23): these
+    tests need it accepted, to prove the gates behind the rule.
+    """
+    for name in ("net", "tax"):
+        answer[name] = {"value": None, "citation": None, "reason": "not printed"}
+    return answer
+
+
 def wrong_total_from_page_text() -> str:
     """A wrong total cited from the OCR text, so the engine accepts it without review.
 
     The golden citations are read from the image (D12) and would all go to
-    review; any word of the page text is a quote the engine can check.
+    review; text from the page is a quote the engine can check. The quote is
+    an amount printed on the page other than the total, since an amount must
+    be a number its quote prints (D23).
     """
     document = ingest(GOLDEN / f"{FIRST_ID}.jpg", tessdata_dir=Settings().tessdata_dir)
-    answer = json.loads(golden_answer(total="0.01"))
-    answer["total"]["citation"] = {
-        "page": 1,
-        "source": "text",
-        "quote": document.pages[0].text.split()[0],
+    answer = json.loads(golden_answer())
+    total = Decimal(str(answer["total"]["value"]))
+    word = next(
+        amount
+        for amount in re.findall(r"\d+\.\d{2}", document.pages[0].text)
+        if Decimal(amount) != total
+    )
+    answer["total"] = {
+        "value": word,
+        "citation": {"page": 1, "source": "text", "quote": word},
+        "reason": None,
     }
-    return json.dumps(answer)
+    return json.dumps(without_amounts(answer))
+
+
+def wrong_total_from_image() -> str:
+    """A wrong total read from the image: printed in its own quote, so only review stops it."""
+    answer = json.loads(golden_answer())
+    answer["total"] = {
+        "value": "0.01",
+        "citation": {"page": 1, "source": "image", "quote": "TOTAL 0.01"},
+        "reason": None,
+    }
+    return json.dumps(without_amounts(answer))
 
 
 def baseline(tmp_path: Path, correct: int = 1, wrong_accepted: int = 0) -> Path:
@@ -191,7 +224,7 @@ def test_a_wrong_image_read_value_auto_accepted_fails_the_gate_at_zero(
 ) -> None:
     # The wrong total is read from the image, so review catches it by default;
     # a policy that accepts image-read totals for this receipt lets it through.
-    record(recordings, golden_answer(total="0.01"))
+    record(recordings, wrong_total_from_image())
     path = baseline(tmp_path)
     content = json.loads(path.read_text(encoding="utf-8"))
     content["fields"]["total"] = 0
@@ -304,7 +337,7 @@ def test_update_readme_writes_the_summary_and_the_next_run_passes(
     assert run_full(tmp_path, "--update-readme") == 0
 
     written = path.read_bytes().decode("utf-8")
-    assert "Measured on 1 public scanned receipts, 5 values in all" in written
+    assert "Measured on 1 public scanned receipts, 8 values in all" in written
     assert written.startswith("# Title\n\n")
     assert written.endswith(f"{END}\n\nAfter.\n")
     assert "\r\n" not in written  # the repository stores LF (.gitattributes)

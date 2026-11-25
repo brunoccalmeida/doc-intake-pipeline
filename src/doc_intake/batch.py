@@ -318,7 +318,10 @@ def _rows[S: BaseModel](outcome: _Outcome[S]) -> Iterator[dict[str, str]]:
             "page": "" if citation is None else str(citation.page),
             "source": "" if citation is None else citation.source,
             "quote": "" if citation is None else citation.quote,
-            "note": problems.get(name) or field.reason or _accepted_note(field),
+            # A rule can send an empty field to review (D23): keep the model's
+            # reason beside the problem, so the reviewer sees both.
+            "note": "; ".join(filter(None, (problems.get(name), field.reason)))
+            or _accepted_note(field),
         }
         yield row
 

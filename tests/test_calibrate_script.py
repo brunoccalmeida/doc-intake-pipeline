@@ -22,10 +22,11 @@ def total(file: str, truth: Decimal = PRIVATE_TOTAL) -> Label:
 
 
 RUNS = {
-    # 330 clean image-read totals: the first count under a 2% target (D22).
+    # 356 clean image-read totals: the first count under a 2% target with the
+    # eight receipt fields (D22; SciPy oracle in the PR of #66).
     "run-1": [total(f"{i}.png") for i in range(200)],
     "run-2": [
-        *(total(f"{i}.png") for i in range(130)),
+        *(total(f"{i}.png") for i in range(156)),
         Label("x.png", "date", "corrected", None, None, source="image", queued=True),
         Label("y.png", "date", "confirmed", None, None, source="image", queued=True),
         Label("z.png", "company", "confirmed", "ACME", "ACME", source="text"),
@@ -61,21 +62,27 @@ def test_the_policy_adds_up_every_folder_and_the_table_says_what_it_accepts(
             "company": FieldEvidence(reviewed=0, errors=0),
             "address": FieldEvidence(reviewed=0, errors=0),
             "date": FieldEvidence(reviewed=2, errors=0),
-            "total": FieldEvidence(reviewed=330, errors=0),
+            "total": FieldEvidence(reviewed=356, errors=0),
             "currency": FieldEvidence(reviewed=0, errors=0),
+            "net": FieldEvidence(reviewed=0, errors=0),
+            "tax": FieldEvidence(reviewed=0, errors=0),
+            "rounding": FieldEvidence(reviewed=0, errors=0),
         },
         # A folder given twice counts once: twice would narrow the bound.
         runs=["run-1", "run-2"],
     )
     out = capsys.readouterr().out
     # Bounds from the SciPy reference of tests/test_acceptance.py.
-    assert out.splitlines()[:6] == [
+    assert out.splitlines()[:9] == [
         "field     reviewed  errors  upper bound  accepted",
         "company          0       0     100.000%  no",
         "address          0       0     100.000%  no",
-        "date             2       0      90.198%  no",
-        "total          330       0       1.995%  yes",
+        "date             2       0      92.251%  no",
+        "total          356       0       1.999%  yes",
         "currency         0       0     100.000%  no",
+        "net              0       0     100.000%  no",
+        "tax              0       0     100.000%  no",
+        "rounding         0       0     100.000%  no",
     ]
     assert "target 2.000%" in out
     assert str(PRIVATE_TOTAL) not in out

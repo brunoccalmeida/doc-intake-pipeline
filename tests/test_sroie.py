@@ -7,6 +7,7 @@ fetched files are checked separately (``test_golden_sroie.py``).
 import json
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -14,6 +15,8 @@ from doc_intake.core.result import Citation, ExtractedField
 from evals.sroie import (
     MANIFEST_PATH,
     TEST_IDS_PATH,
+    Amounts,
+    load_amounts,
     load_manifest,
     parse_date,
     parse_total,
@@ -22,6 +25,8 @@ from evals.sroie import (
 )
 
 IDS = [f"X5100000000{n}" for n in range(10)]
+NOT_PRINTED = ExtractedField[Decimal](value=None, citation=None, reason="not printed")
+NO_AMOUNTS = Amounts(net=NOT_PRINTED, tax=NOT_PRINTED, rounding=NOT_PRINTED)
 
 
 def test_selection_is_independent_of_input_order() -> None:
@@ -104,7 +109,7 @@ def test_entities_become_a_receipt_citing_the_printed_text() -> None:
         }
     ).encode()
 
-    receipt = to_receipt(entities, currency=MYR)
+    receipt = to_receipt(entities, currency=MYR, amounts=NO_AMOUNTS)
 
     assert receipt.date.value == date(2016, 6, 7)
     assert receipt.date.citation == Citation(page=1, source="image", quote="7/6/2016")
@@ -112,6 +117,24 @@ def test_entities_become_a_receipt_citing_the_printed_text() -> None:
     assert receipt.total.citation == Citation(page=1, source="image", quote="RM 399.00")
     assert receipt.company.value == "SECURITY & OA TRADING"
     assert receipt.currency == MYR
+    assert (receipt.net, receipt.tax, receipt.rounding) == (
+        NO_AMOUNTS.net,
+        NO_AMOUNTS.tax,
+        NO_AMOUNTS.rounding,
+    )
+
+
+def test_amounts_load_by_receipt_id(tmp_path: Path) -> None:
+    path = tmp_path / "sroie-amounts.json"
+    path.write_text(json.dumps({"X51005447841": NO_AMOUNTS.model_dump(mode="json")}), "utf-8")
+
+    assert load_amounts(path) == {"X51005447841": NO_AMOUNTS}
+
+
+def test_missing_amounts_file_says_where_it_comes_from(tmp_path: Path) -> None:
+    # The annotation quotes the receipts, so it lives in the private clone (docs/DATA.md).
+    with pytest.raises(FileNotFoundError, match="private recordings repository"):
+        load_amounts(tmp_path / "sroie-amounts.json")
 
 
 @pytest.mark.parametrize("missing", ["company", "date", "address", "total"])
@@ -120,4 +143,15 @@ def test_entities_missing_a_field_fail(missing: str) -> None:
     del fields[missing]
 
     with pytest.raises(ValueError, match=missing):
-        to_receipt(json.dumps(fields).encode(), currency=MYR)
+        to_receipt(json.dumps(fields).encode(), currency=MYR, amounts=NO_AMOUNTS)
+
+
+def test_an_invalid_amounts_file_names_the_problem_without_its_content(tmp_path: Path) -> None:
+    # The error reaches the public CI log; the annotation is private (D6).
+    path = tmp_path / "sroie-amounts.json"
+    bad = NO_AMOUNTS.model_dump(mode="json") | {"tax": {"value": "-4321.09"}}
+    path.write_text(json.dumps({"X51005447841": bad}), "utf-8")
+
+    with pytest.raises(ValueError, match=r"X51005447841\.tax") as caught:
+        load_amounts(path)
+    assert "4321.09" not in str(caught.value)

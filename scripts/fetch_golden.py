@@ -4,17 +4,27 @@ SROIE has no published licence, so neither its images nor its ground truth
 are in the repository (``docs/DATA.md``). This downloads each selected
 receipt's image and ground truth from the pinned mirror commit, checks both
 against the manifest, and writes ``<id>.jpg`` plus ``<id>.json`` (the golden
-``Receipt``) into the configured ``DOC_INTAKE_SROIE_DIR``.
+``Receipt``) into the configured ``DOC_INTAKE_SROIE_DIR``. The amounts SROIE
+does not annotate come from our annotation in the private recordings clone
+(``DOC_INTAKE_RECORDINGS_DIR``), so that clone must exist first (#66).
 
 Usage: ``uv run poe fetch-golden`` (idempotent: verified files are kept).
 """
 
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from doc_intake.core.config import Settings
-from evals.sroie import MANIFEST_PATH, Manifest, load_manifest, to_receipt
+from evals.sroie import (
+    AMOUNTS_PATH,
+    MANIFEST_PATH,
+    Amounts,
+    Manifest,
+    load_amounts,
+    load_manifest,
+    to_receipt,
+)
 from scripts.download import (
     ChecksumMismatchError,
     download_https,
@@ -42,9 +52,22 @@ def install(
     target_dir: Path,
     manifest: Manifest,
     *,
+    amounts: Mapping[str, Amounts],
     download: Callable[[str], bytes] = download_https,
 ) -> list[Path]:
-    """Put every verified receipt and its golden record in ``target_dir``."""
+    """Put every verified receipt and its golden record in ``target_dir``.
+
+    Every receipt needs its annotated ``amounts``, and every annotation its
+    receipt: checked before any download, since a mismatch means the
+    selection or the annotation changed.
+    """
+    ids = [entry.id for entry in manifest.receipts]
+    unannotated = [rid for rid in ids if rid not in amounts]
+    if unannotated:
+        raise ValueError(f"no amounts annotated for {', '.join(unannotated)}")
+    stray = sorted(set(amounts) - set(ids))
+    if stray:
+        raise ValueError(f"amounts annotated for receipts not in the manifest: {', '.join(stray)}")
     base = f"https://raw.githubusercontent.com/{manifest.source}/{manifest.commit}/{manifest.split}"
     written: list[Path] = []
     for entry in manifest.receipts:
@@ -63,7 +86,7 @@ def install(
             download,
         )
         try:
-            receipt = to_receipt(entities, currency=entry.currency)
+            receipt = to_receipt(entities, currency=entry.currency, amounts=amounts[entry.id])
         except ValueError as error:
             raise ValueError(f"{entry.id}: {error}") from error
         golden = target_dir / f"{entry.id}.json"
@@ -73,8 +96,10 @@ def install(
 
 
 def main() -> int:
-    target = Settings().sroie_dir
-    written = install(target, load_manifest(MANIFEST_PATH))
+    settings = Settings()
+    target = settings.sroie_dir
+    amounts = load_amounts(settings.recordings_dir / AMOUNTS_PATH)
+    written = install(target, load_manifest(MANIFEST_PATH), amounts=amounts)
     print(f"verified {len(written)} receipts in {target}")
     return 0
 

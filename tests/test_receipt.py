@@ -27,6 +27,9 @@ def cited(value: object, quote: str) -> dict[str, Any]:
     }
 
 
+NOT_PRINTED = {"value": None, "citation": None, "reason": "not printed"}
+
+
 def receipt_json(**overrides: object) -> str:
     fields: dict[str, Any] = {
         "company": cited("BOOK TA .K (TAMAN DAYA) SDN BHD", "BOOK TA .K (TAMAN DAYA) SDN BHD"),
@@ -38,6 +41,9 @@ def receipt_json(**overrides: object) -> str:
             "citation": None,
             "reason": "no currency symbol or code printed",
         },
+        "net": NOT_PRINTED,
+        "tax": NOT_PRINTED,
+        "rounding": NOT_PRINTED,
     }
     fields.update(overrides)
     return json.dumps(fields)
@@ -169,13 +175,85 @@ def test_receipt_pack_accepts_a_currency_code_converted_from_the_printed_symbol(
             "date": cited("2018-12-25", "25/12/2018"),
             "total": cited("9.00", "TOTAL RM 9.00"),
             "currency": cited("MYR", "RM 9.00"),
+            "net": NOT_PRINTED,
+            "tax": NOT_PRINTED,
+            "rounding": NOT_PRINTED,
         }
     )
 
+    result = extract_with(document, answer)
+
+    assert (result.status, result.errors) == ("ok", [])
+
+
+def extract_with(document: Document, answer: str) -> ExtractionResult[Receipt]:
     class Scripted:
         def complete(self, request: LLMRequest) -> LLMResponse:
             return LLMResponse(text=answer, input_tokens=1, output_tokens=1, model="fake")
 
-    result = extract(document, RECEIPT, Scripted())
+    return extract(document, RECEIPT, Scripted())
 
+
+def test_rounding_may_be_negative_but_net_and_tax_may_not() -> None:
+    receipt = Receipt.model_validate_json(receipt_json(rounding=cited("-0.02", "ROUNDING -0.02")))
+    assert receipt.rounding.value == Decimal("-0.02")
+    for field in ("net", "tax"):
+        with pytest.raises(ValidationError, match="greater than or equal to 0"):
+            Receipt.model_validate_json(receipt_json(**{field: cited("-0.02", "-0.02")}))
+
+
+# The amounts as SROIE receipts print them (#66): the total includes the tax,
+# and a rounding adjustment, as printed on the golden receipts, closes the sum.
+AMOUNTS_PAGE = (
+    "ACME SDN BHD\nTotal (Excluding GST): 25.45\nGST Payable: 1.53\n"
+    "Total (Inclusive of GST): 26.98\nRounding Adj: 0.02\nTOTAL: 27.00"
+)
+AMOUNTS_DOCUMENT = Document(
+    pages=(PageText(number=1, text=AMOUNTS_PAGE, source="text_layer", image=None),)
+)
+
+
+def amounts_json(**overrides: object) -> str:
+    fields: dict[str, Any] = {
+        "company": cited("ACME SDN BHD", "ACME SDN BHD"),
+        "address": NOT_PRINTED,
+        "date": NOT_PRINTED,
+        "total": cited("27.00", "TOTAL: 27.00"),
+        "currency": NOT_PRINTED,
+        "net": cited("25.45", "Total (Excluding GST): 25.45"),
+        "tax": cited("1.53", "GST Payable: 1.53"),
+        "rounding": cited("0.02", "Rounding Adj: 0.02"),
+    }
+    fields.update(overrides)
+    return json.dumps(fields)
+
+
+def test_receipt_amounts_that_add_up_with_rounding_are_ok() -> None:
+    # 25.45 + 1.53 + 0.02 = 27.00
+    result = extract_with(AMOUNTS_DOCUMENT, amounts_json())
     assert (result.status, result.errors) == ("ok", [])
+
+
+def test_receipt_amounts_that_do_not_add_up_go_to_review_naming_the_rule() -> None:
+    # The total before rounding, taken for the total paid.
+    total = cited("26.98", "Total (Inclusive of GST): 26.98")
+    result = extract_with(AMOUNTS_DOCUMENT, amounts_json(total=total))
+    assert result.review == ["total", "net", "tax", "rounding"]
+    assert result.errors[0] == (
+        "total: fails rule amounts_add_up: net + tax + rounding must equal total"
+    )
+
+
+def test_receipt_rounding_not_printed_counts_as_zero() -> None:
+    total = cited("26.98", "Total (Inclusive of GST): 26.98")
+    result = extract_with(AMOUNTS_DOCUMENT, amounts_json(total=total, rounding=NOT_PRINTED))
+    assert (result.status, result.review) == ("ok", [])
+
+
+@pytest.mark.parametrize("empty", ["net", "tax", "total"])
+def test_receipt_rule_does_not_apply_without_one_of_its_amounts(empty: str) -> None:
+    # A tax-inclusive receipt often prints no net amount: nothing to check, no review.
+    total = cited("26.98", "Total (Inclusive of GST): 26.98")
+    overrides: dict[str, object] = {"total": total, empty: NOT_PRINTED}
+    result = extract_with(AMOUNTS_DOCUMENT, amounts_json(**overrides))
+    assert (result.status, result.review) == ("ok", [])
