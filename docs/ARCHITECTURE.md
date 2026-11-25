@@ -468,6 +468,7 @@ Um pacote declara regras entre os próprios campos, e uma regra que falha manda 
 - A regra só vê erro que quebra a soma. Dois erros que se compensam, ou um `net` e um `total` lidos errado da mesma forma, passam.
 - Recibo sem `net` impresso (6 dos 20) não tem conferência nenhuma.
 - A conferência "o número está na citação" só pega valor calculado quando a citação é do texto do OCR. Numa citação da imagem, quem escreve a citação é o próprio modelo: um `net = total − tax` com citação inventada passa nela e passa na regra por construção. Sem política, ele vai para revisão por ser lido da imagem; com o campo aceito pela D22, passa, e só a auditoria o mede.
+- O sinal não é conferido na citação: um `rounding` impresso `-0.02` e devolvido como `0.02`, citado do texto do OCR, passa na conferência de número. Num recibo sem `net`, a regra não se aplica e o valor sai aceito. Correção em [#86](https://github.com/brunoccalmeida/doc-intake-pipeline/issues/86).
 - A regra da D14 (imposto de 6% num recibo datado depois do fim do GST, em 2018-05-31) não foi feita: depende de data e alíquota, e nenhum recibo do conjunto-ouro a dispara (YAGNI).
 
 **Não verificado:** o prompt foi conferido só nos 20 recibos do SROIE e nos 2 da demo; recibos de outro país, com mais de uma alíquota ou com milhar em ponto, não foram medidos.

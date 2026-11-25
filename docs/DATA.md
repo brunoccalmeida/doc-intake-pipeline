@@ -91,6 +91,8 @@ What is public is the shape only:
 
 **Checked against SROIE:** on the 14 receipts where the rule applies, net + tax + rounding equals SROIE's own total exactly, and `tests/test_golden_sroie.py` keeps it so: a misread amount fails there. A mutation (one tax one cent off) failed it. The 6 others have no independent check: one reading from the image, compared with the OCR text where it reads the line.
 
+**Annotated before the model was run:** the golden set and the prompt normally change in separate pull requests, so the expected answer is never fitted to the model's output. New fields need both at once, so this annotation came first instead. It was committed to the recordings repository (`a683792`, 2026-11-24) before the receipts were re-recorded with the new prompt (`6644c45`, 2026-11-25), and `golden/` is unchanged between the two commits.
+
 ### Corrections
 
 All 20 records were checked against their image on 2026-11-19. **No correction was needed**: each `company`, `address`, `date` and `total` matches what is printed. A future correction needs the image as evidence and a row here (receipt, field, SROIE value, corrected value, what the image shows).

@@ -15,7 +15,7 @@ For each document, a JSON result with company, address, date, total, currency, p
 - **Nothing is made up.** A field the document does not show comes back empty, with the reason.
 - **Every value can be checked.** It carries the page and the exact text it was read from.
 - **Doubtful values go to a person.** The result names the fields to check; everything else was accepted automatically.
-- **Amounts that do not add up go to a person.** When a receipt prints the amount before tax and the tax, they must add up to the total, with any rounding, to the cent; if they do not, all of them are sent to check, so a misread digit cannot slip through.
+- **Amounts that do not add up go to a person.** When a receipt prints the amount before tax and the tax, they must add up to the total, with any rounding, to the cent; if they do not, all of them are sent to check, so a single misread amount does not slip through. Receipts that do not print the amount before tax get no such check ([what the rule does not catch](docs/ARCHITECTURE.md#d23-regras-de-consistência-por-pacote-decidida-na-66)).
 - **A broken answer never passes as a good one.** It is retried a few times, then marked as failed for review, never returned half-filled.
 - **The cost of each document is logged**, with no document content in the logs.
 - **It is not tied to one AI vendor.** Claude or OpenAI, chosen by a setting.
