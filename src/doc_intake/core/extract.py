@@ -224,7 +224,8 @@ def _citation_problems(
       it must cite a page whose image was sent;
     - a field read as printed must have its value inside its quote (D11);
     - an amount (``Decimal``) must be one of the numbers its quote prints, so
-      a value computed from others is caught (D23); a sign is conversion.
+      a value computed from others is caught (D23), with the sign it is
+      printed with (#86).
 
     Comparison ignores how whitespace is laid out (a model often copies a
     multi-line passage as one line), and nothing else: case, punctuation and
@@ -261,8 +262,19 @@ def _with_rule_problems[S: BaseModel](
     return {name: "; ".join(notes[name]) for name in type(fields).model_fields if name in notes}
 
 
-# A number as receipts print it: digits, optional thousands commas, optional decimals.
-_NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
+# A number as receipts print it: digits, optional thousands commas, optional
+# decimals, and a negative sign in any of the forms receipts use (#86): "-0.02"
+# (hyphen, minus sign, or the en or em dash a PDF or OCR may print for it),
+# "0.02-" and "(0.02)". A dash touching a digit on the other side
+# ("2018-01-02", "0.01-0.03") separates numbers instead. When in doubt the
+# number reads negative: a wrong guess sends a field to review, never accepts it.
+_NUMBER = re.compile(
+    r"(?P<open>\()?"
+    r"(?P<lead>(?<!\d)[-\N{MINUS SIGN}\N{EN DASH}\N{EM DASH}])?"
+    r"(?P<digits>\d[\d,]*(?:\.\d+)?)"
+    r"(?P<trail>-(?!\d))?"
+    r"(?P<close>\))?"
+)
 # "9,00": a comma before exactly two final digits is a decimal comma, since a
 # thousands group has three. Decimal point with thousands dots ("1.234,56") is
 # not read: such an amount goes to review (D23).
@@ -270,11 +282,14 @@ _DECIMAL_COMMA = re.compile(r"\d+,\d{2}")
 
 
 def _numbers(quote: str) -> set[Decimal]:
-    """Every number printed in ``quote``, as exact values; a sign is not read."""
-    return {
-        Decimal(match.replace(",", "." if _DECIMAL_COMMA.fullmatch(match) else ""))
-        for match in _NUMBER.findall(quote)
-    }
+    """Every number printed in ``quote``, as exact signed values."""
+    numbers: set[Decimal] = set()
+    for match in _NUMBER.finditer(quote):
+        digits = match["digits"]
+        number = Decimal(digits.replace(",", "." if _DECIMAL_COMMA.fullmatch(digits) else ""))
+        negative = match["lead"] or match["trail"] or (match["open"] and match["close"])
+        numbers.add(-number if negative else number)
+    return numbers
 
 
 def _citation_problem(
@@ -296,7 +311,9 @@ def _citation_problem(
         return f"cites the image of page {citation.page}, which was not sent"
     if text is not None and _squash(text) not in quote:
         return "value is not the text of its quote"
-    if isinstance(value, Decimal) and abs(value) not in _numbers(quote):
+    if isinstance(value, Decimal) and value not in (numbers := _numbers(quote)):
+        if -value in numbers:
+            return "amount has the opposite sign of the one printed in its quote"
         return "amount is not a number printed in its quote"
     if citation.source == "image" and not accepted:
         return f"read from the image of page {citation.page}; check it on the page"
