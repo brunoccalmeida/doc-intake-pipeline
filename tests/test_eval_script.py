@@ -10,6 +10,7 @@ import re
 import uuid
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -80,6 +81,17 @@ def golden_answer(**changes: object) -> str:
     return json.dumps(golden)
 
 
+def without_amounts(answer: dict[str, Any]) -> dict[str, Any]:
+    """``answer`` with net and tax left empty, so the amounts rule does not apply.
+
+    A wrong total would otherwise fail the rule and go to review (D23): these
+    tests need it accepted, to prove the gates behind the rule.
+    """
+    for name in ("net", "tax"):
+        answer[name] = {"value": None, "citation": None, "reason": "not printed"}
+    return answer
+
+
 def wrong_total_from_page_text() -> str:
     """A wrong total cited from the OCR text, so the engine accepts it without review.
 
@@ -101,7 +113,7 @@ def wrong_total_from_page_text() -> str:
         "citation": {"page": 1, "source": "text", "quote": word},
         "reason": None,
     }
-    return json.dumps(answer)
+    return json.dumps(without_amounts(answer))
 
 
 def wrong_total_from_image() -> str:
@@ -112,7 +124,7 @@ def wrong_total_from_image() -> str:
         "citation": {"page": 1, "source": "image", "quote": "TOTAL 0.01"},
         "reason": None,
     }
-    return json.dumps(answer)
+    return json.dumps(without_amounts(answer))
 
 
 def baseline(tmp_path: Path, correct: int = 1, wrong_accepted: int = 0) -> Path:
@@ -325,7 +337,7 @@ def test_update_readme_writes_the_summary_and_the_next_run_passes(
     assert run_full(tmp_path, "--update-readme") == 0
 
     written = path.read_bytes().decode("utf-8")
-    assert "Measured on 1 public scanned receipts, 5 values in all" in written
+    assert "Measured on 1 public scanned receipts, 8 values in all" in written
     assert written.startswith("# Title\n\n")
     assert written.endswith(f"{END}\n\nAfter.\n")
     assert "\r\n" not in written  # the repository stores LF (.gitattributes)

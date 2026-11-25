@@ -7,7 +7,8 @@ values are downloaded and converted locally by ``scripts/fetch_golden.py``.
 
 SROIE's ground truth is a transcription of the printed text, so it is also the
 citation: the value is normalized (ISO date, ``Decimal``) and the quote keeps
-the text as annotated. Every receipt is a single page.
+the text as annotated. Every receipt is a single page. The amounts SROIE does
+not annotate (net, tax, rounding) are our own reading, kept private (#66).
 """
 
 import hashlib
@@ -19,10 +20,10 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, TypeAdapter
 
 from doc_intake.core.result import Citation, ExtractedField, StrictModel
-from doc_intake.packs.receipt import CurrencyCode, Receipt
+from doc_intake.packs.receipt import CurrencyCode, Money, Receipt, SignedMoney
 
 GOLDEN_DIR = Path(__file__).parent / "golden"
 MANIFEST_PATH = GOLDEN_DIR / "sroie.json"
@@ -40,6 +41,33 @@ class GoldenEntry(StrictModel, frozen=True):
     entities_sha256: Sha256
     # SROIE does not annotate currency; this is read by us from the image.
     currency: ExtractedField[CurrencyCode]
+
+
+class Amounts(StrictModel, frozen=True):
+    """Our reading of one receipt's amounts, which SROIE does not annotate (#66).
+
+    Read by us from the image, like the currency, but it quotes the receipt,
+    so it lives in the private recordings repository (``docs/DATA.md``).
+    """
+
+    net: ExtractedField[Money]
+    tax: ExtractedField[Money]
+    rounding: ExtractedField[SignedMoney]
+
+
+# Inside the clone of the private recordings repository (DOC_INTAKE_RECORDINGS_DIR).
+AMOUNTS_PATH = Path("golden") / "sroie-amounts.json"
+_AMOUNTS = TypeAdapter(dict[str, Amounts])
+
+
+def load_amounts(path: Path) -> dict[str, Amounts]:
+    """The annotated amounts by receipt id; a missing file says where it comes from."""
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"{path} not found: the golden amounts live in the private recordings "
+            "repository; clone it as docs/DATA.md says"
+        )
+    return _AMOUNTS.validate_json(path.read_bytes())
 
 
 class Manifest(StrictModel, frozen=True):
@@ -112,8 +140,8 @@ def parse_total(text: str) -> Decimal:
     return Decimal(match[1])
 
 
-def to_receipt(entities: bytes, *, currency: ExtractedField[str]) -> Receipt:
-    """Convert one SROIE ground-truth file to the golden ``Receipt``."""
+def to_receipt(entities: bytes, *, currency: ExtractedField[str], amounts: Amounts) -> Receipt:
+    """Convert one SROIE ground-truth file, plus our annotations, to the golden ``Receipt``."""
     raw: dict[str, str] = json.loads(entities)
     missing = [key for key in ("company", "date", "address", "total") if not raw.get(key)]
     if missing:
@@ -130,4 +158,7 @@ def to_receipt(entities: bytes, *, currency: ExtractedField[str]) -> Receipt:
         date=cited(parse_date(raw["date"]), raw["date"]),
         total=cited(parse_total(raw["total"]), raw["total"]),
         currency=currency,
+        net=amounts.net,
+        tax=amounts.tax,
+        rounding=amounts.rounding,
     )

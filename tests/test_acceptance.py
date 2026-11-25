@@ -66,10 +66,11 @@ def policy(**evidence: tuple[int, int]) -> AcceptancePolicy:
 
 
 def test_a_field_is_accepted_only_when_its_bound_with_every_field_tested_is_under_target() -> None:
-    # Five receipt fields share the 5% error budget: each is tested at 1%
-    # (Bonferroni), where 330 clean labels are the first to pass 2%.
+    # Eight receipt fields share the 5% error budget: each is tested at 0.625%
+    # (Bonferroni), where 356 clean labels are the first to pass 2% (SciPy
+    # oracle, #66: 1.99864% at 356, 2.00354% at 355).
     assert accepted_fields(
-        policy(total=(330, 0), date=(329, 0), company=(10_000, 300)), RECEIPT
+        policy(total=(356, 0), date=(355, 0), company=(10_000, 300)), RECEIPT
     ) == {"total"}
 
 
@@ -132,6 +133,9 @@ def test_calibration_counts_image_read_labels_of_every_field() -> None:
             "date": FieldEvidence(reviewed=1, errors=0),
             "total": FieldEvidence(reviewed=2, errors=1),
             "currency": FieldEvidence(reviewed=0, errors=0),
+            "net": FieldEvidence(reviewed=0, errors=0),
+            "tax": FieldEvidence(reviewed=0, errors=0),
+            "rounding": FieldEvidence(reviewed=0, errors=0),
         },
         runs=["r1", "r2"],
     )
@@ -145,6 +149,9 @@ def cited(value: str, source: str = "image") -> dict[str, object]:
     }
 
 
+NOT_PRINTED = {"value": None, "citation": None, "reason": "not printed"}
+
+
 def receipt_result(*, review: list[str]) -> ExtractionResult[Receipt]:
     fields = Receipt.model_validate(
         {
@@ -152,7 +159,10 @@ def receipt_result(*, review: list[str]) -> ExtractionResult[Receipt]:
             "address": cited("1 Main St", source="text"),
             "date": cited("2026-03-04"),
             "total": cited("9.90"),
-            "currency": {"value": None, "citation": None, "reason": "not printed"},
+            "currency": NOT_PRINTED,
+            "net": NOT_PRINTED,
+            "tax": NOT_PRINTED,
+            "rounding": NOT_PRINTED,
         }
     )
     if not review:

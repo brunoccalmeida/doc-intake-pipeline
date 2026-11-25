@@ -17,7 +17,7 @@ from doc_intake.batch import RunReport, ready_documents, run_inbox, spreadsheet_
 from doc_intake.core.config import Settings
 from doc_intake.core.ingest import Document, OcrDataMissingError, PageText
 from doc_intake.core.llm import LLMRequest, LLMResponse
-from doc_intake.packs.receipt import RECEIPT
+from doc_intake.packs.receipt import RECEIPT, Receipt
 
 NOW = datetime(2026, 11, 22, 15, 30, tzinfo=UTC)
 SETTLE = timedelta(seconds=60)
@@ -92,7 +92,7 @@ def image_field(value: str, quote: str) -> dict[str, object]:
     return {"value": value, "citation": citation, "reason": None}
 
 
-ALL_NULL = {name: null_field() for name in ("company", "address", "date", "total", "currency")}
+ALL_NULL = {name: null_field() for name in Receipt.model_fields}
 REVIEW_TOTAL = {**ALL_NULL, "total": image_field("9.90", "TOTAL 9.90")}
 FORMULA_COMPANY = {**ALL_NULL, "company": image_field("=1+1", "=1+1")}
 
@@ -200,7 +200,7 @@ def test_a_run_writes_one_row_per_field_and_moves_the_originals_beside_it(
         ("b-review.png", name, "needs_review" if name == "total" else "accepted")
         for name in ALL_NULL
     ]
-    total = rows[8]
+    [total] = [r for r in rows if (r["file"], r["field"]) == ("b-review.png", "total")]
     assert total == {
         "file": "b-review.png",
         "document_status": "needs_review",

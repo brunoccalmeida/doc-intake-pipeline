@@ -36,6 +36,9 @@ def empty() -> ExtractedField[str]:
     return ExtractedField[str](value=None, citation=None, reason="not printed")
 
 
+NO_AMOUNT = ExtractedField[Decimal](value=None, citation=None, reason="not printed")
+
+
 def receipt(
     company: str = "ACME TRADING SDN BHD",
     total: str = "9.00",
@@ -47,6 +50,9 @@ def receipt(
         date=cited(date(2018, 1, 15)),
         total=cited(Decimal(total)),
         currency=currency if currency is not None else cited("MYR"),
+        net=NO_AMOUNT,
+        tax=NO_AMOUNT,
+        rounding=NO_AMOUNT,
     )
 
 
@@ -162,6 +168,9 @@ def test_each_field_is_routed_to_review_accepted_or_empty() -> None:
         "date": "accepted",
         "total": "review",
         "currency": "empty",
+        "net": "empty",
+        "tax": "empty",
+        "rounding": "empty",
     }
 
 

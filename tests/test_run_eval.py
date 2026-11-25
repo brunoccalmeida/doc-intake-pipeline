@@ -147,12 +147,16 @@ def write_golden(directory: Path, document_id: str) -> None:
             value=value, citation=Citation(page=1, source="text", quote="q"), reason=None
         )
 
+    not_printed = ExtractedField[Decimal](value=None, citation=None, reason="not printed")
     golden = Receipt(
         company=cited("ACME"),
         address=cited("JALAN MAJU"),
         date=cited(date(2018, 1, 15)),
         total=cited(Decimal("9.00")),
         currency=cited("MYR"),
+        net=not_printed,
+        tax=not_printed,
+        rounding=not_printed,
     )
     (directory / f"{document_id}.json").write_text(golden.model_dump_json(), encoding="utf-8")
 
