@@ -16,7 +16,7 @@ from pydantic import Field
 from doc_intake.core.extract import Pack, Rule, extract
 from doc_intake.core.ingest import Document, PageImage, PageText
 from doc_intake.core.llm import ImageInput, LLMRequest, LLMResponse
-from doc_intake.core.result import ExtractedField, StrictModel
+from doc_intake.core.result import ExtractedField, ExtractionResult, StrictModel
 
 PAGE_1 = "ACME TRADING SDN BHD\nNO. 12, JALAN MAJU\nTOTAL   RM 9.00"
 PAGE_2 = "THANK YOU\nPLEASE COME AGAIN"
@@ -433,9 +433,59 @@ def bill_json(**overrides: object) -> str:
 
 
 def test_amounts_that_add_up_are_ok() -> None:
-    # The sign of a negative amount is conversion: the quote prints it either way.
     result = extract(BILL_DOCUMENT, BILL_PACK, FakeProvider([bill_json()]))
     assert (result.status, result.errors) == ("ok", [])
+
+
+def signed_rounding(value: str, printed: str) -> ExtractionResult[Bill]:
+    """A rounding cited from the page text, on a bill without net (#86).
+
+    Without net the rule does not apply, so the citation check alone decides.
+    """
+    document = one_page(f"TAX 0.46\n{printed}\nTOTAL 8.18")
+    provider = FakeProvider([bill_json(net=NO_VALUE, rounding=cited(value, printed))])
+    return extract(document, BILL_PACK, provider)
+
+
+@pytest.mark.parametrize(
+    ("value", "printed"),
+    [
+        ("-0.02", "ROUNDING -0.02"),
+        ("-0.02", "ROUNDING ADJ:-0.02"),
+        ("-0.02", "ROUNDING \N{MINUS SIGN}0.02"),
+        ("-0.02", "ROUNDING \N{EN DASH}0.02"),
+        ("-0.02", "ROUNDING \N{EM DASH}0.02"),  # in the OCR model's character set
+        ("-0.02", "ROUNDING 0.02-"),
+        ("-0.02", "ROUNDING (0.02)"),
+        ("0.02", "ROUNDING 0.02"),
+        ("0.02", "ROUNDING (RM) 0.02"),
+        ("0.02", "ROUNDING (0.02 RM)"),  # no closing parenthesis on the number
+        ("0.02", "ROUNDING (RM 0.02)"),  # no opening parenthesis on the number
+        ("0.03", "ROUNDING 0.01-0.03"),  # a hyphen between digits is a separator
+        ("0.01", "ROUNDING 0.01-0.03"),
+    ],
+)
+def test_a_signed_amount_matching_its_quote_is_accepted(value: str, printed: str) -> None:
+    result = signed_rounding(value, printed)
+    assert (result.status, result.errors) == ("ok", [])
+
+
+@pytest.mark.parametrize(
+    ("value", "printed"),
+    [
+        ("0.02", "ROUNDING -0.02"),
+        ("0.02", "ROUNDING \N{MINUS SIGN}0.02"),
+        ("0.02", "ROUNDING \N{EM DASH}0.02"),
+        ("0.02", "ROUNDING 0.02-"),
+        ("0.02", "ROUNDING (0.02)"),
+        ("-0.02", "ROUNDING 0.02"),
+    ],
+)
+def test_an_amount_with_the_opposite_sign_goes_to_review(value: str, printed: str) -> None:
+    result = signed_rounding(value, printed)
+    assert result.review == ["rounding"]
+    sign = "amount has the opposite sign of the one printed in its quote"
+    assert result.errors == [f"rounding: {sign}"]
 
 
 def test_a_failed_rule_sends_its_fields_to_review_naming_the_rule() -> None:
