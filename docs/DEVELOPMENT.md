@@ -81,6 +81,8 @@ Extraction runs on Claude or OpenAI, chosen by `DOC_INTAKE_PROVIDER`, with each 
 
 Every pull request must pass the `ci-passed` gate: lint, types, tests, the eval, the wheel check, secret scan, workflow audit and dependency audit.
 
+Every resolution (`uv lock`, `uv add`, `uv lock --upgrade-package`) skips releases uploaded less than 7 days ago (`exclude-newer = "7 days"` in `pyproject.toml`), the same cooldown Dependabot waits, so a newer version you see on PyPI may not be picked yet. A security fix that cannot wait gets a temporary per-package exemption in `pyproject.toml` (never the command-line flag, which leaves the lock out of sync with the configuration), removed once the release is a week old ([D7](ARCHITECTURE.md#d7-ferramentas-python-decidida-na-1)).
+
 ### Using the core from another project
 
 The core is an installable package, `doc-intake-pipeline`, imported as `doc_intake` (`doc_intake.core`, `doc_intake.packs`, `doc_intake.providers`, `doc_intake.batch`, `doc_intake.review`). It is not on PyPI: another uv project depends on it through a git tag, so an upgrade is a deliberate change to that tag ([D18](ARCHITECTURE.md#d18-fronteira-entre-núcleo-kit-de-entrega-e-código-do-cliente-decidida-na-52)).
