@@ -10,14 +10,19 @@ The flow for one document (``docs/ARCHITECTURE.md`` D1-D3):
    there downgrades the result to ``needs_review``. A value read from the page
    image always does, unless its field is in ``accept_from_image``: a client's
    acceptance policy (``doc_intake.acceptance``, D22) that vouches for image
-   reading only, so every other check still applies.
+   reading only, so every other check still applies;
+4. check the pack's rules (D23): a rule that fails sends every field it names
+   to review, accepted or not, with the rule's name.
 
 Transport errors (network, authentication, rate limit after the SDK's own
 retries) are not validation failures: they propagate to the caller, which
 reports the document instead of skipping it.
 """
 
+import re
+from collections.abc import Callable
 from dataclasses import dataclass
+from decimal import Decimal
 
 from pydantic import BaseModel, ValidationError
 
@@ -52,6 +57,23 @@ schema, and nothing else."""
 
 
 @dataclass(frozen=True, slots=True)
+class Rule[S: BaseModel]:
+    """A consistency check between fields of one document (D23).
+
+    ``holds`` returns ``None`` when the rule does not apply (an operand is
+    empty), so a document that does not print an amount is not flagged for
+    it. When it returns ``False``, every field in ``fields`` goes to review
+    with ``description``, which therefore names fields, never values: errors
+    reach logs and the review queue (AGENTS.md invariant 6).
+    """
+
+    name: str
+    description: str
+    fields: tuple[str, ...]
+    holds: Callable[[S], bool | None]
+
+
+@dataclass(frozen=True, slots=True)
 class Pack[S: BaseModel]:
     """A document type: the schema to fill and the instructions specific to it."""
 
@@ -61,11 +83,23 @@ class Pack[S: BaseModel]:
     # Fields whose value is the text as printed: a value must sit inside its
     # quote (D11). The others are converted (a code, a date) and are not.
     printed: frozenset[str]
+    rules: tuple[Rule[S], ...] = ()
 
     def __post_init__(self) -> None:
-        unknown = self.printed - set(self.schema.model_fields)
+        known = set(self.schema.model_fields)
+        unknown = self.printed - known
         if unknown:
             raise ValueError(f"printed fields not in the schema: {', '.join(sorted(unknown))}")
+        names: set[str] = set()
+        for rule in self.rules:
+            if rule.name in names:
+                raise ValueError(f"rule {rule.name} is declared twice")
+            names.add(rule.name)
+            missing = [name for name in rule.fields if name not in known]
+            if missing:
+                raise ValueError(
+                    f"rule {rule.name} names fields not in the schema: {', '.join(missing)}"
+                )
 
 
 def extract[S: BaseModel](
@@ -101,7 +135,11 @@ def extract[S: BaseModel](
             errors = _describe(error)
             prompt = _retry_prompt(_document_prompt(document), answer, errors)
             continue
-        problems = _citation_problems(fields, document, pack.printed, accept_from_image)
+        problems = _with_rule_problems(
+            _citation_problems(fields, document, pack.printed, accept_from_image),
+            fields,
+            pack.rules,
+        )
         if problems:
             return ExtractionResult[S](
                 status="needs_review",
@@ -184,7 +222,9 @@ def _citation_problems(
     - an "image" quote cannot be checked by code, so it always goes to review
       (``docs/ARCHITECTURE.md`` D12) unless its field is ``accepted`` (D22), and
       it must cite a page whose image was sent;
-    - a field read as printed must have its value inside its quote (D11).
+    - a field read as printed must have its value inside its quote (D11);
+    - an amount (``Decimal``) must be one of the numbers its quote prints, so
+      a value computed from others is caught (D23); a sign is conversion.
 
     Comparison ignores how whitespace is laid out (a model often copies a
     multi-line passage as one line), and nothing else: case, punctuation and
@@ -197,14 +237,46 @@ def _citation_problems(
         if not is_field(field) or field.citation is None:
             continue
         text = field.value if name in printed and isinstance(field.value, str) else None
-        problem = _citation_problem(text, field.citation, pages, accepted=name in accepted)
+        problem = _citation_problem(
+            field.value, text, field.citation, pages, accepted=name in accepted
+        )
         if problem is not None:
             problems[name] = problem
     return problems
 
 
+def _with_rule_problems[S: BaseModel](
+    problems: dict[str, str], fields: S, rules: tuple[Rule[S], ...]
+) -> dict[str, str]:
+    """``problems`` plus each failed rule on each of its fields, in schema order.
+
+    One entry per field, because the review queue keeps one note per field: a
+    field that already has a problem gets the rule appended to it.
+    """
+    notes = {name: [problem] for name, problem in problems.items()}
+    for rule in rules:
+        if rule.holds(fields) is False:
+            for name in rule.fields:
+                notes.setdefault(name, []).append(f"fails rule {rule.name}: {rule.description}")
+    return {name: "; ".join(notes[name]) for name in type(fields).model_fields if name in notes}
+
+
+# A number as receipts print it: digits, optional thousands commas, optional decimals.
+_NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
+
+def _numbers(quote: str) -> set[Decimal]:
+    """Every number printed in ``quote``, as exact values; a sign is not read."""
+    return {Decimal(match.replace(",", "")) for match in _NUMBER.findall(quote)}
+
+
 def _citation_problem(
-    text: str | None, citation: Citation, pages: dict[int, PageText], *, accepted: bool
+    value: object,
+    text: str | None,
+    citation: Citation,
+    pages: dict[int, PageText],
+    *,
+    accepted: bool,
 ) -> str | None:
     """The first problem found, or None; ``text`` is the value of a printed field."""
     page = pages.get(citation.page)
@@ -217,6 +289,8 @@ def _citation_problem(
         return f"cites the image of page {citation.page}, which was not sent"
     if text is not None and _squash(text) not in quote:
         return "value is not the text of its quote"
+    if isinstance(value, Decimal) and abs(value) not in _numbers(quote):
+        return "amount is not a number printed in its quote"
     if citation.source == "image" and not accepted:
         return f"read from the image of page {citation.page}; check it on the page"
     return None

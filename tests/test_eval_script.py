@@ -6,7 +6,9 @@ the script replays it, as CI does, with no key and no network.
 """
 
 import json
+import re
 import uuid
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -82,14 +84,33 @@ def wrong_total_from_page_text() -> str:
     """A wrong total cited from the OCR text, so the engine accepts it without review.
 
     The golden citations are read from the image (D12) and would all go to
-    review; any word of the page text is a quote the engine can check.
+    review; text from the page is a quote the engine can check. The quote is
+    an amount printed on the page other than the total, since an amount must
+    be a number its quote prints (D23).
     """
     document = ingest(GOLDEN / f"{FIRST_ID}.jpg", tessdata_dir=Settings().tessdata_dir)
-    answer = json.loads(golden_answer(total="0.01"))
-    answer["total"]["citation"] = {
-        "page": 1,
-        "source": "text",
-        "quote": document.pages[0].text.split()[0],
+    answer = json.loads(golden_answer())
+    total = Decimal(str(answer["total"]["value"]))
+    word = next(
+        amount
+        for amount in re.findall(r"\d+\.\d{2}", document.pages[0].text)
+        if Decimal(amount) != total
+    )
+    answer["total"] = {
+        "value": word,
+        "citation": {"page": 1, "source": "text", "quote": word},
+        "reason": None,
+    }
+    return json.dumps(answer)
+
+
+def wrong_total_from_image() -> str:
+    """A wrong total read from the image: printed in its own quote, so only review stops it."""
+    answer = json.loads(golden_answer())
+    answer["total"] = {
+        "value": "0.01",
+        "citation": {"page": 1, "source": "image", "quote": "TOTAL 0.01"},
+        "reason": None,
     }
     return json.dumps(answer)
 
@@ -191,7 +212,7 @@ def test_a_wrong_image_read_value_auto_accepted_fails_the_gate_at_zero(
 ) -> None:
     # The wrong total is read from the image, so review catches it by default;
     # a policy that accepts image-read totals for this receipt lets it through.
-    record(recordings, golden_answer(total="0.01"))
+    record(recordings, wrong_total_from_image())
     path = baseline(tmp_path)
     content = json.loads(path.read_text(encoding="utf-8"))
     content["fields"]["total"] = 0
