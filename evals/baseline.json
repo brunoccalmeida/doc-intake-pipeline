@@ -1,17 +1,23 @@
 {
   "documents": 20,
   "fields": {
-    "company": 19,
-    "address": 19,
+    "company": 20,
+    "address": 18,
     "date": 19,
     "total": 20,
-    "currency": 20
+    "currency": 20,
+    "net": 20,
+    "tax": 20,
+    "rounding": 20
   },
   "wrong_accepted": {
     "company": 0,
     "address": 0,
     "date": 0,
     "total": 0,
-    "currency": 0
+    "currency": 0,
+    "net": 0,
+    "tax": 0,
+    "rounding": 0
   }
 }
