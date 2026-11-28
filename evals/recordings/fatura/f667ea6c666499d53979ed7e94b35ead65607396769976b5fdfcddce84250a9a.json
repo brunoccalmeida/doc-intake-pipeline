@@ -1,0 +1,11 @@
+{
+  "key": "f667ea6c666499d53979ed7e94b35ead65607396769976b5fdfcddce84250a9a",
+  "provider": "claude",
+  "model": "claude-opus-5-5",
+  "response": {
+    "text": "{\"number\":{\"value\":\"INV52959005\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"INVOICE ID INV52959005\"},\"reason\":null},\"date\":{\"value\":\"2012-06-17\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Invoice Date: 17-Jun-2012\"},\"reason\":null},\"due_date\":{\"value\":null,\"citation\":null,\"reason\":\"No payment due date is printed on the invoice.\"},\"seller_name\":{\"value\":\"Miller Inc\",\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"Miller Inc\"},\"reason\":null},\"seller_address\":{\"value\":\"5190 Perry Passage\\nKellyburgh, RI 60615 US\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"‘Address:5190 Perry Passage\\nKellyburgh, RI 60615 US\"},\"reason\":null},\"subtotal\":{\"value\":1146.24,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"‘SUB_TOTAL : 1146.24 USD\"},\"reason\":null},\"tax\":{\"value\":null,\"citation\":null,\"reason\":\"No tax amount is printed apart from the tax column of the line-item table.\"},\"total\":{\"value\":1162.88,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"TOTAL : 1162.88 USD\"},\"reason\":null},\"currency\":{\"value\":\"USD\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"TOTAL : 1162.88 USD\"},\"reason\":null}}",
+    "input_tokens": 4486,
+    "output_tokens": 848,
+    "model": "claude-opus-5-5"
+  }
+}

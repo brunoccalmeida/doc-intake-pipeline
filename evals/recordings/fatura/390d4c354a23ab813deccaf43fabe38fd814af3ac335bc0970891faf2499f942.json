@@ -1,0 +1,11 @@
+{
+  "key": "390d4c354a23ab813deccaf43fabe38fd814af3ac335bc0970891faf2499f942",
+  "provider": "claude",
+  "model": "claude-opus-5-5",
+  "response": {
+    "text": "{\"number\":{\"value\":\"INV/30-14/832\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"INVOICE # INV/30-14/832\"},\"reason\":null},\"date\":{\"value\":\"1994-01-03\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Date: 03-Jan-1994\"},\"reason\":null},\"due_date\":{\"value\":\"2007-02-06\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Due Date : 06-Feb-2007\"},\"reason\":null},\"seller_name\":{\"value\":\"Mclean-Cochran\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Mclean-Cochran\"},\"reason\":null},\"seller_address\":{\"value\":\"4894 Melanie Pass Apt. 742\\nTammyland, SD 42587 US\",\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"Address:4894 Melanie Pass Apt. 742\\nTammyland, SD 42587 US\"},\"reason\":null},\"subtotal\":{\"value\":null,\"citation\":null,\"reason\":\"No subtotal is printed on the invoice.\"},\"tax\":{\"value\":null,\"citation\":null,\"reason\":\"Tax appears only as a line-item column; no tax amount line is printed.\"},\"total\":{\"value\":441.14,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"TOTAL : 441.14 EUR\"},\"reason\":null},\"currency\":{\"value\":\"EUR\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"TOTAL : 441.14 EUR\"},\"reason\":null}}",
+    "input_tokens": 4484,
+    "output_tokens": 706,
+    "model": "claude-opus-5-5"
+  }
+}

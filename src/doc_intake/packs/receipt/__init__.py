@@ -6,20 +6,11 @@ directly; ``currency`` is extra and may be empty. ``net``, ``tax`` and
 and a per-rate tax breakdown are out of scope until a client needs them.
 """
 
-from decimal import Decimal
-from typing import Annotated
-
-from pydantic import Field, StringConstraints
+from pydantic import Field
 
 from doc_intake.core.extract import Pack, Rule
 from doc_intake.core.result import ExtractedField, IsoDate, StrictModel
-
-# Decimal, never float: money must keep its exact digits (project invariant 5).
-# Pydantic's default already rejects NaN and infinities for Decimal.
-type Money = Annotated[Decimal, Field(ge=0)]
-# A rounding adjustment goes either way, as printed on the golden receipts.
-type SignedMoney = Decimal
-type CurrencyCode = Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]
+from doc_intake.packs.values import CurrencyCode, Money, SignedMoney
 
 
 class Receipt(StrictModel, frozen=True):

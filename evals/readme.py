@@ -15,6 +15,18 @@ from evals.scoring import ReviewLoad, field_accuracy, review_load
 START = "<!-- eval-summary:start (written by `uv run poe eval --update-readme`) -->"
 END = "<!-- eval-summary:end -->"
 
+
+def markers(suite: str) -> tuple[str, str]:
+    """The README markers of a suite's block; SROIE keeps the ones it was first written with."""
+    if suite == "sroie":
+        return START, END
+    command = f"uv run poe eval --suite {suite} --update-readme"
+    return (
+        f"<!-- eval-summary:{suite}:start (written by `{command}`) -->",
+        f"<!-- eval-summary:{suite}:end -->",
+    )
+
+
 _CENT = Decimal("0.01")
 
 
@@ -22,7 +34,9 @@ class ReadmeMarkerError(ValueError):
     """The README does not hold the summary markers exactly once, in order."""
 
 
-def render_summary(run: EvalRun) -> str:
+def render_summary(
+    run: EvalRun, *, described: str = "public scanned receipts", noun: str = "receipt"
+) -> str:
     accuracy = field_accuracy(run.scores)
     load = ReviewLoad.total(review_load(run.scores).values())
     values = sum(total for _, total in accuracy.values())
@@ -33,7 +47,7 @@ def render_summary(run: EvalRun) -> str:
         raise ValueError("an eval run without documents has no summary")
     return "\n".join(
         [
-            f"Measured on {usage.documents} public scanned receipts, {values} values in all "
+            f"Measured on {usage.documents} {described}, {values} values in all "
             f"({', '.join(accuracy)}):",
             "",
             f"- **{correct} of {values} correct.**",
@@ -41,7 +55,7 @@ def render_summary(run: EvalRun) -> str:
             f"- **{load.review} sent to a person to check**, {_wrong(load.wrong_review)}.",
             f"- **{load.empty} left empty**, with the reason.",
             f"- **{_dollars(usage.cost_usd)} for the whole set**, "
-            f"{_dollars(average, rounded='about ')} per receipt.",
+            f"{_dollars(average, rounded='about ')} per {noun}.",
         ]
     )
 
@@ -54,12 +68,16 @@ def _dollars(amount: Decimal, *, rounded: str = "") -> str:
     return f"{rounded}${cents}"
 
 
-def replace_summary(readme: str, summary: str) -> str:
+def replace_summary(
+    readme: str, summary: str, *, start_marker: str = START, end_marker: str = END
+) -> str:
     """``readme`` with the text between the markers replaced by ``summary``."""
-    start, end = readme.find(START), readme.find(END)
-    if readme.count(START) != 1 or readme.count(END) != 1 or end < start:
-        raise ReadmeMarkerError(f"the README must hold {START} and then {END}, once each")
-    return f"{readme[: start + len(START)]}\n{summary}\n{readme[end:]}"
+    start, end = readme.find(start_marker), readme.find(end_marker)
+    if readme.count(start_marker) != 1 or readme.count(end_marker) != 1 or end < start:
+        raise ReadmeMarkerError(
+            f"the README must hold {start_marker} and then {end_marker}, once each"
+        )
+    return f"{readme[: start + len(start_marker)]}\n{summary}\n{readme[end:]}"
 
 
 def _wrong(count: int) -> str:

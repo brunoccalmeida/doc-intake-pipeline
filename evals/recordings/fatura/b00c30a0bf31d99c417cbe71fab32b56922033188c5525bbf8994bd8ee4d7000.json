@@ -1,0 +1,11 @@
+{
+  "key": "b00c30a0bf31d99c417cbe71fab32b56922033188c5525bbf8994bd8ee4d7000",
+  "provider": "claude",
+  "model": "claude-opus-5-5",
+  "response": {
+    "text": "{\"number\":{\"value\":\"INV92089683\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"INVOICE # INV92089683,\"},\"reason\":null},\"date\":{\"value\":\"1997-06-02\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Invoice Date: 02-Jun-1997\"},\"reason\":null},\"due_date\":{\"value\":\"2006-09-21\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Due Date : 21-Sep-2006\"},\"reason\":null},\"seller_name\":{\"value\":null,\"citation\":null,\"reason\":\"No seller name is printed; only logo letters appear.\"},\"seller_address\":{\"value\":\"19021 Christopher Estate\\nSouth Williammouth, NH 22397 US\",\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"Address:19021 Christopher Estate\\nSouth Williammouth, NH 22397 US\"},\"reason\":null},\"subtotal\":{\"value\":477.5,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"‘SUB_TOTAL : 477.50 $\"},\"reason\":null},\"tax\":{\"value\":17.7,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"TAX:VAT (3.71%): 17.70 $\"},\"reason\":null},\"total\":{\"value\":null,\"citation\":null,\"reason\":\"The invoice prints no total or amount due line.\"},\"currency\":{\"value\":null,\"citation\":null,\"reason\":\"Only the '$' symbol is printed, with no ISO code.\"}}",
+    "input_tokens": 4549,
+    "output_tokens": 808,
+    "model": "claude-opus-5-5"
+  }
+}

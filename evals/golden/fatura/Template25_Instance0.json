@@ -1,0 +1,79 @@
+{
+  "number": {
+    "value": "0160-748",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "INVOICE # 0160-748"
+    },
+    "reason": null
+  },
+  "date": {
+    "value": "2003-01-10",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Date: 10-Jan-2003"
+    },
+    "reason": null
+  },
+  "due_date": {
+    "value": "2022-10-07",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Due Date : 07-Oct-2022"
+    },
+    "reason": null
+  },
+  "seller_name": {
+    "value": "Kelly-Moss",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Kelly-Moss"
+    },
+    "reason": null
+  },
+  "seller_address": {
+    "value": "6030 Willie Shores Suite 354 Guerraton, TX 60058 US",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Address:6030 Willie Shores Suite 354\nGuerraton, TX 60058 US"
+    },
+    "reason": null
+  },
+  "subtotal": {
+    "value": "463.19",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "SUB_TOTAL : 463.19  EUR"
+    },
+    "reason": null
+  },
+  "tax": {
+    "value": null,
+    "citation": null,
+    "reason": "tax printed only per rate, with no total"
+  },
+  "total": {
+    "value": "476.38",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 476.38 EUR"
+    },
+    "reason": null
+  },
+  "currency": {
+    "value": "EUR",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 476.38 EUR"
+    },
+    "reason": null
+  }
+}

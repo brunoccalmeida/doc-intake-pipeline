@@ -1,0 +1,83 @@
+{
+  "number": {
+    "value": "2970-559",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Invoice number 2970-559"
+    },
+    "reason": null
+  },
+  "date": {
+    "value": "2002-01-23",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Invoice Date: 23-Jan-2002"
+    },
+    "reason": null
+  },
+  "due_date": {
+    "value": "2018-12-06",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Due Date : 06-Dec-2018"
+    },
+    "reason": null
+  },
+  "seller_name": {
+    "value": "Richardson-Davis",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Richardson-Davis"
+    },
+    "reason": null
+  },
+  "seller_address": {
+    "value": "6479 Smith Causeway East Camerontown, AS 38212 US",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Address:6479 Smith Causeway\nEast Camerontown, AS 38212 US"
+    },
+    "reason": null
+  },
+  "subtotal": {
+    "value": "826.86",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "SUB_TOTAL : 826.86  EUR"
+    },
+    "reason": null
+  },
+  "tax": {
+    "value": "26.72",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TAX:VAT (3.23%):  26.72 EUR"
+    },
+    "reason": null
+  },
+  "total": {
+    "value": "828.69",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 828.69 EUR"
+    },
+    "reason": null
+  },
+  "currency": {
+    "value": "EUR",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 828.69 EUR"
+    },
+    "reason": null
+  }
+}

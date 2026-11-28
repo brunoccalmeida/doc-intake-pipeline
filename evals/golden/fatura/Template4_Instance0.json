@@ -1,0 +1,75 @@
+{
+  "number": {
+    "value": null,
+    "citation": null,
+    "reason": "not printed"
+  },
+  "date": {
+    "value": "1994-10-12",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Invoice Date: 12-Oct-1994"
+    },
+    "reason": null
+  },
+  "due_date": {
+    "value": "2022-05-31",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Due Date : 31-May-2022"
+    },
+    "reason": null
+  },
+  "seller_name": {
+    "value": "Huff-Bryan",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Huff-Bryan"
+    },
+    "reason": null
+  },
+  "seller_address": {
+    "value": "2180 Michael Ridges Apt. 385 Port Lindsey, MP 98258 US",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Address:2180 Michael Ridges Apt. 385\nPort Lindsey, MP 98258 US"
+    },
+    "reason": null
+  },
+  "subtotal": {
+    "value": "992.04",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "SUB_TOTAL : 992.04  USD"
+    },
+    "reason": null
+  },
+  "tax": {
+    "value": null,
+    "citation": null,
+    "reason": "not printed"
+  },
+  "total": {
+    "value": "995.15",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 995.15 USD"
+    },
+    "reason": null
+  },
+  "currency": {
+    "value": "USD",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 995.15 USD"
+    },
+    "reason": null
+  }
+}

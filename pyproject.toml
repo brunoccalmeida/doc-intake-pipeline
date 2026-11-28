@@ -117,6 +117,8 @@ export-schemas = "python -m doc_intake.packs.json_schema"
 fetch-tessdata = "python -m scripts.fetch_tessdata"
 # Download the SROIE golden set (pinned, checksum-verified) and convert it locally.
 fetch-golden = "python -m scripts.fetch_golden"
+# Rebuild the committed FATURA invoice golden set from FATURA2.zip (MD5-checked).
+build-fatura-golden = "python -m scripts.build_fatura_golden"
 # Extract one receipt with the configured real provider: a paid API call, except with --replay.
 extract = "python -m scripts.extract_document"
 # Score the golden set from recorded responses and gate on evals/baseline.json.

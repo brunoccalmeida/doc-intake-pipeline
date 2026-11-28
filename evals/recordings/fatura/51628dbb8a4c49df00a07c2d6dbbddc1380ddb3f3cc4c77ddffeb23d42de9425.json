@@ -1,0 +1,11 @@
+{
+  "key": "51628dbb8a4c49df00a07c2d6dbbddc1380ddb3f3cc4c77ddffeb23d42de9425",
+  "provider": "claude",
+  "model": "claude-opus-5-5",
+  "response": {
+    "text": "{\"number\":{\"value\":\"INV16851863\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"INVOICE # INV16851863,\"},\"reason\":null},\"date\":{\"value\":\"2015-05-18\",\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"Date: 18-May-2015\"},\"reason\":null},\"due_date\":{\"value\":null,\"citation\":null,\"reason\":\"No payment due date is printed on the invoice.\"},\"seller_name\":{\"value\":\"Robinson-Carson\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Robinson-Carson\"},\"reason\":null},\"seller_address\":{\"value\":\"28713 Hart Fort Suite 267 Stewarttown, MI 55458 US\",\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"Address:28713 Hart Fort Suite 267 Stewarttown, MI 55458 US\"},\"reason\":null},\"subtotal\":{\"value\":494.59,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"‘SUB_TOTAL : 494.59 USD\"},\"reason\":null},\"tax\":{\"value\":null,\"citation\":null,\"reason\":\"No tax amount is printed on the invoice.\"},\"total\":{\"value\":505.77,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"BALANCE DUE : 505.77 USD\"},\"reason\":null},\"currency\":{\"value\":\"USD\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"BALANCE DUE : 505.77 USD\"},\"reason\":null}}",
+    "input_tokens": 4547,
+    "output_tokens": 756,
+    "model": "claude-opus-5-5"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "key": "ca43b3c6d309bd7993ee5f3db59220df0cef52bd6e76083d748160f6269518e3",
+  "provider": "claude",
+  "model": "claude-opus-5-5",
+  "response": {
+    "text": "{\"number\":{\"value\":\"INV17967327\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"INVOICE # INV17967327\"},\"reason\":null},\"date\":{\"value\":\"2014-02-23\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Invoice Date: 23-Feb-2014\"},\"reason\":null},\"due_date\":{\"value\":null,\"citation\":null,\"reason\":\"No payment due date is printed on the invoice.\"},\"seller_name\":{\"value\":\"Barnes, Garcia and Martin\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Barnes, Garcia and Martin\"},\"reason\":null},\"seller_address\":{\"value\":\"13868 Michael Wall\\nNorth Cindytown, CT 45483 US\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Address:13868 Michael Wall\\nNorth Cindytown, CT 45483 US\"},\"reason\":null},\"subtotal\":{\"value\":645.92,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"SUB_TOTAL : 645.92 $\"},\"reason\":null},\"tax\":{\"value\":45.21,\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"GST(7%) : 45.21\"},\"reason\":null},\"total\":{\"value\":653.95,\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"TOTAL : 653.95 $\"},\"reason\":null},\"currency\":{\"value\":null,\"citation\":null,\"reason\":\"Only the '$' symbol is printed with the amounts, with no ISO currency code.\"}}",
+    "input_tokens": 4436,
+    "output_tokens": 748,
+    "model": "claude-opus-5-5"
+  }
+}

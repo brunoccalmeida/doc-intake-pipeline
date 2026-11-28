@@ -1,0 +1,75 @@
+{
+  "number": {
+    "value": "INV52959005",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "INVOICE ID INV52959005"
+    },
+    "reason": null
+  },
+  "date": {
+    "value": "2012-06-17",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Invoice Date: 17-Jun-2012"
+    },
+    "reason": null
+  },
+  "due_date": {
+    "value": null,
+    "citation": null,
+    "reason": "not printed"
+  },
+  "seller_name": {
+    "value": "Miller Inc",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Miller Inc"
+    },
+    "reason": null
+  },
+  "seller_address": {
+    "value": "5190 Perry Passage Kellyburgh, RI 60615 US",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Address:5190 Perry Passage\nKellyburgh, RI 60615 US"
+    },
+    "reason": null
+  },
+  "subtotal": {
+    "value": "1146.24",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "SUB_TOTAL : 1146.24  USD"
+    },
+    "reason": null
+  },
+  "tax": {
+    "value": null,
+    "citation": null,
+    "reason": "not printed"
+  },
+  "total": {
+    "value": "1162.88",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 1162.88 USD"
+    },
+    "reason": null
+  },
+  "currency": {
+    "value": "USD",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 1162.88 USD"
+    },
+    "reason": null
+  }
+}

@@ -23,7 +23,8 @@ from typing import Annotated, Literal
 from pydantic import Field, TypeAdapter, ValidationError
 
 from doc_intake.core.result import Citation, ExtractedField, StrictModel
-from doc_intake.packs.receipt import CurrencyCode, Money, Receipt, SignedMoney
+from doc_intake.packs.receipt import Receipt
+from doc_intake.packs.values import CurrencyCode, Money, SignedMoney
 
 GOLDEN_DIR = Path(__file__).parent / "golden"
 MANIFEST_PATH = GOLDEN_DIR / "sroie.json"

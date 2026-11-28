@@ -1,0 +1,11 @@
+{
+  "key": "44bb072017e31f746438380d856757bea0eacfe7ed8f467402242a3e01cea780",
+  "provider": "claude",
+  "model": "claude-opus-5-5",
+  "response": {
+    "text": "{\"number\":{\"value\":\"5Y2M8d-217\",\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"Invoice number 5Y2M8d-217\"},\"reason\":null},\"date\":{\"value\":\"2022-04-20\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Date: 20-Apr-2022\"},\"reason\":null},\"due_date\":{\"value\":\"1996-07-08\",\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"Due Date : 08-Jul-1996\"},\"reason\":null},\"seller_name\":{\"value\":\"White and Sons\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"White and Sons\"},\"reason\":null},\"seller_address\":{\"value\":null,\"citation\":null,\"reason\":\"Only the seller's email and website are printed, with no postal address.\"},\"subtotal\":{\"value\":557.96,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"‘SUB_TOTAL : 557.96 USD\"},\"reason\":null},\"tax\":{\"value\":50.22,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"GST(9%) : 50.22\"},\"reason\":null},\"total\":{\"value\":574.02,\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"TOTAL : 574.02 USD\"},\"reason\":null},\"currency\":{\"value\":\"USD\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"‘SUB_TOTAL : 557.96 USD\"},\"reason\":null}}",
+    "input_tokens": 4428,
+    "output_tokens": 580,
+    "model": "claude-opus-5-5"
+  }
+}

@@ -15,9 +15,13 @@ useDefault = true
 # recording files, and only a value that is exactly a 64-char lowercase hex
 # digest. Every other rule still scans these files, and any other value under
 # "key" is still reported.
+#
+# Each directory of committed recordings is listed by name (the FATURA eval
+# recordings came with #69). A new one is added here on purpose, not matched by
+# a wildcard, so widening this exception stays a reviewed change.
 [[allowlists]]
 description = "SHA-256 cache keys in committed recordings"
 targetRules = ["generic-api-key"]
 condition = "AND"
-paths = ['''^demo/recordings/[0-9a-f]{64}\.json$''']
+paths = ['''^(demo/recordings|evals/recordings/fatura)/[0-9a-f]{64}\.json$''']
 regexes = ['''^[0-9a-f]{64}$''']

@@ -53,8 +53,10 @@ uv run poe check     # lint, format check and strict type check
 uv run pytest        # tests (no network, no API key)
 uv run poe export-schemas  # rewrite the committed JSON Schemas after a schema change
 uv run poe extract <file>  # extract one receipt with the configured provider (paid API call)
+uv run poe extract --pack invoice <file>  # the same with the invoice pack
 uv run poe eval            # score the golden set from recorded responses, gate on the baseline
 uv run poe eval --update-readme  # rewrite the README's eval summary after the numbers change
+uv run poe eval --suite fatura    # the same on the FATURA invoices (committed set and recordings)
 uv run poe demo            # render the demo video in Docker (replay: no key, no cost)
 uv run poe demo-voice      # speak the demo's new voice-over lines, locally on CPU (no key, no cost)
 uv run poe inbox <inbox> <runs>  # one run over an inbox folder (paid API calls; --replay DIR for none)
@@ -102,6 +104,8 @@ The eval runs the real pipeline (OCR, LLM extraction, validation) over the golde
 A full run that passes the baseline also fails when the README's eval summary (between the `eval-summary` markers) differs from the run; a run below the baseline neither checks nor rewrites it, since the fix is the code and rewriting would publish the worse numbers: after a re-recording or a price change, run `uv run poe eval --update-readme` and commit the README with the new baseline. A run with `--ids` leaves the README alone, since a subset cannot match whole-set numbers.
 
 The recordings quote the receipts, which have no licence, so they live in a private repository pinned by commit ([`DATA.md`](DATA.md)); pull requests from forks cannot run the eval. Design and alternatives: [`ARCHITECTURE.md`](ARCHITECTURE.md) D4.
+
+Each golden set is a **suite** ([`evals/suites.py`](../evals/suites.py)) with its pack, baseline, report and README block: `sroie` (receipts, the default) and `fatura` (invoices, `--suite fatura`, baseline [`evals/baseline-fatura.json`](../evals/baseline-fatura.json)). FATURA is CC BY 4.0, so its 20 invoices and their recordings are committed ([`DATA.md`](DATA.md#fatura-golden-set-invoice-pack-69)); CI runs both suites and publishes both reports. Re-record with `uv run poe eval --suite fatura --record` (paid) and commit `evals/recordings/fatura` with the new baseline. The invoices are template-generated, so their scores overstate what real invoices would give ([D24](ARCHITECTURE.md#d24-pacote-de-faturas-e-suítes-do-eval-decidida-na-69)).
 
 ## Data
 

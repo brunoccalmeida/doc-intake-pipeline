@@ -1,0 +1,11 @@
+{
+  "key": "2b2eb883e94f131627a7edbc5133ec4f0ccf61abeb14932b0f7fb4e535798ec3",
+  "provider": "claude",
+  "model": "claude-opus-5-5",
+  "response": {
+    "text": "{\"number\":{\"value\":null,\"citation\":null,\"reason\":\"The invoice does not print an invoice number.\"},\"date\":{\"value\":\"2004-01-20\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Date: 20-Jan-2004\"},\"reason\":null},\"due_date\":{\"value\":\"2016-04-26\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Due Date : 26-Apr-2016\"},\"reason\":null},\"seller_name\":{\"value\":\"Huff-Bryan\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Huff-Bryan\"},\"reason\":null},\"seller_address\":{\"value\":\"2180 Michael Ridges Apt. 385\\nPort Lindsey, MP 98258 US\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Address:2180 Michael Ridges Apt. 385\\nPort Lindsey, MP 98258 US\"},\"reason\":null},\"subtotal\":{\"value\":792.31,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"SUB_TOTAL : 792.31 EUR\"},\"reason\":null},\"tax\":{\"value\":null,\"citation\":null,\"reason\":\"The invoice prints no tax amount, only a discount.\"},\"total\":{\"value\":806.53,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"TOTAL : 806.53 EUR\"},\"reason\":null},\"currency\":{\"value\":\"EUR\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"TOTAL : 806.53 EUR\"},\"reason\":null}}",
+    "input_tokens": 4359,
+    "output_tokens": 746,
+    "model": "claude-opus-5-5"
+  }
+}

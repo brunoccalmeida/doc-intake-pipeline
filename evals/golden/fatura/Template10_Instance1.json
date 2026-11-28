@@ -1,0 +1,75 @@
+{
+  "number": {
+    "value": "9Y2M7d-647",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "INVOICE # 9Y2M7d-647"
+    },
+    "reason": null
+  },
+  "date": {
+    "value": "2014-01-16",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Invoice Date: 16-Jan-2014"
+    },
+    "reason": null
+  },
+  "due_date": {
+    "value": "2021-08-16",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Due Date : 16-Aug-2021"
+    },
+    "reason": null
+  },
+  "seller_name": {
+    "value": "Mclean-Cochran",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Mclean-Cochran"
+    },
+    "reason": null
+  },
+  "seller_address": {
+    "value": "4894 Melanie Pass Apt. 742 Tammyland, SD 42587 US",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Address:4894 Melanie Pass Apt. 742\nTammyland, SD 42587 US"
+    },
+    "reason": null
+  },
+  "subtotal": {
+    "value": null,
+    "citation": null,
+    "reason": "not printed"
+  },
+  "tax": {
+    "value": null,
+    "citation": null,
+    "reason": "not printed"
+  },
+  "total": {
+    "value": "796.34",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 796.34 EUR"
+    },
+    "reason": null
+  },
+  "currency": {
+    "value": "EUR",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 796.34 EUR"
+    },
+    "reason": null
+  }
+}

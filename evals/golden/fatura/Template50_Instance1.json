@@ -1,0 +1,75 @@
+{
+  "number": {
+    "value": null,
+    "citation": null,
+    "reason": "not printed"
+  },
+  "date": {
+    "value": "2015-05-07",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Date: 07-May-2015"
+    },
+    "reason": null
+  },
+  "due_date": {
+    "value": "1994-02-02",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Due Date : 02-Feb-1994"
+    },
+    "reason": null
+  },
+  "seller_name": {
+    "value": "Stein-Fernandez",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Stein-Fernandez"
+    },
+    "reason": null
+  },
+  "seller_address": {
+    "value": "0344 Jonathan Club Port Patriciashire, PW 72063 US",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Address:0344 Jonathan Club\nPort Patriciashire, PW 72063 US"
+    },
+    "reason": null
+  },
+  "subtotal": {
+    "value": "557.94",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "SUB_TOTAL : 557.94  $"
+    },
+    "reason": null
+  },
+  "tax": {
+    "value": "33.55",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TAX:VAT (6.01%):  33.55 $"
+    },
+    "reason": null
+  },
+  "total": {
+    "value": "572.80",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 572.80 $"
+    },
+    "reason": null
+  },
+  "currency": {
+    "value": null,
+    "citation": null,
+    "reason": "only '$' printed, which several currencies use"
+  }
+}

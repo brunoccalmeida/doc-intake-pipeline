@@ -116,6 +116,51 @@ Judged by eye, to know what the set covers:
 - **Small sample:** 20 receipts from one country and one period (2016-2018) detect regressions; they do not estimate accuracy on other documents.
 - **One draw per request:** the recordings hold one answer from a model that does not answer the same way twice. Replay makes the gate deterministic, but a re-recording can move a score by sampling alone, with no change to the pipeline. A drop seen right after a re-recording is checked against a second recording before it is blamed on the change.
 
+## FATURA golden set (invoice pack, #69)
+
+### Source
+
+| Item | Value |
+| --- | --- |
+| Dataset | FATURA: a multi-layout invoice image dataset, by Mahmoud Limam, Marwa Dhiaf and Yousri Kessentini |
+| Official source | [Zenodo record 10371464](https://zenodo.org/records/10371464), file `FATURA2.zip` (690,717,658 bytes, MD5 `4c9404462f22c5241eb1a290a02eb2a2`, as published with the record) |
+| What it holds | 10,000 invoice images generated from 50 templates (200 each), plus the same images on colored backgrounds, with annotations in three formats |
+| Used | `images/` (white background) and `Annotations/Original_Format/` |
+
+### Licence
+
+The record's metadata declares **CC BY 4.0**, and its description adds no other terms. The archive itself holds no licence file (checked on 2026-11-27 by listing it). CC BY 4.0 allows reproducing and sharing the material "in whole or in part", commercial use included ([legal code](https://creativecommons.org/licenses/by/4.0/legalcode.en), §2(a)(1)(A)), provided the creators are credited, the licence is linked and changes are indicated (§3(a)). So, unlike SROIE, **the selected images, their converted golden records and the recorded answers about them are committed**: [`evals/golden/fatura`](../evals/golden/fatura) and [`evals/recordings/fatura`](../evals/recordings/fatura), with the attribution in [`evals/golden/fatura/README.md`](../evals/golden/fatura/README.md).
+
+Changes made: none to the images, which are copied byte for byte. The golden records (`<id>.json`) are ours, converted from FATURA's annotations by [`evals/fatura.py`](../evals/fatura.py). The recordings are a model's answers about the images.
+
+### Selection rule
+
+FATURA's second evaluation strategy splits by **template**: `Strat2_Split.txt` lists the templates held out for testing (`test_inds`, the same list as `dev_inds`: the archive has no separate test group). The golden set is instances 0 and 1 of each of those 10 templates (2, 4, 7, 10, 12, 25, 32, 39, 49, 50), 20 invoices in all. The prompt was written from the receipt pack's rules and general invoice practice, and no model answer on these layouts was recorded before it was final. It is not blind to them, though: the images of five (2, 4, 25, 39, 49) were looked at to check the golden records against the page, which is how the buyer was found to be ambiguous (below), and the review of this set led to three instruction changes (a single tax line that names its rate is the tax; a line-item tax column is not; a logo is not the seller's name). Every label the instructions quote also appears on training templates ([D24](ARCHITECTURE.md#d24-pacote-de-faturas-e-suítes-do-eval-decidida-na-69)). Rebuild with `uv run poe build-fatura-golden <path to FATURA2.zip>`; the build checks the MD5 first.
+
+### Conversion
+
+FATURA annotates each object with its printed text, label included (`"TOTAL : 870.74 USD"`). The converter parses the value from that text, and the whole text is the citation (`source: "image"`, page 1). It stops on anything it does not recognize (an unknown label, a second date, a currency it does not know): a guessed golden value would score the pipeline against a wrong answer.
+
+| Field | From | Rule |
+| --- | --- | --- |
+| `number` | `NUMBER` | Text after the label (`INVOICE #`, `INVOICE ID`, `Invoice number`) |
+| `date`, `due_date` | `DATE`, `DUE_DATE` | The one `DD-Mon-YYYY` date in the text |
+| `seller_name` | `SELLER_NAME` | As printed |
+| `seller_address` | `SELLER_ADDRESS` | After `Address:`, lines joined by a space |
+| `subtotal`, `total` | `SUB_TOTAL`, `TOTAL` | The amount closing the text; `TOTAL` is sometimes labeled `BALANCE DUE` |
+| `tax` | `TAX`, or a single `GST(n%)` line | Several `GST(n%)` lines and no total tax: `null`, "tax printed only per rate, with no total" (the receipt pack's rule) |
+| `currency` | Symbol after the total, subtotal or tax | `USD` or `EUR` as printed; `$` alone is `null` ("several currencies use it", invariant 1); none printed is `null`. FATURA prints no `€` or `£` |
+
+A class the template does not annotate is `null`, "not printed": on the images checked, a field FATURA does not annotate is not printed either (template 19 prints no total; template 39 prints no total and no seller name).
+
+### Known limitations
+
+- **Template-generated:** clean digital renderings, one date format (`DD-Mon-YYYY`), amounts always as `LABEL : value CUR`. Synthetic data tends to overstate accuracy (for example 96.5% on synthetic versus 92.7% on real invoices in [arXiv 2509.04469](https://arxiv.org/html/2509.04469v1), not a controlled comparison). The report's title says so.
+- **Amounts do not add up:** where FATURA annotates both, subtotal + tax − discount equals the total on about 1% of invoices; the generator draws them independently. The pack therefore has no sum rule, since this set could not prove one; the receipt pack carries it (D23). Extraction is still scored on the printed values, so a model that "corrects" an amount is scored wrong.
+- **Generator artifacts:** due dates before issue dates, the seller's address reused as the buyer's. Both are copied as printed.
+- **Left out:** the buyer (template 49 prints a "Bill to" block and a "BILL_TO" block with different names, so not even the golden set can say who the buyer is), discounts, line items, `AMOUNT_DUE` (no held-out template uses it without `TOTAL`; the converter stops on it rather than decide unseen).
+- **Small sample:** 20 invoices on 10 layouts detect regressions; they do not estimate accuracy on a client's invoices, which is measured on the client's reviewed documents (D21).
+
 ## Datasets checked for calibrating auto-acceptance (#35, not used)
 
 Issue #35 looked for a public labeled receipt set of a few hundred documents to calibrate per-field auto-acceptance (`docs/ARCHITECTURE.md` D14). None qualifies, so **no file was added** and none of these is fetched. Checked on 2026-11-22; a licence counts only when the dataset owner states it at the source, since aggregator licences are often wrong ([Longpre et al., 2023](https://arxiv.org/abs/2310.16787)).

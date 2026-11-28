@@ -1,0 +1,79 @@
+{
+  "number": {
+    "value": "5Y2M8d-217",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Invoice number 5Y2M8d-217"
+    },
+    "reason": null
+  },
+  "date": {
+    "value": "2022-04-20",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Date: 20-Apr-2022"
+    },
+    "reason": null
+  },
+  "due_date": {
+    "value": "1996-07-08",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Due Date : 08-Jul-1996"
+    },
+    "reason": null
+  },
+  "seller_name": {
+    "value": "White and Sons",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "White and Sons"
+    },
+    "reason": null
+  },
+  "seller_address": {
+    "value": null,
+    "citation": null,
+    "reason": "not printed"
+  },
+  "subtotal": {
+    "value": "557.96",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "SUB_TOTAL : 557.96  USD"
+    },
+    "reason": null
+  },
+  "tax": {
+    "value": "50.22",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "GST(9%) : 50.22"
+    },
+    "reason": null
+  },
+  "total": {
+    "value": "574.02",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 574.02 USD"
+    },
+    "reason": null
+  },
+  "currency": {
+    "value": "USD",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 574.02 USD"
+    },
+    "reason": null
+  }
+}

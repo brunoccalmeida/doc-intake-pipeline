@@ -1,0 +1,11 @@
+{
+  "key": "2a9ea5d60cd35e29c78d554ebb6159097feffe7b626b43aa22508601c7b416d3",
+  "provider": "claude",
+  "model": "claude-opus-5-5",
+  "response": {
+    "text": "{\"number\":{\"value\":\"INV/64-61/340\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"INVOICE # INV/64-61/340\"},\"reason\":null},\"date\":{\"value\":\"2002-04-24\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Invoice Date: 24-Apr-2002\"},\"reason\":null},\"due_date\":{\"value\":\"2010-09-06\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Due Date : 06-Sep-2010\"},\"reason\":null},\"seller_name\":{\"value\":null,\"citation\":null,\"reason\":\"The seller's name is not printed as text; only the letters inside a logo appear.\"},\"seller_address\":{\"value\":\"19021 Christopher Estate\\nSouth Williammouth, NH 22397 US\",\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"Address:19021 Christopher Estate\\nSouth Williammouth, NH 22397 US\"},\"reason\":null},\"subtotal\":{\"value\":698.43,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"‘SUB_TOTAL : 698.43 EUR\"},\"reason\":null},\"tax\":{\"value\":43.9,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"TAX:VAT (6.29%): 43.90 EUR\"},\"reason\":null},\"total\":{\"value\":null,\"citation\":null,\"reason\":\"The invoice does not print a total or amount due.\"},\"currency\":{\"value\":\"EUR\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"‘SUB_TOTAL : 698.43 EUR\"},\"reason\":null}}",
+    "input_tokens": 4554,
+    "output_tokens": 795,
+    "model": "claude-opus-5-5"
+  }
+}

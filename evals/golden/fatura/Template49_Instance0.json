@@ -1,0 +1,75 @@
+{
+  "number": {
+    "value": "INV/65-23/967",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Invoice number INV/65-23/967"
+    },
+    "reason": null
+  },
+  "date": {
+    "value": "2002-08-27",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Date: 27-Aug-2002"
+    },
+    "reason": null
+  },
+  "due_date": {
+    "value": null,
+    "citation": null,
+    "reason": "not printed"
+  },
+  "seller_name": {
+    "value": "Robinson-Carson",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Robinson-Carson"
+    },
+    "reason": null
+  },
+  "seller_address": {
+    "value": "28713 Hart Fort Suite 267 Stewarttown, MI 55458 US",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Address:28713 Hart Fort Suite 267\nStewarttown, MI 55458 US"
+    },
+    "reason": null
+  },
+  "subtotal": {
+    "value": "1242.79",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "SUB_TOTAL : 1242.79  USD"
+    },
+    "reason": null
+  },
+  "tax": {
+    "value": null,
+    "citation": null,
+    "reason": "not printed"
+  },
+  "total": {
+    "value": "1262.37",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "BALANCE DUE : 1262.37 USD"
+    },
+    "reason": null
+  },
+  "currency": {
+    "value": "USD",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "BALANCE DUE : 1262.37 USD"
+    },
+    "reason": null
+  }
+}

@@ -1,0 +1,280 @@
+{
+  "$defs": {
+    "Citation": {
+      "additionalProperties": false,
+      "description": "Where a value was read: the page (numbered from 1), the source and the literal text.\n\nsource \"text\": the quote is copied from the page's text. source \"image\": the\nquote is the text as printed on the page image, used only where the page's\ntext misreads or misses it.",
+      "properties": {
+        "page": {
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/QuoteSource"
+        },
+        "quote": {
+          "$ref": "#/$defs/NonBlankText"
+        }
+      },
+      "required": [
+        "page",
+        "source",
+        "quote"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "CurrencyCode": {
+      "pattern": "^[A-Z]{3}$",
+      "type": "string"
+    },
+    "ExtractedField_CurrencyCode_": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CurrencyCode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "citation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Citation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NonBlankText"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "value",
+        "citation",
+        "reason"
+      ],
+      "title": "ExtractedField[CurrencyCode]",
+      "type": "object"
+    },
+    "ExtractedField_IsoDate_": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "citation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Citation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NonBlankText"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "value",
+        "citation",
+        "reason"
+      ],
+      "title": "ExtractedField[IsoDate]",
+      "type": "object"
+    },
+    "ExtractedField_Money_": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "citation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Citation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NonBlankText"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "value",
+        "citation",
+        "reason"
+      ],
+      "title": "ExtractedField[Money]",
+      "type": "object"
+    },
+    "ExtractedField_str_": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        },
+        "citation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Citation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NonBlankText"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "value",
+        "citation",
+        "reason"
+      ],
+      "title": "ExtractedField[str]",
+      "type": "object"
+    },
+    "IsoDate": {
+      "format": "date",
+      "type": "string"
+    },
+    "Money": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "NonBlankText": {
+      "pattern": "\\S",
+      "type": "string"
+    },
+    "QuoteSource": {
+      "enum": [
+        "text",
+        "image"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Fields of one invoice. Every field is either a value cited from the\ndocument or null with the reason it is missing; never a guess.",
+  "properties": {
+    "number": {
+      "$ref": "#/$defs/ExtractedField_str_",
+      "description": "Invoice number as printed, without label."
+    },
+    "date": {
+      "$ref": "#/$defs/ExtractedField_IsoDate_",
+      "description": "Issue date as YYYY-MM-DD; the quote keeps it as printed."
+    },
+    "due_date": {
+      "$ref": "#/$defs/ExtractedField_IsoDate_",
+      "description": "Payment due date as YYYY-MM-DD; null when not printed."
+    },
+    "seller_name": {
+      "$ref": "#/$defs/ExtractedField_str_",
+      "description": "Name of the seller as printed."
+    },
+    "seller_address": {
+      "$ref": "#/$defs/ExtractedField_str_",
+      "description": "Address of the seller as printed, without label."
+    },
+    "subtotal": {
+      "$ref": "#/$defs/ExtractedField_Money_",
+      "description": "Subtotal before tax, as a decimal number; null when not printed."
+    },
+    "tax": {
+      "$ref": "#/$defs/ExtractedField_Money_",
+      "description": "All the tax as one printed amount; null when not printed as one amount."
+    },
+    "total": {
+      "$ref": "#/$defs/ExtractedField_Money_",
+      "description": "Final amount payable, as a decimal number; null when not printed."
+    },
+    "currency": {
+      "$ref": "#/$defs/ExtractedField_CurrencyCode_",
+      "description": "ISO 4217 code printed with the amounts; null for '$' or '£' alone."
+    }
+  },
+  "required": [
+    "number",
+    "date",
+    "due_date",
+    "seller_name",
+    "seller_address",
+    "subtotal",
+    "tax",
+    "total",
+    "currency"
+  ],
+  "title": "Invoice",
+  "type": "object"
+}
