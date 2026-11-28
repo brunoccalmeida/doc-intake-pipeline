@@ -242,3 +242,18 @@ def test_committed_golden_records_are_canonical_json() -> None:
         text = path.read_text(encoding="utf-8")
         assert text.endswith("\n")
         assert Invoice.model_validate_json(text).model_dump_json(indent=2) + "\n" == text
+
+
+@pytest.mark.parametrize(
+    "text", ["TOTAL : 1,262.37 USD", "TOTAL : -12.37 USD", "TOTAL : 12.37.5 USD"]
+)
+def test_an_amount_not_read_whole_stops_the_conversion(text: str) -> None:
+    # A search for the last number would read 262.37 from 1,262.37: a wrong golden value.
+    with pytest.raises(FaturaError, match="no amount at the end of"):
+        parse_amount(text)
+
+
+def test_an_annotated_object_without_text_stops_the_conversion() -> None:
+    # Only TABLE (boxes) and OTHER (stale template text) are expected without page text.
+    with pytest.raises(FaturaError, match="TOTAL has no text"):
+        to_invoice(annotation(TOTAL={"bbox": [[0.0, 0.0], [1.0, 1.0]]}))

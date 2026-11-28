@@ -34,8 +34,13 @@ NO_CURRENCY = "no currency printed"
 
 _NUMBER_LABELS = ("INVOICE #", "INVOICE ID", "Invoice number")
 _DATE = re.compile(r"\b\d{2}-[A-Z][a-z]{2}-\d{4}\b")
-# The amount closes the text, optionally followed by the only symbols FATURA prints.
-_AMOUNT = re.compile(r"(?P<amount>\d+\.\d+)\s*(?P<symbol>USD|EUR|\$)?\s*$")
+# The whole amount follows the label's colon and closes the text, optionally followed
+# by the only symbols FATURA prints. Anchored on the colon, so a thousands separator
+# or a sign stops the conversion instead of leaving a shorter number (1,262.37).
+_AMOUNT = re.compile(r":\s*(?P<amount>\d+\.\d+)\s*(?P<symbol>USD|EUR|\$)?\s*$")
+# Objects FATURA annotates by box only (every one of the 10,000 annotations has them):
+# no page text to convert. OTHER holds stale template text, not the page.
+_WITHOUT_TEXT = frozenset({"TABLE", "INVOICE_INFO", "LOGO", "OTHER"})
 _CODES = {"USD": "USD", "EUR": "EUR"}
 _GST = re.compile(r"^GST\(\d+(?:\.\d+)?%\)$")
 
@@ -115,14 +120,17 @@ def to_invoice(annotation: Mapping[str, object]) -> Invoice:
 
 
 def _texts(annotation: Mapping[str, object]) -> dict[str, str]:
-    """Each annotated object's text; ``OTHER`` is stale template text, not the page."""
+    """Each annotated object's printed text; an unexpected object without text stops it."""
     texts: dict[str, str] = {}
     for name, entry in annotation.items():
-        if name == "OTHER" or not isinstance(entry, Mapping):
+        if name in _WITHOUT_TEXT:
             continue
-        text = cast("Mapping[str, object]", entry).get("text")
-        if isinstance(text, str):
-            texts[name] = text
+        text = (
+            cast("Mapping[str, object]", entry).get("text") if isinstance(entry, Mapping) else None
+        )
+        if not isinstance(text, str):
+            raise FaturaError(f"{name} has no text")
+        texts[name] = text
     return texts
 
 
