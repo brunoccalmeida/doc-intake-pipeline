@@ -10,10 +10,11 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from doc_intake.packs.invoice import Invoice
 from doc_intake.packs.receipt import Receipt
 
 PACKS_DIR = Path(__file__).parent
-SCHEMAS: dict[str, type[BaseModel]] = {"receipt": Receipt}
+SCHEMAS: dict[str, type[BaseModel]] = {"invoice": Invoice, "receipt": Receipt}
 
 
 def snapshot_path(pack: str) -> Path:
