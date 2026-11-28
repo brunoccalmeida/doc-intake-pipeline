@@ -261,7 +261,7 @@
     },
     "currency": {
       "$ref": "#/$defs/ExtractedField_CurrencyCode_",
-      "description": "ISO 4217 code printed with the amounts; null for '$' alone or none."
+      "description": "ISO 4217 code printed with the amounts; null for '$' or '£' alone."
     }
   },
   "required": [

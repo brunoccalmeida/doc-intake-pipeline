@@ -40,7 +40,7 @@ class Invoice(StrictModel, frozen=True):
         description="Final amount payable, as a decimal number; null when not printed."
     )
     currency: ExtractedField[CurrencyCode] = Field(
-        description="ISO 4217 code printed with the amounts; null for '$' alone or none."
+        description="ISO 4217 code printed with the amounts; null for '$' or '£' alone."
     )
 
 
@@ -57,17 +57,20 @@ YYYY-MM-DD; each quote keeps the date as printed. Copy each date as printed, eve
 when the due date is before the issue date. If the day and month order is \
 ambiguous, prefer the order used by the country of the seller's address.
 - seller_name and seller_address: the seller's (who issues the invoice and is \
-paid), as printed, never the buyer's or the "bill to" party's; the address \
-without its label ("Address:"), and without phone, e-mail or website.
+paid), as printed, never the buyer's or the "bill to" party's; the name is \
+printed text, not letters inside a logo; the address without its label \
+("Address:"), and without phone, e-mail or website.
 - subtotal, tax and total: each one amount printed on the invoice, without the \
 currency, never computed from other amounts and never corrected when they do \
 not add up; null when the invoice does not print it. subtotal is the amount \
-printed as the subtotal, before tax. tax is all the tax as one amount; when tax \
-is printed only per rate, with no total tax line, tax is null. total is the \
+printed as the subtotal, before tax. tax is all the tax as one amount: a single \
+tax line is the tax, even when it names its rate ("GST(7%)", "VAT (3.22%)"); \
+when tax is printed on several rate lines and no line totals them, tax is null; \
+a tax column of the line-item table is not the tax. total is the \
 final amount payable ("TOTAL", "BALANCE DUE", "AMOUNT DUE"). Each quote is the \
 line that prints the amount.
 - currency: the ISO 4217 code printed with the subtotal, tax or total (USD, EUR), \
-or the code of a symbol used by one currency only (€ is EUR, £ is GBP); null when \
-only "$" is printed, since several currencies use it, or when none is printed, \
-even if the country suggests one.""",
+or EUR for "€"; null when only another symbol is printed ("$", "£"), since \
+several currencies use it, or when none is printed, even if the country \
+suggests one.""",
 )
