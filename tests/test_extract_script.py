@@ -15,7 +15,8 @@ from PIL import Image, ImageDraw, ImageFont
 from doc_intake.core.config import Settings
 from doc_intake.core.llm import LLMProvider, LLMRequest, LLMResponse
 from doc_intake.core.pricing import UnknownModelPriceError
-from doc_intake.packs.receipt import Receipt
+from doc_intake.packs.invoice import Invoice
+from doc_intake.packs.receipt import RECEIPT, Receipt
 from doc_intake.providers import MissingCredentialError
 from scripts import extract_document
 from scripts.extract_document import main
@@ -147,3 +148,45 @@ def test_replay_without_a_recording_fails_naming_the_fix(
 
 def unreachable_provider(settings: object) -> LLMProvider:
     raise AssertionError("replay built a real provider")
+
+
+INVOICE_ALL_NULL = json.dumps(
+    {
+        name: {"value": None, "citation": None, "reason": "not printed"}
+        for name in Invoice.model_fields
+    }
+)
+
+
+def test_the_invoice_pack_is_chosen_with_pack(
+    no_doc_intake_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("DOC_INTAKE_PROVIDER", "claude")
+    monkeypatch.setenv("DOC_INTAKE_CLAUDE_MODEL", "claude-opus-5-5")
+    requests: list[LLMRequest] = []
+
+    class InvoiceProvider:
+        def complete(self, request: LLMRequest) -> LLMResponse:
+            requests.append(request)
+            return LLMResponse(
+                text=INVOICE_ALL_NULL, input_tokens=100, output_tokens=50, model="claude-opus-5-5"
+            )
+
+    def built(settings: Settings) -> LLMProvider:
+        return InvoiceProvider()
+
+    monkeypatch.setattr(extract_document, "make_provider", built)
+
+    code = main(["--pack", "invoice", str(printed_page(tmp_path))])
+
+    assert code == 0
+    assert list(json.loads(capsys.readouterr().out)["fields"]) == list(Invoice.model_fields)
+    assert "supplier invoice" in requests[0].instructions
+
+
+def test_the_receipt_pack_is_the_default() -> None:
+    # Every documented `uv run poe extract <file>` keeps extracting a receipt.
+    assert RECEIPT.name == extract_document.DEFAULT_PACK

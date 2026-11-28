@@ -1,6 +1,7 @@
-"""Extract one receipt with the configured provider: a paid call, unless replayed.
+"""Extract one document with the configured provider: a paid call, unless replayed.
 
     uv run poe extract path/to/receipt.pdf
+    uv run poe extract --pack invoice path/to/invoice.pdf  # default pack: receipt
     uv run poe extract --record DIR path/to/receipt.pdf  # paid once, answer stored in DIR
     uv run poe extract --replay DIR path/to/receipt.pdf  # the stored answer: no key, no cost
 
@@ -24,15 +25,21 @@ import hashlib
 import sys
 from pathlib import Path
 
+from pydantic import BaseModel
+
 from doc_intake.core.config import Settings
-from doc_intake.core.ingest import IngestError, OcrDataMissingError, ingest
+from doc_intake.core.extract import Pack
+from doc_intake.core.ingest import Document, IngestError, OcrDataMissingError, ingest
 from doc_intake.core.llm import LLMProvider
 from doc_intake.core.pricing import price_of
 from doc_intake.core.runlog import extract_logged, log_unreadable, new_run_id
+from doc_intake.packs.invoice import INVOICE
 from doc_intake.packs.receipt import RECEIPT
 from doc_intake.providers import make_provider
 from evals.recording import MissingRecordingError, RecordingProvider, RecordingStore, ReplayProvider
 from scripts.logs import configure_run_log
+
+DEFAULT_PACK = RECEIPT.name
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -40,7 +47,8 @@ def main(argv: list[str] | None = None) -> int:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--record", type=Path, metavar="DIR", help="store the answer (paid)")
     mode.add_argument("--replay", type=Path, metavar="DIR", help="replay a stored answer")
-    parser.add_argument("path", type=Path, help="PDF, PNG or JPEG of one receipt")
+    parser.add_argument("--pack", choices=(RECEIPT.name, INVOICE.name), default=DEFAULT_PACK)
+    parser.add_argument("path", type=Path, help="PDF, PNG or JPEG of one document")
     args = parser.parse_args(argv)
     path: Path = args.path
     record: Path | None = args.record
@@ -82,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
     except IngestError as error:
         log_unreadable(
             error,
-            pack_name=RECEIPT.name,
+            pack_name=args.pack,
             document_id=document_id,
             run_id=run_id,
             provider_name=settings.provider,
@@ -90,21 +98,29 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
 
-    try:
-        result, _ = extract_logged(
-            document,
-            RECEIPT,
-            provider,
-            document_id=document_id,
-            run_id=run_id,
-            provider_name=settings.provider,
-            max_retries=settings.max_retries,
-        )
-    except MissingRecordingError as error:
-        print(f"ERROR: {error}", file=sys.stderr)
-        return 1
-    print(result.model_dump_json(indent=2))
-    return 0 if result.status == "ok" else 1
+    def run[S: BaseModel](pack: Pack[S], document: Document) -> int:
+        try:
+            result, _ = extract_logged(
+                document,
+                pack,
+                provider,
+                document_id=document_id,
+                run_id=run_id,
+                provider_name=settings.provider,
+                max_retries=settings.max_retries,
+            )
+        except MissingRecordingError as error:
+            print(f"ERROR: {error}", file=sys.stderr)
+            return 1
+        print(result.model_dump_json(indent=2))
+        return 0 if result.status == "ok" else 1
+
+    # One call per pack, not a lookup: each pack keeps its own schema type.
+    match args.pack:
+        case INVOICE.name:
+            return run(INVOICE, document)
+        case _:
+            return run(RECEIPT, document)
 
 
 if __name__ == "__main__":
