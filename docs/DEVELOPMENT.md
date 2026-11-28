@@ -60,6 +60,7 @@ uv run poe eval --suite fatura    # the same on the FATURA invoices (committed s
 uv run poe demo            # render the demo video in Docker (replay: no key, no cost)
 uv run poe demo-voice      # speak the demo's new voice-over lines, locally on CPU (no key, no cost)
 uv run poe inbox <inbox> <runs>  # one run over an inbox folder (paid API calls; --replay DIR for none)
+uv run poe inbox --pack invoice <inbox> <runs>  # the same with the invoice pack (also on review-report and calibrate)
 uv run poe inbox-demo      # that run on the two demo receipts, into .cache/inbox-demo (no key, no cost)
 ```
 

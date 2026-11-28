@@ -17,6 +17,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from doc_intake.core.config import Settings
+from doc_intake.packs.receipt import RECEIPT
 from evals.recording import RecordingStore, ReplayProvider
 from scripts.logs import configure_run_log
 from scripts.run_inbox import process
@@ -41,7 +42,7 @@ def main(root: Path = DEFAULT_ROOT) -> int:
         record_command="see demo/README.md, 'What it replays'",
     )
     # Settle 0: the files were copied a moment ago and nothing else writes them.
-    return process(settings, provider, inbox, root / "runs", settle=timedelta(0))
+    return process(settings, provider, inbox, root / "runs", RECEIPT, settle=timedelta(0))
 
 
 if __name__ == "__main__":

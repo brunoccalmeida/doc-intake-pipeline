@@ -1,8 +1,9 @@
 """Write a client's acceptance policy from reviewed run folders (#65).
 
     uv run poe calibrate --target 0.02 --out POLICY RUNS/2026-11-22T15-30-00Z [RUNS/... ...]
+    uv run poe calibrate --pack invoice ...  # default pack: receipt
 
-Counts, per receipt field, the values read from the page image that reviewers
+Counts, per field of the pack, the values read from the page image that reviewers
 checked and how many were wrong (``doc_intake.review``), writes them with the
 target to POLICY (``doc_intake.acceptance``) and prints, per field, the upper
 bound of its error rate and whether the policy accepts it. Point
@@ -11,6 +12,9 @@ bound of its error rate and whether the policy accepts it. Point
 Calibrate as often as labels arrive: the bound stays valid however often it
 is looked at (docs/ARCHITECTURE.md D22). Fix the target before looking, not
 after: a target chosen to let a field pass is no target.
+
+A policy is for one pack: POLICY holding another pack's policy is never
+replaced, since that would drop its labels; each pack has its own file.
 
 Field names and numbers only, never a value (AGENTS.md invariant 6). Exits 1,
 writing no policy, when a folder cannot be read or no image-read value was
@@ -21,6 +25,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from pydantic import BaseModel
+
 from doc_intake.acceptance import (
     DEFAULT_AUDIT_RATE,
     AcceptancePolicy,
@@ -28,8 +34,11 @@ from doc_intake.acceptance import (
     load_policy,
     upper_bounds,
 )
+from doc_intake.core.extract import Pack
+from doc_intake.packs.invoice import INVOICE
 from doc_intake.packs.receipt import RECEIPT
 from doc_intake.review import Label, ReviewError, read_reviewed_run
+from scripts.packs import add_pack_argument
 
 COLUMNS = ("field", "reviewed", "errors", "upper bound", "accepted")
 
@@ -47,17 +56,31 @@ def main(argv: list[str] | None = None) -> int:
         help=f"share of accepted values sent back to review (default {DEFAULT_AUDIT_RATE})",
     )
     parser.add_argument("--out", type=Path, required=True, help="the policy file to write")
+    add_pack_argument(parser)
     args = parser.parse_args(argv)
     folders: list[Path] = args.folders
     out: Path = args.out
+    target: float = args.target
+    audit_rate: float = args.audit_rate
 
+    # One call per pack, not a lookup: each pack keeps its own schema type.
+    match args.pack:
+        case INVOICE.name:
+            return _calibrate(INVOICE, folders, out, target=target, audit_rate=audit_rate)
+        case _:
+            return _calibrate(RECEIPT, folders, out, target=target, audit_rate=audit_rate)
+
+
+def _calibrate[S: BaseModel](
+    pack: Pack[S], folders: list[Path], out: Path, *, target: float, audit_rate: float
+) -> int:
     labels: list[Label] = []
     runs: list[str] = []
     # A folder given twice would count its reviews twice and narrow the
     # bound, the unsafe side: each counts once.
     for folder in dict.fromkeys(folder.resolve() for folder in folders):
         try:
-            labels += read_reviewed_run(folder, RECEIPT)
+            labels += read_reviewed_run(folder, pack)
         except ReviewError as error:
             print(f"{folder.name}: {error}", file=sys.stderr)
             return 1
@@ -69,27 +92,34 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
     if out.exists():
-        problem = _breaks_the_sequence(load_policy(out), target=args.target, runs=runs)
+        problem = _breaks_the_sequence(load_policy(out), pack, target=target, runs=runs)
         if problem:
             print(f"{out}: {problem}", file=sys.stderr)
             return 1
-    policy = calibrate(labels, RECEIPT, target=args.target, audit_rate=args.audit_rate, runs=runs)
+    policy = calibrate(labels, pack, target=target, audit_rate=audit_rate, runs=runs)
     # Through a temporary file: a scheduled run may load the policy meanwhile.
     temporary = out.with_name(f".{out.name}.tmp")
     temporary.write_text(policy.model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
     temporary.replace(out)  # atomic on one filesystem (os.replace)
-    print(render(policy))
+    print(render(policy, pack))
     return 0
 
 
-def _breaks_the_sequence(previous: AcceptancePolicy, *, target: float, runs: list[str]) -> str:
+def _breaks_the_sequence[S: BaseModel](
+    previous: AcceptancePolicy, pack: Pack[S], *, target: float, runs: list[str]
+) -> str:
     """Why a new policy cannot replace ``previous``, or "" when it can.
 
     The bound holds however often it is looked at only along one growing
     sequence of labels, checked against one target fixed in advance
     (docs/ARCHITECTURE.md D22). Leaving out a run with an error, or moving the
-    target, would pick the result.
+    target, would pick the result. A policy for another pack is another decision.
     """
+    if previous.pack != pack.name:
+        return (
+            f"it holds the policy for the {previous.pack} pack, not {pack.name}; "
+            "write each pack's policy to its own file"
+        )
     if target != previous.target:
         return (
             f"its target is {previous.target}; a target changed after seeing the reviews "
@@ -104,9 +134,9 @@ def _breaks_the_sequence(previous: AcceptancePolicy, *, target: float, runs: lis
     return ""
 
 
-def render(policy: AcceptancePolicy) -> str:
+def render[S: BaseModel](policy: AcceptancePolicy, pack: Pack[S]) -> str:
     """The policy as a table: names left-aligned, numbers right-aligned."""
-    bounds = upper_bounds(policy, RECEIPT)
+    bounds = upper_bounds(policy, pack)
     cells = [COLUMNS] + [
         (
             name,
@@ -126,7 +156,7 @@ def render(policy: AcceptancePolicy) -> str:
         ).rstrip()
         for line in cells
     ]
-    fields = len(RECEIPT.schema.model_fields)
+    fields = len(pack.schema.model_fields)
     confidence = f"{policy.confidence:.0%}"
     note = (
         f"target {policy.target:.3%}, audit {policy.audit_rate:.0%} of accepted values.\n"
