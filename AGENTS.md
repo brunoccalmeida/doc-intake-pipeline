@@ -4,6 +4,8 @@
 
 Regras que valem em todo chat e todo agente (o `CLAUDE.md` importa este arquivo). Estado do projeto e versões ficam fora daqui: estado em `docs/PROJECT_SESSION_SUMMARY.md`, arquitetura em `docs/ARCHITECTURE.md`.
 
+**O que entra aqui:** só regra durável que vale em toda sessão e para todo agente, porque este arquivo é lido inteiro em cada uma. O resto vai para onde é lido quando importa: estado, datas e próxima missão no resumo de sessão; histórico e o porquê de uma regra na decisão do `docs/ARCHITECTURE.md` ou no corpo do PR; instrução de uma área só (eval, demo, deploy) no documento da área, com um ponteiro aqui se for preciso. Número de issue só entra como ponteiro para a decisão, nunca como relato ([D26](docs/ARCHITECTURE.md#d26-agentsmd-e-claudemd-só-com-regra-durável-e-de-toda-sessão-decidida-na-92)).
+
 ## O que é este projeto
 
 Pipeline que lê documentos (PDF e imagem, inclusive escaneados), extrai campos com um LLM e devolve um resultado **validado e com citação da origem** de cada campo. A qualidade é medida por **evals** contra um conjunto-ouro, e o CI barra qualquer piora. É peça de portfólio para clientes: cada decisão precisa ser defensável numa entrevista. Este repositório é o **núcleo** genérico e público; conectores e materiais de entrega a clientes ficam fora dele. O que o cliente compra e a fronteira entre núcleo, kit de entrega e código do cliente estão em [docs/PRODUCT.md](docs/PRODUCT.md): leia-o ao criar issues ou mudar a prioridade delas e quando a missão tocar em entrega, conectores ou material para clientes.
@@ -44,7 +46,7 @@ Contexto longo degrada a qualidade; cada chat cuida de **uma missão** (uma GitH
 
 **Fechamento** (automático): skill `/mission:close-mission` (plugin `mission`); o registro da missão vai no corpo do PR, e o resumo de sessão guarda só o estado e a próxima missão.
 
-**Contratos** do plugin `mission` ([formato](https://github.com/brunoccalmeida/automation-template/blob/main/plugins/mission/README.md)); a primeira coluna é o nome que as skills procuram. Valores confirmados na missão #1:
+**Contratos** do plugin `mission` ([formato](https://github.com/brunoccalmeida/automation-template/blob/main/plugins/mission/README.md)); a primeira coluna é o nome que as skills procuram:
 
 | Contrato          | Valor                             |
 | ----------------- | --------------------------------- |
@@ -76,9 +78,8 @@ Ao reportar: **erro observado**, **causa raiz**, **análise**, **solução propo
 
 ## Comunicação
 
-- O critério é **quem lê**. Tudo o que se dirige ao usuário sai em **português (Brasil)**: a conversa, os planos, as notas de progresso e as caixas de pergunta (`AskUserQuestion`: pergunta, opções, descrições e prévias), mesmo sendo entrada estruturada de ferramenta. A documentação interna (regras, resumo de sessão, arquitetura) também.
-- Em **inglês**, só o que é publicado com o código: código, commits, issues, PRs, README e relatórios de eval.
-- O idioma das respostas é fixado também pela configuração `language` no `~/.claude/settings.json` do usuário ([settings](https://code.claude.com/docs/en/settings-reference.md)), porque este arquivo chega como mensagem de usuário, sem garantia de cumprimento ([memory](https://code.claude.com/docs/en/memory.md)), e deixou notas curtas de progresso saírem em inglês (#43). A medição da #50 não provou o efeito nem o descartou; a configuração fica por ser o mecanismo oficial e sem custo, e o hook `PostToolBatch` segue fora, porque texto frequente do harness depois de resultados de ferramenta pode parecer injeção de prompt. A instrução que ela gera fala em "comments": isso vale para comentários ao usuário, não para comentários de código, que seguem em inglês com o resto do que é publicado.
+- O critério é **quem lê**. Tudo o que se dirige ao usuário sai em **português (Brasil)**: a conversa, os planos, as notas de progresso e as caixas de pergunta (pergunta, opções, descrições e prévias), mesmo sendo entrada estruturada de ferramenta. A documentação interna (regras, resumo de sessão, arquitetura) também.
+- Em **inglês**, só o que é publicado com o código: código (inclusive os comentários), commits, issues, PRs, README e relatórios de eval.
 - Explicar o **porquê**; opiniões fundamentadas, não só concordância.
 
 ## Segurança
