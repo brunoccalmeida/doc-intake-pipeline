@@ -11,6 +11,7 @@ Verificações específicas deste projeto para o revisor (`mission:reviewer` e o
 - **Testes sem rede:** nenhum teste unitário ou de integração chama provedor real nem depende de chave. Chamada real só no eval, rodado de propósito.
 - **Eval honesto:** o gabarito não foi ajustado para a saída do modelo; mudança no conjunto-ouro vem com o motivo (erro no gabarito original, com evidência) e nunca no mesmo PR que muda prompt ou modelo.
 - **Prova para cliente:** o que o PR acrescenta aparece num número verificável (precisão por campo, custo por documento) ou num artefato do CI; afirmação no README tem link de evidência.
+- **Regras só duráveis:** o que o PR acrescenta ao `AGENTS.md` ou ao `CLAUDE.md` vale em toda sessão e para todo agente; estado, datas, relato de missão ou instrução de uma área só vão para o resumo de sessão, o `docs/ARCHITECTURE.md` ou o documento da área (D26).
 - **Custo e privacidade nos logs:** o log registra tokens, custo e resultado da validação, sem o conteúdo do documento.
 
 ## Não reportar

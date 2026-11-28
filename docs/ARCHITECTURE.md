@@ -495,3 +495,24 @@ Segundo pacote, `invoice`, medido no FATURA (CC BY 4.0), e o eval passa a pontua
 - O FATURA é gerado por template: páginas limpas, um formato de data, valores sempre `RÓTULO : valor MOEDA`. A nota tende a superestimar faturas reais; o título do relatório e o README dizem isso.
 - 20 faturas em 10 layouts detectam regressão; não estimam a acurácia nas faturas de um cliente (D21).
 - Ao conferir o gabarito, vi as imagens de 5 dos 10 templates de teste. Os rótulos citados nas instruções aparecem também em templates de treino (`BALANCE DUE` no 5, `Invoice number` no 8, `INVOICE ID` no 3, `INVOICE #` e vencimento anterior à emissão no 17, `AMOUNT DUE` no 36 e no 37); o revisor pediu três ajustes de instrução a partir de templates de teste (imposto numa linha só com alíquota, coluna de imposto dos itens, logotipo), e a exclusão do comprador nasceu do template 49. O prompt não foi ajustado em respostas do modelo a esses templates: nenhuma foi gravada antes das instruções ficarem prontas.
+
+### D25. Idioma das respostas do agente (decidida na #43, revista na #50)
+
+O `AGENTS.md` manda falar com o usuário em português; a configuração `language` no `~/.claude/settings.json` do usuário reforça a regra. O histórico ficava no `AGENTS.md` e saiu de lá na #92, porque o arquivo só guarda regra durável.
+
+| Pergunta | Decisão | Por quê | Fonte |
+| --- | --- | --- | --- |
+| Por que além do `AGENTS.md` | Configuração `language` no escopo do usuário | O `CLAUDE.md` (e o `AGENTS.md` que ele importa) chega como mensagem de usuário, sem garantia de cumprimento, e deixou notas curtas de progresso saírem em inglês (#43) | [settings](https://code.claude.com/docs/en/settings-reference.md); [memory](https://code.claude.com/docs/en/memory.md) |
+| Fica, mesmo sem efeito provado | Sim | A medição da #50 (taxa de notas em inglês nas transcrições reais) não provou o efeito nem o descartou; é o mecanismo oficial e não custa nada | medição na #50; julgamento próprio |
+| Hook `PostToolBatch` | Fora | Texto frequente do harness depois de resultados de ferramenta pode parecer injeção de prompt | julgamento próprio |
+| Comentários | A instrução gerada pela configuração fala em "comments": vale para comentários ao usuário. Comentários de código seguem em inglês, como o resto do que é publicado | Evita que a configuração mude o idioma do código | julgamento próprio |
+
+### D26. `AGENTS.md` e `CLAUDE.md` só com regra durável e de toda sessão (decidida na #92)
+
+| Pergunta | Decisão | Por quê | Fonte |
+| --- | --- | --- | --- |
+| O que entra | Regra que vale em toda sessão e para todo agente e que não muda com o estado do projeto | O `CLAUDE.md` e os arquivos que ele importa carregam inteiros em toda sessão, e o import não reduz o custo de contexto; cada linha tira um pouco de atenção de toda tarefa, e arquivo longo reduz a adesão | [memory](https://code.claude.com/docs/en/memory.md#write-effective-instructions) ("Keep it to facts Claude should hold in every session"; "Imports ... don't reduce its context cost"); [best practices](https://code.claude.com/docs/en/best-practices.md) ("Keep CLAUDE.md short") |
+| Para onde vai o resto | Estado e próxima missão no resumo de sessão; histórico e porquê na decisão aqui ou no corpo do PR; instrução de uma área no documento da área | O que é lido só quando importa não pesa nas outras tarefas; instrução desatualizada ou contraditória faz o agente escolher uma ao acaso | [memory](https://code.claude.com/docs/en/memory.md) ("Review your CLAUDE.md files ... periodically to remove outdated or conflicting instructions") |
+| Como se mantém | Item no `REVIEW.md`: o revisor aponta conteúdo de validade curta ou de uma área só que entre nesses arquivos | Uma regra sem verificação volta a ser descumprida; a revisão de cada missão é o ponto em que todo diff passa | julgamento próprio |
+| Ciclo de missão e contratos | Ficam no `AGENTS.md`, com os nomes das skills do plugin `mission` | O ciclo de missão vale em toda sessão, e o plugin lê a tabela de contratos das regras sempre carregadas | [README do plugin `mission`](https://github.com/brunoccalmeida/automation-template/blob/main/plugins/mission/README.md) |
+| `CLAUDE.md` | Só o import do `AGENTS.md` | Os ponteiros para arquitetura, produto e resumo já estão no `AGENTS.md`; repetidos, custavam contexto duas vezes | julgamento próprio |
