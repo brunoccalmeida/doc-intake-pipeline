@@ -114,8 +114,10 @@ jobs:
         run: uv run pytest
 
   # The eval gate (docs/ARCHITECTURE.md D4): replays recorded provider
-  # responses over the golden set, with no API key and no cost, and fails if
-  # any field scores below evals/baseline.json. The recordings quote SROIE
+  # responses over each golden set, with no API key and no cost, and fails if
+  # any field scores below its baseline (evals/baseline.json for SROIE,
+  # evals/baseline-fatura.json for FATURA). The FATURA invoices and their
+  # recordings are CC BY 4.0 and committed (docs/DATA.md). The recordings quote SROIE
   # receipts (no licence), so they live in a private repository, checked out
   # at the commit pinned in evals/recordings.json with a read-only deploy key
   # (also a Dependabot secret, since Dependabot PRs cannot read Actions
@@ -164,22 +166,31 @@ jobs:
       - name: Run the eval
         run: uv run poe eval
 
+      # Runs even when the receipts fail, so both reports show what broke.
+      - name: Run the invoice eval
+        if: ${{ !cancelled() }}
+        run: uv run poe eval --suite fatura
+
       # The report holds ids, field names and outcomes only (evals/report.py),
       # so it can be public. Published even when the gate fails: that is when
       # it is needed.
       - name: Publish the report as the job summary
         if: ${{ !cancelled() }}
         run: |
-          if [ -f .cache/eval/report.md ]; then
-            cat .cache/eval/report.md >> "$GITHUB_STEP_SUMMARY"
-          fi
+          for report in .cache/eval/report.md .cache/eval/report-fatura.md; do
+            if [ -f "$report" ]; then
+              cat "$report" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
 
       - name: Upload the report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: eval-report
-          path: .cache/eval/report.md
+          path: |
+            .cache/eval/report.md
+            .cache/eval/report-fatura.md
           if-no-files-found: warn
 
   # The delivery kit and client repositories install the core's wheel from a

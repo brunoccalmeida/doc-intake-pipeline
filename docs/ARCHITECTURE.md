@@ -474,3 +474,24 @@ Um pacote declara regras entre os próprios campos, e uma regra que falha manda 
 - A regra da D14 (imposto de 6% num recibo datado depois do fim do GST, em 2018-05-31) não foi feita: depende de data e alíquota, e nenhum recibo do conjunto-ouro a dispara (YAGNI).
 
 **Não verificado:** o prompt foi conferido só nos 20 recibos do SROIE e nos 2 da demo; recibos de outro país, com mais de uma alíquota ou com milhar em ponto, não foram medidos.
+
+### D24. Pacote de faturas e suítes do eval (decidida na #69)
+
+Segundo pacote, `invoice`, medido no FATURA (CC BY 4.0), e o eval passa a pontuar mais de um conjunto-ouro. O código está em `packs/invoice/__init__.py`, `evals/fatura.py` (conversão do gabarito), `evals/suites.py` e `scripts/run_eval.py --suite`.
+
+| Pergunta | Decisão | Por quê | Fonte |
+| --- | --- | --- | --- |
+| Por que faturas | Primeiro tipo de documento na amostra do Upwork e, com recibos, o único com modelo pronto nos três grandes fornecedores | Cliente que contrata extração de faturas precisa ver faturas medidas, não inferir de recibos | [PRODUCT.md](PRODUCT.md); issue #69 |
+| Dados | FATURA, 20 faturas: instâncias 0 e 1 dos 10 templates que a divisão por template do próprio conjunto separa para teste | Único conjunto de faturas achado com licença que permite repositório público e comercial. Avaliar em layout não usado para escrever o prompt mede generalização, não memória de layout | [DATA.md](DATA.md#fatura-golden-set-invoice-pack-69) |
+| Onde ficam | Imagens, gabarito convertido e gravações **no repositório**, com crédito e licença; o CI não baixa os 690 MB | A CC BY 4.0 permite redistribuir parte, com atribuição (§2(a)(1)(A), §3(a)); o CI fica rápido e as gravações podem ser públicas, ao contrário das do SROIE | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode.en); decisão do usuário |
+| Campos | `number`, `date`, `due_date`, `seller_name`, `seller_address`, `subtotal`, `tax`, `total`, `currency` | Os que o FATURA anota e os fornecedores devolvem. Fora: comprador (no template 49 há dois blocos "bill to" com nomes diferentes: nem o gabarito sabe quem é), desconto, itens de linha (YAGNI) | julgamento próprio |
+| Moeda só com símbolo | `€` vira EUR; `$`, `£` ou outro símbolo sozinho fica `null`, com motivo | Vários países usam `$`, e `£` também não é só a libra esterlina (achado do revisor); deduzir a moeda pelo endereço é valor plausível, não lido (invariante 1). Só o `€` foi mantido, por ser o símbolo de uma moeda só | julgamento próprio; achado do revisor |
+| Regra de soma | **Nenhuma** no pacote de faturas | No FATURA, subtotal + imposto − desconto = total em ~1% das faturas: a regra mandaria quase tudo para revisão e não teria como ser provada aqui (regra de ouro). O pacote de recibos a mantém (D23) | medição na #69; decisão do usuário |
+| Várias suítes | `Suite` por conjunto-ouro (pacote, ids, gabarito, gravações, linha de base, relatório, bloco do README); `--suite` escolhe, o padrão continua `sroie` | Todo comando documentado (`uv run poe eval --record` etc.) mantém o sentido. A pontuação mora em `Suite.evaluate`, um método do tipo genérico, porque `Pack` é invariante: um dicionário de pacotes de tipos diferentes não passa a função genérica do eval sem perder o tipo do schema | julgamento próprio |
+| CLI | `extract --pack invoice`; a caixa de entrada e a calibração seguem só com recibos | A caixa de entrada carrega política de aceite e planilha por pacote: missão própria, quando houver cliente de faturas (YAGNI) | julgamento próprio |
+
+**Limites:**
+
+- O FATURA é gerado por template: páginas limpas, um formato de data, valores sempre `RÓTULO : valor MOEDA`. A nota tende a superestimar faturas reais; o título do relatório e o README dizem isso.
+- 20 faturas em 10 layouts detectam regressão; não estimam a acurácia nas faturas de um cliente (D21).
+- Ao conferir o gabarito, vi as imagens de 5 dos 10 templates de teste. Os rótulos citados nas instruções aparecem também em templates de treino (`BALANCE DUE` no 5, `Invoice number` no 8, `INVOICE ID` no 3, `INVOICE #` e vencimento anterior à emissão no 17, `AMOUNT DUE` no 36 e no 37); o revisor pediu três ajustes de instrução a partir de templates de teste (imposto numa linha só com alíquota, coluna de imposto dos itens, logotipo), e a exclusão do comprador nasceu do template 49. O prompt não foi ajustado em respostas do modelo a esses templates: nenhuma foi gravada antes das instruções ficarem prontas.

@@ -1,6 +1,6 @@
 # doc-intake-pipeline
 
-Reads receipts (scanned or photographed images, or PDFs) and returns their key fields as structured data, with every value pointing to where it was found, and anything it is unsure of flagged for a person instead of guessed.
+Reads receipts and invoices (scanned or photographed images, or PDFs) and returns their key fields as structured data, with every value pointing to where it was found, and anything it is unsure of flagged for a person instead of guessed.
 
 <!-- A bare attachment link is what GitHub renders as a video player (demo/README.md). -->
 <!-- markdownlint-disable-next-line MD034 -->
@@ -49,11 +49,18 @@ Measured on 20 public scanned receipts, 160 values in all (company, address, dat
 - **$0.79 for the whole set**, about $0.04 per receipt.
 <!-- eval-summary:end -->
 
-A wrong value should be caught by review, not reach you unchecked, so every change to the code is re-measured on these receipts and blocked if it gets more answers wrong or accepts a wrong value without review. Evidence: the full report of every run is in the eval job summary of the [CI runs on `main`](https://github.com/brunoccalmeida/doc-intake-pipeline/actions/workflows/ci.yml?query=branch%3Amain); how values are scored is in [How it is measured](docs/DEVELOPMENT.md#eval).
+On invoices (number, dates, seller, subtotal, tax, total, currency):
+
+<!-- eval-summary:fatura:start (written by `uv run poe eval --suite fatura --update-readme`) -->
+<!-- eval-summary:fatura:end -->
+
+These invoices are generated from templates (clean pages, one date format), so they are easier than real ones: read this as "the invoice fields work", not as the accuracy to expect on your invoices ([why](docs/DATA.md#fatura-golden-set-invoice-pack-69)).
+
+A wrong value should be caught by review, not reach you unchecked, so every change to the code is re-measured on these receipts and invoices and blocked if it gets more answers wrong or accepts a wrong value without review. Evidence: the full report of every run is in the eval job summary of the [CI runs on `main`](https://github.com/brunoccalmeida/doc-intake-pipeline/actions/workflows/ci.yml?query=branch%3Amain); how values are scored is in [How it is measured](docs/DEVELOPMENT.md#eval).
 
 ## What it does not do yet
 
-- **Receipts only.** Another document type (invoices, IDs, forms) means a new field list and a new test set of that type, measured the same way.
+- **Receipts and invoices.** Invoices are read one at a time for now (`uv run poe extract --pack invoice <file>`); the folder-to-spreadsheet run reads receipts. Another document type (purchase orders, IDs, forms) means a new field list and a new test set of that type, measured the same way. Invoice line items and the buyer are not read yet.
 - **The numbers above come from public receipts** of one country and period (Malaysia, 2016 to 2018). They show the pipeline does not get worse; they do not predict accuracy on your documents, which would be measured on a sample of them ([known limitations](docs/DATA.md#known-limitations)).
 - **English text only**, for now.
 - **Review happens in the spreadsheet.** There is no review screen yet, and a correction made in the sheet is not sent back to the pipeline.
