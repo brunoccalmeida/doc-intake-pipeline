@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from doc_intake.acceptance import AcceptancePolicy, FieldEvidence, load_policy
 from doc_intake.core.extract import Pack
+from doc_intake.packs.invoice import Invoice
 from doc_intake.review import Label, ReviewError
 from scripts import calibrate
 from scripts.calibrate import main
@@ -153,3 +154,45 @@ def test_nothing_to_calibrate_on_exits_1_and_writes_no_policy(
     assert code == 1
     assert not out_path.exists()
     assert message in capsys.readouterr().err
+
+
+def test_the_invoice_pack_calibrates_every_invoice_field(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    packs: list[str] = []
+
+    def read_invoices[S: BaseModel](folder: Path, pack: Pack[S]) -> list[Label]:
+        packs.append(pack.name)
+        return [total(f"{i}.jpg") for i in range(356)]
+
+    monkeypatch.setattr(calibrate, "read_reviewed_run", read_invoices)
+    out_path = tmp_path / "policy.json"
+
+    code = main(["--pack", "invoice", "--target", "0.02", "--out", str(out_path), str(tmp_path)])
+
+    assert code == 0
+    assert packs == ["invoice"]
+    policy = load_policy(out_path)
+    assert policy.pack == "invoice"
+    assert list(policy.evidence) == list(Invoice.model_fields)
+    out = capsys.readouterr().out
+    assert [line.split()[0] for line in out.splitlines()[1:10]] == list(Invoice.model_fields)
+    # Nine invoice fields share the 5%, not the receipt's eight.
+    assert "shared by the\n9 fields" in out
+
+
+def test_a_policy_for_another_pack_is_not_replaced(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Each pack has its own policy file: replacing one would drop its labels.
+    out_path = tmp_path / "policy.json"
+    main(["--target", "0.02", "--out", str(out_path), str(tmp_path / "run-1")])
+    before = out_path.read_text(encoding="utf-8")
+
+    code = main(
+        ["--pack", "invoice", "--target", "0.02", "--out", str(out_path), str(tmp_path / "run-1")]
+    )
+
+    assert code == 1
+    assert out_path.read_text(encoding="utf-8") == before
+    assert "for the receipt pack, not invoice" in capsys.readouterr().err

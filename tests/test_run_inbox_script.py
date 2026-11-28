@@ -1,5 +1,6 @@
 """``uv run poe inbox``: one scheduled run over an inbox folder."""
 
+import csv
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -10,6 +11,7 @@ from pydantic import ValidationError
 from doc_intake.acceptance import AcceptancePolicy, FieldEvidence
 from doc_intake.core.llm import LLMProvider
 from doc_intake.core.pricing import UnknownModelPriceError
+from doc_intake.packs.invoice import Invoice
 from scripts import run_inbox
 from scripts.run_inbox import main
 
@@ -178,3 +180,54 @@ def test_a_policy_that_cannot_be_used_fails_before_touching_the_inbox(
     # The inbox does not exist: the policy is what fails first.
     with pytest.raises(error, match=match):
         main([str(tmp_path / "inbox"), str(tmp_path / "runs"), "--replay", str(tmp_path)])
+
+
+FATURA = Path("evals/golden/fatura")
+
+
+def test_a_replayed_invoice_run_writes_one_row_per_invoice_field(
+    no_doc_intake_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    recorded_model(monkeypatch)
+    monkeypatch.setattr(run_inbox, "make_provider", unreachable_provider)
+    inbox, runs = tmp_path / "inbox", tmp_path / "runs"
+    inbox.mkdir()
+    names = ("Template10_Instance0.jpg", "Template10_Instance1.jpg")
+    for name in names:
+        shutil.copy(FATURA / name, inbox / name)
+    replay = Path("evals/recordings/fatura")
+
+    code = main(
+        [str(inbox), str(runs), "--pack", "invoice", "--settle", "0", "--replay", str(replay)]
+    )
+
+    assert code == 0
+    [folder] = list(runs.iterdir())
+    with (folder / "results.csv").open(encoding="utf-8-sig", newline="") as sheet:
+        rows = list(csv.DictReader(sheet))
+    assert [(row["file"], row["field"]) for row in rows] == [
+        (name, field) for name in names for field in Invoice.model_fields
+    ]
+    assert "2 documents" in capsys.readouterr().out
+
+
+def test_a_receipt_policy_given_to_an_invoice_run_fails_naming_both_packs(
+    no_doc_intake_env: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    recorded_model(monkeypatch)
+    monkeypatch.setenv("DOC_INTAKE_ACCEPTANCE_POLICY", str(write_policy(tmp_path / "p.json")))
+    # The inbox does not exist: the policy is what fails first.
+    with pytest.raises(ValueError, match="for the receipt pack, not invoice"):
+        main(
+            [
+                str(tmp_path / "inbox"),
+                str(tmp_path / "runs"),
+                "--pack",
+                "invoice",
+                "--replay",
+                str(tmp_path),
+            ]
+        )

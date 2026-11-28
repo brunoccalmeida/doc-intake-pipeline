@@ -53,6 +53,16 @@ sudo systemctl start doc-intake-inbox.service     # one run now
 journalctl -u doc-intake-inbox.service            # summary line and run log
 ```
 
+The service reads receipts. To read invoices instead, run `sudo systemctl edit doc-intake-inbox.service` and add an override; it lives in a drop-in, so copying the unit again on an upgrade keeps it. The empty `ExecStart=` clears the unit's command first: without it, a oneshot service runs both ([systemd.service](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#ExecStart=)).
+
+```ini
+[Service]
+ExecStart=
+ExecStart=/usr/local/bin/uv run --locked --no-dev python -m scripts.run_inbox /srv/doc-intake/inbox /srv/doc-intake/runs --pack invoice
+```
+
+Pass the same `--pack invoice` to `review-report` and `calibrate` below. A run reads one document type. To read both, install a copy of the service and timer under another name, with its own inbox and runs folders and, once calibrated, its own policy in the unit (`Environment=DOC_INTAKE_ACCEPTANCE_POLICY=/srv/doc-intake/invoice-policy.json`): a variable the unit sets takes priority over `.env` ([pydantic-settings](https://pydantic.dev/docs/validation/latest/concepts/pydantic_settings/)), where the receipt policy is.
+
 ## Reviewing a run
 
 Each run folder holds `results.csv`, the spreadsheet a person reviews, and `results.jsonl`, the results exactly as the run produced them. Leave `results.jsonl` as it is: a confirmed value is read from it, because a spreadsheet may rewrite a value it shows (a date in the local format).
@@ -90,12 +100,12 @@ By default, every value read from the page image goes to review, because no code
 uv run poe calibrate --target 0.02 --out /srv/doc-intake/policy.json runs/2026-11-22T153000Z runs/2026-11-23T153000Z
 ```
 
-It writes the policy (the target and, per field, the image-read values reviewed and how many were wrong) and prints, per field, the upper bound of its error rate and whether it is accepted. To apply it, set `DOC_INTAKE_ACCEPTANCE_POLICY=/srv/doc-intake/policy.json` in `.env`; a policy file that cannot be read stops the next run before any document is sent. Unset, nothing changes.
+It writes the policy (the target and, per field, the image-read values reviewed and how many were wrong) and prints, per field, the upper bound of its error rate and whether it is accepted. To apply it, set `DOC_INTAKE_ACCEPTANCE_POLICY=/srv/doc-intake/policy.json` in `.env`; a policy file that cannot be read, or one calibrated on another document type, stops the next run before any document is sent. Unset, nothing changes. Each document type has its own policy file: `calibrate` refuses to replace a policy for another type.
 
 - **How many reviews it takes.** With no wrong value, about 356 reviewed image-read values of a field for a 2% target, and 141 for 5%. One wrong value needs many more.
 - **Calibrate as often as you like, always on every reviewed run since the first,** into the same policy file, with the same target. The bound stays valid however often you look at one growing set of reviews, so running it after every reviewed batch, until a field passes, does not weaken it; leaving out a run, or changing the target, would. The command refuses both.
 - **Review every queued image-read value of the field, not a chosen few.** Skipping the hard ones makes the error rate look smaller than it is. Only rows the run sent to review count: a verdict written on an accepted row is ignored, because a value picked for checking is not a sample.
-- **Why its bound is higher than the report's.** `review-report` gives the bound for one look at a fixed set of reviews. `calibrate` gives one that holds however often you calibrate, shared by every field of the pack (eight for receipts) so that no field slips through by chance among them; it needs more reviews to reach the same number.
+- **Why its bound is higher than the report's.** `review-report` gives the bound for one look at a fixed set of reviews. `calibrate` gives one that holds however often you calibrate, shared by every field of the pack (eight for receipts, nine for invoices) so that no field slips through by chance among them; it needs more reviews to reach the same number.
 - **Accepted values still get checked by a sample.** Their rows say `accepted from the image by the acceptance policy`. A random 10% of them (`--audit-rate`) come back to the queue with the note `audit sample of values accepted from the image`: review them like any other row, because nothing else measures an accepted field. Include those runs the next time you calibrate; if the audit finds errors, the bound rises and the field goes back to review.
 - **Only the image check is lifted.** A quote missing from the page, a value that is not the text of its quote, an amount that is not a number its quote prints (sign included), or amounts that do not add up (`fails rule amounts_add_up`) still go to review, with that reason in the note. Review them like any other row: they count in the next calibration.
 

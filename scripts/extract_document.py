@@ -38,8 +38,7 @@ from doc_intake.packs.receipt import RECEIPT
 from doc_intake.providers import make_provider
 from evals.recording import MissingRecordingError, RecordingProvider, RecordingStore, ReplayProvider
 from scripts.logs import configure_run_log
-
-DEFAULT_PACK = RECEIPT.name
+from scripts.packs import add_pack_argument
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -47,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--record", type=Path, metavar="DIR", help="store the answer (paid)")
     mode.add_argument("--replay", type=Path, metavar="DIR", help="replay a stored answer")
-    parser.add_argument("--pack", choices=(RECEIPT.name, INVOICE.name), default=DEFAULT_PACK)
+    add_pack_argument(parser)
     parser.add_argument("path", type=Path, help="PDF, PNG or JPEG of one document")
     args = parser.parse_args(argv)
     path: Path = args.path

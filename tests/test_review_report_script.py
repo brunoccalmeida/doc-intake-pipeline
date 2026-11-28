@@ -91,3 +91,21 @@ def test_folders_with_no_reviewed_field_fail_saying_so(
     assert code == 1
     assert captured.out == ""
     assert "no reviewed field" in captured.err
+
+
+def test_the_invoice_pack_reads_and_reports_invoice_fields(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    packs: list[str] = []
+
+    def read_invoices[S: BaseModel](folder: Path, pack: Pack[S]) -> list[Label]:
+        packs.append(pack.name)
+        return [Label("a.jpg", "due_date", "not_on_page", None, None, source=None)]
+
+    monkeypatch.setattr(review_report, "read_reviewed_run", read_invoices)
+
+    code = main(["--pack", "invoice", str(tmp_path)])
+
+    assert code == 0
+    assert packs == ["invoice"]
+    assert capsys.readouterr().out.splitlines()[1].split()[:2] == ["due_date", "empty"]

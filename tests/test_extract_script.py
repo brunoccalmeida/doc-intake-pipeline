@@ -18,7 +18,7 @@ from doc_intake.core.pricing import UnknownModelPriceError
 from doc_intake.packs.invoice import Invoice
 from doc_intake.packs.receipt import RECEIPT, Receipt
 from doc_intake.providers import MissingCredentialError
-from scripts import extract_document
+from scripts import extract_document, packs
 from scripts.extract_document import main
 
 
@@ -189,4 +189,4 @@ def test_the_invoice_pack_is_chosen_with_pack(
 
 def test_the_receipt_pack_is_the_default() -> None:
     # Every documented `uv run poe extract <file>` keeps extracting a receipt.
-    assert RECEIPT.name == extract_document.DEFAULT_PACK
+    assert RECEIPT.name == packs.DEFAULT_PACK
