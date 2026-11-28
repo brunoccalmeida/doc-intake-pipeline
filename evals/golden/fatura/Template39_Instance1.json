@@ -1,0 +1,75 @@
+{
+  "number": {
+    "value": "INV/64-61/340",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "INVOICE # INV/64-61/340"
+    },
+    "reason": null
+  },
+  "date": {
+    "value": "2002-04-24",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Invoice Date: 24-Apr-2002"
+    },
+    "reason": null
+  },
+  "due_date": {
+    "value": "2010-09-06",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Due Date : 06-Sep-2010"
+    },
+    "reason": null
+  },
+  "seller_name": {
+    "value": null,
+    "citation": null,
+    "reason": "not printed"
+  },
+  "seller_address": {
+    "value": "19021 Christopher Estate South Williammouth, NH 22397 US",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Address:19021 Christopher Estate\nSouth Williammouth, NH 22397 US"
+    },
+    "reason": null
+  },
+  "subtotal": {
+    "value": "698.43",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "SUB_TOTAL : 698.43  EUR"
+    },
+    "reason": null
+  },
+  "tax": {
+    "value": "43.90",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TAX:VAT (6.29%):  43.90 EUR"
+    },
+    "reason": null
+  },
+  "total": {
+    "value": null,
+    "citation": null,
+    "reason": "not printed"
+  },
+  "currency": {
+    "value": "EUR",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "SUB_TOTAL : 698.43  EUR"
+    },
+    "reason": null
+  }
+}

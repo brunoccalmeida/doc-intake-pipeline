@@ -1,0 +1,79 @@
+{
+  "number": {
+    "value": "INV/40-85/952",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Invoice number INV/40-85/952"
+    },
+    "reason": null
+  },
+  "date": {
+    "value": "1998-10-23",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Invoice Date: 23-Oct-1998"
+    },
+    "reason": null
+  },
+  "due_date": {
+    "value": "2021-10-21",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Due Date : 21-Oct-2021"
+    },
+    "reason": null
+  },
+  "seller_name": {
+    "value": "Kelly-Moss",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Kelly-Moss"
+    },
+    "reason": null
+  },
+  "seller_address": {
+    "value": "6030 Willie Shores Suite 354 Guerraton, TX 60058 US",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Address:6030 Willie Shores Suite 354\nGuerraton, TX 60058 US"
+    },
+    "reason": null
+  },
+  "subtotal": {
+    "value": "1281.76",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "SUB_TOTAL : 1281.76  USD"
+    },
+    "reason": null
+  },
+  "tax": {
+    "value": null,
+    "citation": null,
+    "reason": "tax printed only per rate, with no total"
+  },
+  "total": {
+    "value": "1355.57",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 1355.57 USD"
+    },
+    "reason": null
+  },
+  "currency": {
+    "value": "USD",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 1355.57 USD"
+    },
+    "reason": null
+  }
+}

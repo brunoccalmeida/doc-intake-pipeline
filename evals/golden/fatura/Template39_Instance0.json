@@ -1,0 +1,71 @@
+{
+  "number": {
+    "value": "INV92089683",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "INVOICE # INV92089683"
+    },
+    "reason": null
+  },
+  "date": {
+    "value": "1997-06-02",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Invoice Date: 02-Jun-1997"
+    },
+    "reason": null
+  },
+  "due_date": {
+    "value": "2006-09-21",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Due Date : 21-Sep-2006"
+    },
+    "reason": null
+  },
+  "seller_name": {
+    "value": null,
+    "citation": null,
+    "reason": "not printed"
+  },
+  "seller_address": {
+    "value": "19021 Christopher Estate South Williammouth, NH 22397 US",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Address:19021 Christopher Estate\nSouth Williammouth, NH 22397 US"
+    },
+    "reason": null
+  },
+  "subtotal": {
+    "value": "477.50",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "SUB_TOTAL : 477.50  $"
+    },
+    "reason": null
+  },
+  "tax": {
+    "value": "17.70",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TAX:VAT (3.71%):  17.70 $"
+    },
+    "reason": null
+  },
+  "total": {
+    "value": null,
+    "citation": null,
+    "reason": "not printed"
+  },
+  "currency": {
+    "value": null,
+    "citation": null,
+    "reason": "only '$' printed, which several currencies use"
+  }
+}

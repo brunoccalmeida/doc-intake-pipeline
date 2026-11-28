@@ -1,0 +1,75 @@
+{
+  "number": {
+    "value": "INV17967327",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "INVOICE # INV17967327"
+    },
+    "reason": null
+  },
+  "date": {
+    "value": "2014-02-23",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Invoice Date: 23-Feb-2014"
+    },
+    "reason": null
+  },
+  "due_date": {
+    "value": null,
+    "citation": null,
+    "reason": "not printed"
+  },
+  "seller_name": {
+    "value": "Barnes, Garcia and Martin",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Barnes, Garcia and Martin"
+    },
+    "reason": null
+  },
+  "seller_address": {
+    "value": "13868 Michael Wall North Cindytown, CT 45483 US",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "Address:13868 Michael Wall\nNorth Cindytown, CT 45483 US"
+    },
+    "reason": null
+  },
+  "subtotal": {
+    "value": "645.92",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "SUB_TOTAL : 645.92  $"
+    },
+    "reason": null
+  },
+  "tax": {
+    "value": "45.21",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "GST(7%) : 45.21"
+    },
+    "reason": null
+  },
+  "total": {
+    "value": "653.95",
+    "citation": {
+      "page": 1,
+      "source": "image",
+      "quote": "TOTAL : 653.95 $"
+    },
+    "reason": null
+  },
+  "currency": {
+    "value": null,
+    "citation": null,
+    "reason": "only '$' printed, which several currencies use"
+  }
+}
