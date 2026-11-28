@@ -68,7 +68,7 @@ A wrong value should be caught by review, not reach you unchecked, so every chan
 ## What it does not do yet
 
 - **Receipts and invoices.** Invoices are read one at a time for now (`uv run poe extract --pack invoice <file>`); the folder-to-spreadsheet run reads receipts. Another document type (purchase orders, IDs, forms) means a new field list and a new test set of that type, measured the same way. Invoice line items and the buyer are not read yet.
-- **The numbers above come from public receipts** of one country and period (Malaysia, 2016 to 2018). They show the pipeline does not get worse; they do not predict accuracy on your documents, which would be measured on a sample of them ([known limitations](docs/DATA.md#known-limitations)).
+- **The numbers above come from public documents:** receipts from one country and period (Malaysia, 2016 to 2018), and invoices generated from templates as clean digital pages, not scans. They show the pipeline does not get worse; they do not predict accuracy on your documents, which would be measured on a sample of them ([known limitations](docs/DATA.md#known-limitations)).
 - **English text only**, for now.
 - **Review happens in the spreadsheet.** There is no review screen yet, and a correction made in the sheet is not sent back to the pipeline.
 - **A folder in, a spreadsheet out.** Email inboxes and business systems (QuickBooks, NetSuite and the like) are connected per project; that code is not in this public repository. There is no web API or user interface yet.

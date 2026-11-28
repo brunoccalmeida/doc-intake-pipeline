@@ -40,6 +40,8 @@ def annotation(**overrides: Any) -> dict[str, Any]:
     fields: dict[str, Any] = {
         "TABLE": [[{"bbox": [[0.0, 0.0], [1.0, 1.0]]}]],
         "OTHER": {"text": "stale template text, not the page"},
+        "INVOICE_INFO": [],
+        "LOGO": {"bbox": [[0.0, 0.0], [1.0, 1.0]]},
         "NUMBER": box("INVOICE # INV/78-64/532"),
         "DATE": box("Invoice Date: 14-Apr-2022"),
         "DUE_DATE": box("Due Date : 19-Mar-2002"),
@@ -254,6 +256,6 @@ def test_an_amount_not_read_whole_stops_the_conversion(text: str) -> None:
 
 
 def test_an_annotated_object_without_text_stops_the_conversion() -> None:
-    # Only TABLE (boxes) and OTHER (stale template text) are expected without page text.
+    # Only TABLE, INVOICE_INFO and LOGO (boxes) and OTHER (stale template text) have no page text.
     with pytest.raises(FaturaError, match="TOTAL has no text"):
         to_invoice(annotation(TOTAL={"bbox": [[0.0, 0.0], [1.0, 1.0]]}))
