@@ -106,11 +106,11 @@ def render_cross_fit(fit: CrossFit, *, wrong: Mapping[str, int]) -> list[str]:
     lines = [
         "## Auto-acceptance, cross-fitted",
         "",
-        f"Each receipt gets the policy calibrated on the other receipts at a target of "
+        f"Each document gets the policy calibrated on the other documents at a target of "
         f"{fit.target:.0%} (D22); any wrong value it accepts fails the gate. The bound is "
-        "over every receipt's image-read values, at the confidence each field gets.",
+        "over every document's image-read values, at the confidence each field gets.",
         "",
-        "| Field | Image-read values | Wrong | Upper bound | Receipts accepted | Wrong accepted |",
+        "| Field | Image-read values | Wrong | Upper bound | Documents accepted | Wrong accepted |",
         "| --- | --- | --- | --- | --- | --- |",
     ]
     for name, evidence in fit.evidence.items():

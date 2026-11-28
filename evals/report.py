@@ -17,9 +17,10 @@ def render_report(
     *,
     regressions: list[str],
     auto_acceptance: list[str] | None = None,
+    title: str = "SROIE receipts",
 ) -> str:
     """The report; ``auto_acceptance`` is the cross-fitted section (``evals.cross_fit``)."""
-    lines = ["# Eval report: SROIE receipts", ""]
+    lines = [f"# Eval report: {title}", ""]
     if regressions:
         lines += ["**Gate: failed.**", "", *(f"- {problem}" for problem in regressions)]
     else:

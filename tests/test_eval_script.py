@@ -8,6 +8,7 @@ the script replays it, as CI does, with no key and no network.
 import json
 import re
 import uuid
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -21,12 +22,13 @@ from doc_intake.core.llm import LLMRequest, LLMResponse
 from doc_intake.core.pricing import UnknownModelPriceError
 from doc_intake.packs.receipt import RECEIPT
 from doc_intake.providers import MissingCredentialError
+from evals import suites
 from evals.cross_fit import CrossFit
 from evals.readme import END, START
 from evals.recording import RecordingProvider, RecordingStore
 from evals.run import run_eval
 from evals.sroie import MANIFEST_PATH, load_manifest
-from scripts import run_eval as run_eval_script
+from evals.suites import SUITES
 from scripts.run_eval import main
 
 GOLDEN = Settings().sroie_dir
@@ -234,7 +236,7 @@ def test_a_wrong_image_read_value_auto_accepted_fails_the_gate_at_zero(
         evidence = {name: FieldEvidence(reviewed=0, errors=0) for name in FIELDS}
         return CrossFit(target=0.02, evidence=evidence, accepts={FIRST_ID: frozenset({"total"})})
 
-    monkeypatch.setattr(run_eval_script, "cross_fit", accepting_total)
+    monkeypatch.setattr(suites, "cross_fit", accepting_total)
 
     code, report = run(tmp_path)
 
@@ -291,13 +293,9 @@ def test_record_without_an_api_key_fails_before_reading_anything(
 
 
 @pytest.fixture
-def one_receipt_set(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def one_receipt_set(monkeypatch: pytest.MonkeyPatch) -> None:
     """The whole set is the first receipt: a full run (no ``--ids``) at test size."""
-    manifest = load_manifest(MANIFEST_PATH)
-    path = tmp_path / "manifest.json"
-    one = manifest.model_copy(update={"receipts": manifest.receipts[:1], "size": 1})
-    path.write_text(one.model_dump_json(), encoding="utf-8")
-    monkeypatch.setattr("scripts.run_eval.MANIFEST_PATH", path)
+    monkeypatch.setitem(SUITES, "sroie", replace(SUITES["sroie"], ids=lambda: [FIRST_ID]))
 
 
 def readme(tmp_path: Path, block: str) -> Path:
