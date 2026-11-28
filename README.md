@@ -52,6 +52,13 @@ Measured on 20 public scanned receipts, 160 values in all (company, address, dat
 On invoices (number, dates, seller, subtotal, tax, total, currency):
 
 <!-- eval-summary:fatura:start (written by `uv run poe eval --suite fatura --update-readme`) -->
+Measured on 20 public template-generated invoices, 180 values in all (number, date, due_date, seller_name, seller_address, subtotal, tax, total, currency):
+
+- **180 of 180 correct.**
+- **115 accepted automatically**, none of them wrong.
+- **34 sent to a person to check**, none of them wrong.
+- **31 left empty**, with the reason.
+- **$0.63 for the whole set**, about $0.03 per invoice.
 <!-- eval-summary:fatura:end -->
 
 These invoices are generated from templates (clean pages, one date format), so they are easier than real ones: read this as "the invoice fields work", not as the accuracy to expect on your invoices ([why](docs/DATA.md#fatura-golden-set-invoice-pack-69)).

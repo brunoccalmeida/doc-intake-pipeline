@@ -1,0 +1,25 @@
+{
+  "documents": 20,
+  "fields": {
+    "number": 20,
+    "date": 20,
+    "due_date": 20,
+    "seller_name": 20,
+    "seller_address": 20,
+    "subtotal": 20,
+    "tax": 20,
+    "total": 20,
+    "currency": 20
+  },
+  "wrong_accepted": {
+    "number": 0,
+    "date": 0,
+    "due_date": 0,
+    "seller_name": 0,
+    "seller_address": 0,
+    "subtotal": 0,
+    "tax": 0,
+    "total": 0,
+    "currency": 0
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "key": "2f23c4c5b7f35b306c34b7dcaaabd96395b29a96c28529b89c8f925722400110",
+  "provider": "claude",
+  "model": "claude-opus-5-5",
+  "response": {
+    "text": "{\"number\":{\"value\":\"0160-748\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"INVOICE # 0160-748\"},\"reason\":null},\"date\":{\"value\":\"2003-01-10\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Date: 10-Jan-2003\"},\"reason\":null},\"due_date\":{\"value\":\"2022-10-07\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Due Date : 07-Oct-2022\"},\"reason\":null},\"seller_name\":{\"value\":\"Kelly-Moss\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Kelly-Moss\"},\"reason\":null},\"seller_address\":{\"value\":\"6030 Willie Shores Suite 354 Guerraton, TX 60058 US\",\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"Address:6030 Willie Shores Suite 354 Guerraton, TX 60058 US\"},\"reason\":null},\"subtotal\":{\"value\":463.19,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"‘SUB_TOTAL : 463.19 EUR\"},\"reason\":null},\"tax\":{\"value\":null,\"citation\":null,\"reason\":\"Tax is printed on several GST rate lines with no line totaling them.\"},\"total\":{\"value\":476.38,\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"TOTAL : 476.38 EUR\"},\"reason\":null},\"currency\":{\"value\":\"EUR\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"TOTAL : 476.38 EUR\"},\"reason\":null}}",
+    "input_tokens": 4509,
+    "output_tokens": 686,
+    "model": "claude-opus-5-5"
+  }
+}

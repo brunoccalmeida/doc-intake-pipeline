@@ -1,0 +1,11 @@
+{
+  "key": "eb3029b08af2f861f785bc193217e844a22780311c787af4fd887d6bb5eb1fe0",
+  "provider": "claude",
+  "model": "claude-opus-5-5",
+  "response": {
+    "text": "{\"number\":{\"value\":null,\"citation\":null,\"reason\":\"No invoice number is printed on the document.\"},\"date\":{\"value\":\"2015-05-07\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Date: 07-May-2015\"},\"reason\":null},\"due_date\":{\"value\":\"1994-02-02\",\"citation\":{\"page\":1,\"source\":\"text\",\"quote\":\"Due Date : 02-Feb-1994\"},\"reason\":null},\"seller_name\":{\"value\":\"Stein-Fernandez\",\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"Stein-Fernandez\"},\"reason\":null},\"seller_address\":{\"value\":\"0344 Jonathan Club\\nPort Patriciashire, PW 72063 US\",\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"Address:0344 Jonathan Club\\nPort Patriciashire, PW 72063 US\"},\"reason\":null},\"subtotal\":{\"value\":557.94,\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"SUB_TOTAL : 557.94 $\"},\"reason\":null},\"tax\":{\"value\":33.55,\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"TAX:VAT (6.01%): 33.55 $\"},\"reason\":null},\"total\":{\"value\":572.8,\"citation\":{\"page\":1,\"source\":\"image\",\"quote\":\"TOTAL : 572.80 $\"},\"reason\":null},\"currency\":{\"value\":null,\"citation\":null,\"reason\":\"Only the '$' symbol is printed, which is ambiguous.\"}}",
+    "input_tokens": 4675,
+    "output_tokens": 513,
+    "model": "claude-opus-5-5"
+  }
+}
